@@ -10,9 +10,8 @@ import Alert from '@mui/material/Alert';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
-import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import { useAuth } from '../hooks/use-auth';
 
 const WORKOUT_GOALS = ['다이어트', '근력 증가', '건강 관리', '습관 만들기'];
@@ -27,6 +26,56 @@ function getPasswordStrength(pw) {
   return 75;
 }
 
+const inputSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2,
+    bgcolor: '#FAFAFA',
+    '& fieldset': { borderColor: '#E0E0E0' },
+    '&:hover fieldset': { borderColor: '#6BCB77' },
+    '&.Mui-focused fieldset': { borderColor: '#6BCB77', borderWidth: 2 },
+  },
+  '& .MuiInputLabel-root.Mui-focused': { color: '#388E3C' },
+};
+
+/**
+ * SelectPill - 다중 선택 가능한 pill 버튼
+ *
+ * Props:
+ * @param {string} label - 표시할 텍스트 [Required]
+ * @param {boolean} isSelected - 선택 여부 [Required]
+ * @param {function} onClick - 클릭 핸들러 [Required]
+ *
+ * Example usage:
+ * <SelectPill label="러닝" isSelected={true} onClick={() => toggle('러닝')} />
+ */
+function SelectPill({ label, isSelected, onClick }) {
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        px: 2,
+        py: 0.8,
+        borderRadius: '999px',
+        border: `2px solid ${isSelected ? '#6BCB77' : '#E0E0E0'}`,
+        bgcolor: isSelected ? '#E8F5E9' : '#FAFAFA',
+        color: isSelected ? '#2E7D32' : '#757575',
+        fontWeight: isSelected ? 700 : 400,
+        fontSize: '0.875rem',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        userSelect: 'none',
+        '&:hover': {
+          borderColor: '#6BCB77',
+          bgcolor: isSelected ? '#C8E6C9' : '#F1F8E9',
+          color: isSelected ? '#1B5E20' : '#388E3C',
+        },
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { signUp } = useAuth();
@@ -37,11 +86,20 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     email: '', password: '', confirmPw: '',
     displayName: '', height: '', weight: '', goalWeight: '',
-    workoutGoal: '', interests: [],
+    workoutGoals: [], interests: [],
   });
 
   function update(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleGoal(item) {
+    setForm((prev) => ({
+      ...prev,
+      workoutGoals: prev.workoutGoals.includes(item)
+        ? prev.workoutGoals.filter((g) => g !== item)
+        : [...prev.workoutGoals, item],
+    }));
   }
 
   function toggleInterest(item) {
@@ -79,28 +137,78 @@ export default function RegisterPage() {
   const pwStrength = getPasswordStrength(form.password);
   const pwColor = pwStrength < 50 ? 'error' : pwStrength < 75 ? 'warning' : 'success';
 
+  const primaryBtnSx = {
+    py: 1.4,
+    bgcolor: '#6BCB77',
+    borderRadius: 2,
+    fontWeight: 700,
+    fontSize: '1rem',
+    textTransform: 'none',
+    boxShadow: '0 4px 14px rgba(107, 203, 119, 0.4)',
+    '&:hover': { bgcolor: '#5ABB67', boxShadow: '0 6px 18px rgba(107, 203, 119, 0.5)' },
+    '&:disabled': { bgcolor: '#A5D6A7', boxShadow: 'none' },
+  };
+
+  const outlinedBtnSx = {
+    py: 1.4,
+    borderRadius: 2,
+    fontWeight: 600,
+    fontSize: '1rem',
+    textTransform: 'none',
+    borderColor: '#6BCB77',
+    color: '#388E3C',
+    '&:hover': { borderColor: '#5ABB67', bgcolor: '#F1F8E9' },
+  };
+
   return (
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #6BCB77 0%, #5DA9E9 100%)',
+        background: 'linear-gradient(180deg, #DCF0E3 0%, #F7FAF8 40%, #F7FAF8 100%)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
+        py: 4,
       }}
     >
-      <Box sx={{ textAlign: 'center', mb: 3 }}>
-        <Box sx={{ width: 60, height: 60, borderRadius: '50%', bgcolor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 1 }}>
-          <FitnessCenterIcon sx={{ fontSize: 32, color: '#6BCB77' }} />
+      {/* 로고 */}
+      <Box sx={{ textAlign: 'center', mb: 2.5 }}>
+        <Box sx={{ mb: 1 }}>
+          <FitBuddyCharacter size={58} />
         </Box>
-        <Typography variant='h2' sx={{ color: 'white', fontWeight: 700 }}>FitBuddy 가입</Typography>
+        <Typography
+          variant='h2'
+          sx={{ color: '#1B5E20', fontWeight: 900, fontSize: '1.7rem', letterSpacing: '-0.3px', lineHeight: 1 }}
+        >
+          FitBuddy 가입
+        </Typography>
+        <Typography variant='body2' sx={{ color: '#66BB6A', mt: 0.4, fontWeight: 500 }}>
+          건강한 습관의 시작
+        </Typography>
       </Box>
 
-      <Card sx={{ maxWidth: 420, width: '100%' }}>
-        <CardContent sx={{ p: 3 }}>
-          <Stepper activeStep={step} sx={{ mb: 3 }}>
+      {/* 메인 카드 */}
+      <Card
+        sx={{
+          maxWidth: 440,
+          width: '100%',
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+          border: '1px solid #E8F5E9',
+        }}
+      >
+        <CardContent sx={{ p: 3.5, '&:last-child': { pb: 3.5 } }}>
+          <Stepper
+            activeStep={step}
+            sx={{
+              mb: 3.5,
+              '& .MuiStepLabel-label': { fontSize: '0.8rem' },
+              '& .MuiStepIcon-root.Mui-active': { color: '#6BCB77' },
+              '& .MuiStepIcon-root.Mui-completed': { color: '#6BCB77' },
+            }}
+          >
             {STEPS.map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
@@ -108,18 +216,25 @@ export default function RegisterPage() {
             ))}
           </Stepper>
 
-          {error && <Alert severity='error' sx={{ mb: 2 }}>{error}</Alert>}
+          {error && <Alert severity='error' sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
           {/* Step 0: 기본 정보 */}
           {step === 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField label='닉네임' value={form.displayName} onChange={(e) => update('displayName', e.target.value)} fullWidth />
-              <TextField label='이메일' type='email' value={form.email} onChange={(e) => update('email', e.target.value)} fullWidth />
-              <TextField label='비밀번호' type='password' value={form.password} onChange={(e) => update('password', e.target.value)} fullWidth />
+              <TextField label='닉네임' value={form.displayName} onChange={(e) => update('displayName', e.target.value)} fullWidth sx={inputSx} />
+              <TextField label='이메일' type='email' value={form.email} onChange={(e) => update('email', e.target.value)} fullWidth sx={inputSx} />
+              <TextField
+                label='비밀번호'
+                type='password'
+                value={form.password}
+                onChange={(e) => update('password', e.target.value)}
+                fullWidth
+                sx={inputSx}
+              />
               {form.password && (
-                <Box>
-                  <LinearProgress variant='determinate' value={pwStrength} color={pwColor} sx={{ borderRadius: 4, height: 6 }} />
-                  <Typography variant='caption' color={`${pwColor}.main`}>
+                <Box sx={{ mt: -1 }}>
+                  <LinearProgress variant='determinate' value={pwStrength} color={pwColor} sx={{ borderRadius: 4, height: 5 }} />
+                  <Typography variant='caption' color={`${pwColor}.main`} sx={{ fontWeight: 600 }}>
                     {pwStrength < 50 ? '약함' : pwStrength < 75 ? '보통' : '강함'}
                   </Typography>
                 </Box>
@@ -130,61 +245,72 @@ export default function RegisterPage() {
                 value={form.confirmPw}
                 onChange={(e) => update('confirmPw', e.target.value)}
                 fullWidth
+                sx={inputSx}
                 error={form.confirmPw !== '' && form.password !== form.confirmPw}
-                helperText={form.confirmPw !== '' && form.password !== form.confirmPw ? '비밀번호가 일치하지 않습니다' : form.confirmPw ? '✓ 일치합니다' : ''}
+                helperText={
+                  form.confirmPw !== '' && form.password !== form.confirmPw
+                    ? '비밀번호가 일치하지 않습니다'
+                    : form.confirmPw
+                    ? '✓ 일치합니다'
+                    : ''
+                }
               />
-              <Button variant='contained' fullWidth onClick={nextStep} sx={{ background: 'linear-gradient(90deg, #6BCB77, #5DA9E9)' }}>다음</Button>
+              <Button variant='contained' fullWidth onClick={nextStep} sx={primaryBtnSx}>
+                다음
+              </Button>
             </Box>
           )}
 
           {/* Step 1: 신체 정보 */}
           {step === 1 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField label='키 (cm)' type='number' value={form.height} onChange={(e) => update('height', e.target.value)} fullWidth />
-              <TextField label='현재 몸무게 (kg)' type='number' value={form.weight} onChange={(e) => update('weight', e.target.value)} fullWidth />
-              <TextField label='목표 몸무게 (kg)' type='number' value={form.goalWeight} onChange={(e) => update('goalWeight', e.target.value)} fullWidth />
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button variant='outlined' fullWidth onClick={() => setStep(0)}>이전</Button>
-                <Button variant='contained' fullWidth onClick={nextStep} sx={{ background: 'linear-gradient(90deg, #6BCB77, #5DA9E9)' }}>다음</Button>
+              <TextField label='키 (cm)' type='number' value={form.height} onChange={(e) => update('height', e.target.value)} fullWidth sx={inputSx} />
+              <TextField label='현재 몸무게 (kg)' type='number' value={form.weight} onChange={(e) => update('weight', e.target.value)} fullWidth sx={inputSx} />
+              <TextField label='목표 몸무게 (kg)' type='number' value={form.goalWeight} onChange={(e) => update('goalWeight', e.target.value)} fullWidth sx={inputSx} />
+              <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                <Button variant='outlined' fullWidth onClick={() => setStep(0)} sx={outlinedBtnSx}>이전</Button>
+                <Button variant='contained' fullWidth onClick={nextStep} sx={primaryBtnSx}>다음</Button>
               </Box>
             </Box>
           )}
 
           {/* Step 2: 운동 목표 */}
           {step === 2 && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Typography variant='body2' color='text.secondary'>운동 목표 선택</Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {WORKOUT_GOALS.map((g) => (
-                  <Chip
-                    key={g}
-                    label={g}
-                    onClick={() => update('workoutGoal', g)}
-                    color={form.workoutGoal === g ? 'primary' : 'default'}
-                    variant={form.workoutGoal === g ? 'filled' : 'outlined'}
-                  />
-                ))}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {/* 운동 목표 — 다중 선택 */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.2 }}>
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#333' }}>운동 목표</Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: '#9E9E9E' }}>복수 선택 가능</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {WORKOUT_GOALS.map((g) => (
+                    <SelectPill key={g} label={g} isSelected={form.workoutGoals.includes(g)} onClick={() => toggleGoal(g)} />
+                  ))}
+                </Box>
               </Box>
-              <Typography variant='body2' color='text.secondary'>관심 운동 선택 (복수)</Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {INTERESTS.map((i) => (
-                  <Chip
-                    key={i}
-                    label={i}
-                    onClick={() => toggleInterest(i)}
-                    color={form.interests.includes(i) ? 'secondary' : 'default'}
-                    variant={form.interests.includes(i) ? 'filled' : 'outlined'}
-                  />
-                ))}
+
+              {/* 관심 운동 — 다중 선택 */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.2 }}>
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#333' }}>관심 운동</Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: '#9E9E9E' }}>복수 선택 가능</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {INTERESTS.map((i) => (
+                    <SelectPill key={i} label={i} isSelected={form.interests.includes(i)} onClick={() => toggleInterest(i)} />
+                  ))}
+                </Box>
               </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button variant='outlined' fullWidth onClick={() => setStep(1)}>이전</Button>
+
+              <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                <Button variant='outlined' fullWidth onClick={() => setStep(1)} sx={outlinedBtnSx}>이전</Button>
                 <Button
                   variant='contained'
                   fullWidth
                   onClick={handleSubmit}
                   disabled={loading}
-                  sx={{ background: 'linear-gradient(90deg, #6BCB77, #5DA9E9)' }}
+                  sx={primaryBtnSx}
                 >
                   {loading ? '가입 중...' : '🎉 시작하기'}
                 </Button>
@@ -192,10 +318,12 @@ export default function RegisterPage() {
             </Box>
           )}
 
-          <Box sx={{ textAlign: 'center', mt: 2 }}>
-            <Typography variant='body2' color='text.secondary'>
+          <Box sx={{ textAlign: 'center', mt: 2.5 }}>
+            <Typography variant='body2' sx={{ color: '#9E9E9E' }}>
               이미 계정이 있으신가요?{' '}
-              <Link to='/login' style={{ color: '#6BCB77', fontWeight: 600, textDecoration: 'none' }}>로그인</Link>
+              <Link to='/login' style={{ color: '#6BCB77', fontWeight: 700, textDecoration: 'none' }}>
+                로그인
+              </Link>
             </Typography>
           </Box>
         </CardContent>

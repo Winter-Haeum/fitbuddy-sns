@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/FitBuddy_sns/',
+  base: '/my-first-website/FitBuddy_sns/',
 });

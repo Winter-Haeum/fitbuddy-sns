@@ -10,7 +10,7 @@ import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter basename='/FitBuddy_sns'>
+    <BrowserRouter basename='/my-first-website/FitBuddy_sns'>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>

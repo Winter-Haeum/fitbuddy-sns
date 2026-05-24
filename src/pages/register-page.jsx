@@ -125,7 +125,15 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
     try {
-      await signUp(form.email, form.password, form.displayName);
+      await signUp(form.email, form.password, form.displayName, {
+        height: form.height,
+        weight: form.weight,
+        goalWeight: form.goalWeight,
+        workoutGoals: form.workoutGoals,
+        interests: form.interests,
+      });
+      // 회원가입 후 autoLogin 설정 (새로고침 시 자동 로그아웃 방지)
+      localStorage.setItem('fitbuddy_autoLogin', '1');
       navigate('/');
     } catch (err) {
       setError(err.message || '회원가입에 실패했습니다.');

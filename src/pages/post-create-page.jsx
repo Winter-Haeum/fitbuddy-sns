@@ -114,6 +114,22 @@ export default function PostCreatePage() {
   async function handleSubmit() {
     if (!caption.trim()) { setError('내용을 입력해주세요.'); return; }
     if (!user) { setError('로그인이 필요합니다.'); return; }
+
+    const postPayload = {
+      user_id: user.id,
+      post_type: postType,
+      title,
+      caption,
+      image_url: selectedImage?.url || '',
+      image_source: selectedImage?.source || 'upload',
+      unsplash_image_id: selectedImage?.id || '',
+      unsplash_author: selectedImage?.author || '',
+      unsplash_author_url: selectedImage?.author_url || '',
+      hashtags,
+    };
+    console.log('SAVE START:', postPayload);
+    console.log('AUTH USER:', user);
+
     setLoading(true);
     setError('');
 
@@ -121,39 +137,44 @@ export default function PostCreatePage() {
       let workoutId = null;
 
       if (postType === 'workout' && workoutType && duration) {
-        const { data: workout } = await supabase
+        const workoutPayload = {
+          user_id: user.id,
+          workout_type: workoutType,
+          duration_minutes: Number(duration),
+          intensity,
+          calories_burned: calories,
+          workout_date: new Date().toISOString().split('T')[0],
+          workout_status: 'completed',
+        };
+        console.log('WORKOUT SAVE START:', workoutPayload);
+        const { data: workout, error: workoutErr } = await supabase
           .from('fitbuddy_workouts')
-          .insert({
-            user_id: user.id,
-            workout_type: workoutType,
-            duration_minutes: Number(duration),
-            intensity,
-            calories_burned: calories,
-            workout_status: 'completed',
-          })
+          .insert(workoutPayload)
           .select()
           .single();
+        if (workoutErr) console.error('SUPABASE ERROR (workout):', workoutErr);
+        else console.log('운동 기록 저장 성공:', workout);
         workoutId = workout?.id;
       }
 
-      await supabase.from('fitbuddy_posts').insert({
-        user_id: user.id,
-        post_type: postType,
-        title,
-        caption,
-        image_url: selectedImage?.url || '',
-        image_source: selectedImage?.source || 'upload',
-        unsplash_image_id: selectedImage?.id || '',
-        unsplash_author: selectedImage?.author || '',
-        unsplash_author_url: selectedImage?.author_url || '',
-        workout_id: workoutId,
-        hashtags,
-      });
-
+      const finalPayload = { ...postPayload, workout_id: workoutId };
+      const { data: postData, error: postErr } = await supabase
+        .from('fitbuddy_posts')
+        .insert(finalPayload)
+        .select();
+      console.log('SUPABASE RESULT:', postData);
+      if (postErr) {
+        console.error('SUPABASE ERROR:', postErr);
+        setError('게시글 저장에 실패했습니다: ' + postErr.message);
+        return;
+      }
+      console.log('게시글 저장 성공:', postData);
       navigate('/feed');
-    } catch {
+    } catch (err) {
+      console.error('예상 못한 오류:', err);
       setError('게시글 작성에 실패했습니다.');
     } finally {
+      console.log('SAVE FINALLY');
       setLoading(false);
     }
   }
@@ -170,7 +191,7 @@ export default function PostCreatePage() {
             size='small'
             onClick={handleSubmit}
             disabled={loading}
-            sx={{ ml: 'auto', background: 'linear-gradient(90deg, #6BCB77, #5DA9E9)' }}
+            sx={{ ml: 'auto', bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}
           >
             {loading ? '등록 중...' : '등록'}
           </Button>

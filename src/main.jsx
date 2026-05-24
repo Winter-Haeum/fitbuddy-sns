@@ -8,9 +8,11 @@ import theme from './theme.js';
 import { AuthProvider } from './hooks/use-auth.jsx';
 import './index.css';
 
+console.log('APP INIT START');
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter basename='/my-first-website/FitBuddy_sns'>
+    <BrowserRouter basename='/fitbuddy-sns'>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>

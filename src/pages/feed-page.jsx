@@ -38,23 +38,26 @@ export default function FeedPage() {
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
-    let query = supabase
-      .from('fitbuddy_posts')
-      .select('*, fitbuddy_users(display_name, avatar_url, username)')
-      .order('created_at', { ascending: false })
-      .limit(30);
+    try {
+      let query = supabase
+        .from('fitbuddy_posts')
+        .select('*, fitbuddy_users(display_name, avatar_url, username)')
+        .order('created_at', { ascending: false })
+        .limit(30);
 
-    if (category !== '전체') {
-      const typeMap = { '운동': 'workout', '식단': 'diet', '자유': 'free' };
-      query = query.eq('post_type', typeMap[category]);
-    }
-    if (search) {
-      query = query.ilike('caption', `%${search}%`);
-    }
+      if (category !== '전체') {
+        const typeMap = { '운동': 'workout', '식단': 'diet', '자유': 'free' };
+        query = query.eq('post_type', typeMap[category]);
+      }
+      if (search) {
+        query = query.ilike('caption', `%${search}%`);
+      }
 
-    const { data } = await query;
-    setPosts(data || []);
-    setLoading(false);
+      const { data } = await query;
+      setPosts(data || []);
+    } finally {
+      setLoading(false);
+    }
   }, [category, search]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
@@ -220,7 +223,7 @@ export default function FeedPage() {
       {/* FAB */}
       <Fab
         color='primary'
-        sx={{ position: 'fixed', bottom: 80, right: 16, background: 'linear-gradient(135deg, #6BCB77, #5DA9E9)' }}
+        sx={{ position: 'fixed', bottom: 80, right: 16 }}
         onClick={() => navigate('/create')}
       >
         <AddIcon />

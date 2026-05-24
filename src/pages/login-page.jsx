@@ -9,6 +9,8 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
@@ -36,9 +38,11 @@ const inputSx = {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('fitbuddy_email') || '');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(() => !!localStorage.getItem('fitbuddy_email'));
+  const [autoLogin, setAutoLogin] = useState(() => localStorage.getItem('fitbuddy_autoLogin') === '1');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -49,6 +53,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email, password);
+      if (rememberEmail) {
+        localStorage.setItem('fitbuddy_email', email);
+      } else {
+        localStorage.removeItem('fitbuddy_email');
+      }
+      if (autoLogin) {
+        localStorage.setItem('fitbuddy_autoLogin', '1');
+      } else {
+        localStorage.removeItem('fitbuddy_autoLogin');
+      }
       navigate('/');
     } catch {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.');
@@ -152,6 +166,32 @@ export default function LoginPage() {
                 ),
               }}
             />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberEmail}
+                    onChange={(e) => setRememberEmail(e.target.checked)}
+                    size='small'
+                    sx={{ color: '#6BCB77', '&.Mui-checked': { color: '#6BCB77' } }}
+                  />
+                }
+                label={<Typography variant='body2' sx={{ color: '#757575', fontSize: '0.85rem' }}>이메일 기억하기</Typography>}
+                sx={{ mt: -0.5 }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={autoLogin}
+                    onChange={(e) => setAutoLogin(e.target.checked)}
+                    size='small'
+                    sx={{ color: '#6BCB77', '&.Mui-checked': { color: '#6BCB77' } }}
+                  />
+                }
+                label={<Typography variant='body2' sx={{ color: '#757575', fontSize: '0.85rem' }}>자동 로그인</Typography>}
+                sx={{ mt: -0.5 }}
+              />
+            </Box>
             <Button
               type='submit'
               variant='contained'

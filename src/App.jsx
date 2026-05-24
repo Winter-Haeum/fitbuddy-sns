@@ -14,6 +14,7 @@ import TimerPage from './pages/timer-page';
 import CharacterPage from './pages/character-page';
 import MealsPage from './pages/meals-page';
 import ChallengesPage from './pages/challenges-page';
+import RecordsPage from './pages/records-page';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -58,6 +59,7 @@ export default function App() {
       <Route path='/character' element={<ProtectedRoute><CharacterPage /></ProtectedRoute>} />
       <Route path='/meals' element={<ProtectedRoute><MealsPage /></ProtectedRoute>} />
       <Route path='/challenges' element={<ProtectedRoute><ChallengesPage /></ProtectedRoute>} />
+      <Route path='/records' element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
 
       <Route path='*' element={<Navigate to='/' replace />} />
     </Routes>

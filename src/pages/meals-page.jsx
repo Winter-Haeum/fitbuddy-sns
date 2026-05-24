@@ -16,6 +16,7 @@ import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Fab from '@mui/material/Fab';
+import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -44,6 +45,7 @@ export default function MealsPage() {
   const [form, setForm] = useState({ meal_type: 'breakfast', content: '', image_url: '', calories: '' });
   const [showImgPicker, setShowImgPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => { fetchMeals(); }, []);
 
@@ -58,18 +60,39 @@ export default function MealsPage() {
 
   async function handleAdd() {
     if (!form.content.trim() || !user) return;
-    setLoading(true);
-    await supabase.from('fitbuddy_meals').insert({
+    const payload = {
       user_id: user.id,
       meal_type: form.meal_type,
       content: form.content,
       image_url: form.image_url,
       calories: Number(form.calories) || 0,
-    });
-    setLoading(false);
-    setOpen(false);
-    setForm({ meal_type: 'breakfast', content: '', image_url: '', calories: '' });
-    fetchMeals();
+    };
+    console.log('SAVE START:', payload);
+    console.log('AUTH USER:', user);
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error: insertErr } = await supabase
+        .from('fitbuddy_meals')
+        .insert(payload)
+        .select();
+      console.log('SUPABASE RESULT:', data);
+      if (insertErr) {
+        console.error('SUPABASE ERROR:', insertErr);
+        setError('저장 실패: ' + insertErr.message);
+        return;
+      }
+      console.log('저장 성공:', data);
+      setOpen(false);
+      setForm({ meal_type: 'breakfast', content: '', image_url: '', calories: '' });
+      fetchMeals();
+    } catch (err) {
+      console.error('예상 못한 오류:', err);
+      setError('저장 중 오류가 발생했습니다.');
+    } finally {
+      console.log('SAVE FINALLY');
+      setLoading(false);
+    }
   }
 
   const todayCalories = meals
@@ -82,7 +105,7 @@ export default function MealsPage() {
         <Typography variant='h2' sx={{ fontWeight: 700, mb: 2 }}>식단 공유 🥗</Typography>
 
         {/* 오늘 칼로리 요약 */}
-        <Card sx={{ mb: 2, background: 'linear-gradient(135deg, #FFE082, #FF7043)', color: 'white' }}>
+        <Card sx={{ mb: 2, bgcolor: '#FF7043', color: 'white' }}>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <LocalFireDepartmentIcon sx={{ fontSize: 36 }} />
             <Box>
@@ -135,7 +158,7 @@ export default function MealsPage() {
       {/* FAB */}
       <Fab
         color='primary'
-        sx={{ position: 'fixed', bottom: 80, right: 16, background: 'linear-gradient(135deg, #FFE082, #FF7043)' }}
+        sx={{ position: 'fixed', bottom: 80, right: 16, bgcolor: '#FF7043', '&:hover': { bgcolor: '#E55C2F' } }}
         onClick={() => setOpen(true)}
       >
         <AddIcon />
@@ -145,6 +168,7 @@ export default function MealsPage() {
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth='sm'>
         <DialogTitle>식단 기록 추가 🥗</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {error && <Alert severity='error'>{error}</Alert>}
           <FormControl fullWidth size='small'>
             <InputLabel>식사 유형</InputLabel>
             <Select value={form.meal_type} onChange={(e) => setForm({ ...form, meal_type: e.target.value })} label='식사 유형'>
@@ -193,7 +217,7 @@ export default function MealsPage() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpen(false)}>취소</Button>
-          <Button variant='contained' onClick={handleAdd} disabled={loading} sx={{ background: 'linear-gradient(90deg, #FFE082, #FF7043)' }}>
+          <Button variant='contained' onClick={handleAdd} disabled={loading} sx={{ bgcolor: '#FF7043', '&:hover': { bgcolor: '#E55C2F' } }}>
             {loading ? '저장 중...' : '저장'}
           </Button>
         </DialogActions>

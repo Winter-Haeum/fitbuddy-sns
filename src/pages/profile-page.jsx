@@ -124,6 +124,12 @@ export default function ProfilePage() {
   }
 
   async function saveProfile() {
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('SESSION:', session?.user?.id || 'MISSING');
+    if (!session) {
+      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
     const payload = {
       display_name: editForm.display_name,
       bio: editForm.bio,
@@ -133,28 +139,27 @@ export default function ProfilePage() {
       workout_goal: editForm.workout_goal,
     };
     console.log('SAVE START:', payload);
-    console.log('AUTH USER:', user);
-    console.log('PROFILE:', profile);
     setLoading(true);
     setSaveError('');
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('fitbuddy_users')
         .update(payload)
-        .eq('id', user.id)
-        .select();
-      console.log('SUPABASE RESULT:', data);
+        .eq('id', session.user.id);
+      console.log('INSERT ERROR:', error);
       if (error) {
         console.error('SUPABASE ERROR:', error);
+        alert('저장 실패: ' + error.message);
         setSaveError('저장에 실패했습니다: ' + error.message);
         return;
       }
-      console.log('저장 성공:', data);
-      await fetchProfile(user.id);
+      console.log('저장 성공');
+      await fetchProfile(session.user.id);
       setEditOpen(false);
       setSnack({ open: true, msg: '프로필이 저장되었습니다!', severity: 'success' });
     } catch (err) {
       console.error('예상 못한 오류:', err);
+      alert('오류: ' + err.message);
       setSaveError('저장 중 오류가 발생했습니다.');
     } finally {
       console.log('SAVE FINALLY');

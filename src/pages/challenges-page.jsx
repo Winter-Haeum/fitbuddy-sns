@@ -96,7 +96,13 @@ export default function ChallengesPage() {
   }
 
   async function handleCreate() {
-    if (!form.title.trim() || !user) return;
+    if (!form.title.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('SESSION:', session?.user?.id || 'MISSING');
+    if (!session) {
+      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -113,27 +119,27 @@ export default function ChallengesPage() {
         goal: form.goal,
         start_date: todayStr,
         end_date: endDate.toISOString().split('T')[0],
-        creator_id: user.id,
+        creator_id: session.user.id,
         challenge_type: form.type,
       };
       console.log('SAVE START:', payload);
-      console.log('AUTH USER:', user);
-      const { data, error: insertErr } = await supabase
+      const { error: insertErr } = await supabase
         .from('fitbuddy_challenges')
-        .insert(payload)
-        .select();
-      console.log('SUPABASE RESULT:', data);
+        .insert(payload);
+      console.log('INSERT ERROR:', insertErr);
       if (insertErr) {
         console.error('SUPABASE ERROR:', insertErr);
+        alert('챌린지 생성 실패: ' + insertErr.message);
         setError('챌린지 생성에 실패했습니다: ' + insertErr.message);
         return;
       }
-      console.log('챌린지 저장 성공:', data);
+      console.log('챌린지 저장 성공');
       setOpen(false);
       setForm({ title: '', description: '', goal: '', days: 7, type: 'period' });
       fetchChallenges();
     } catch (err) {
       console.error('예상 못한 오류:', err);
+      alert('오류: ' + err.message);
       setError('챌린지 생성 중 오류가 발생했습니다.');
     } finally {
       console.log('SAVE FINALLY');

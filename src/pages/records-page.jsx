@@ -96,26 +96,31 @@ export default function RecordsPage() {
   }
 
   async function saveDiary() {
-    if (!user || (!diaryForm.mood && !diaryForm.content.trim())) return;
+    if (!diaryForm.mood && !diaryForm.content.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('SESSION:', session?.user?.id || 'MISSING');
+    if (!session) {
+      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
     setDiaryLoading(true);
     try {
-      const upsertData = { user_id: user.id, log_date: today };
+      const upsertData = { user_id: session.user.id, log_date: today };
       if (diaryForm.mood) upsertData.mood_status = diaryForm.mood;
       if (diaryForm.content.trim()) upsertData.diary_content = diaryForm.content.trim();
 
       console.log('SAVE START:', upsertData);
-      console.log('AUTH USER:', user);
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('fitbuddy_daily_logs')
-        .upsert(upsertData, { onConflict: 'user_id,log_date' })
-        .select();
-      console.log('SUPABASE RESULT:', data);
+        .upsert(upsertData, { onConflict: 'user_id,log_date' });
+      console.log('INSERT ERROR:', error);
       if (error) {
         console.error('SUPABASE ERROR:', error);
+        alert('저장 실패: ' + error.message);
         setSnack({ open: true, msg: '저장 실패: ' + error.message, severity: 'error' });
       } else {
-        console.log('일기 저장 성공:', data);
+        console.log('일기 저장 성공');
         setSnack({ open: true, msg: '운동 일기가 저장되었습니다 📓', severity: 'success' });
         setDiaryOpen(false);
         setDiaryForm({ mood: '', content: '' });
@@ -123,6 +128,7 @@ export default function RecordsPage() {
       }
     } catch (err) {
       console.error('예상 못한 오류:', err);
+      alert('오류: ' + err.message);
       setSnack({ open: true, msg: '저장 중 오류가 발생했습니다.', severity: 'error' });
     } finally {
       console.log('SAVE FINALLY');

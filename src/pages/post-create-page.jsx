@@ -127,9 +127,15 @@ export default function PostCreatePage() {
       unsplash_author_url: selectedImage?.author_url || '',
       hashtags,
     };
-    console.log('SAVE START:', postPayload);
-    console.log('AUTH USER:', user);
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('SESSION:', session?.user?.id || 'MISSING');
+    if (!session) {
+      setError('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+      alert('로그인 세션이 만료되었습니다.');
+      return;
+    }
 
+    console.log('SAVE START:', postPayload);
     setLoading(true);
     setError('');
 
@@ -138,7 +144,7 @@ export default function PostCreatePage() {
 
       if (postType === 'workout' && workoutType && duration) {
         const workoutPayload = {
-          user_id: user.id,
+          user_id: session.user.id,
           workout_type: workoutType,
           duration_minutes: Number(duration),
           intensity,
@@ -150,28 +156,29 @@ export default function PostCreatePage() {
         const { data: workout, error: workoutErr } = await supabase
           .from('fitbuddy_workouts')
           .insert(workoutPayload)
-          .select()
+          .select('id')
           .single();
+        console.log('INSERT ERROR (workout):', workoutErr);
         if (workoutErr) console.error('SUPABASE ERROR (workout):', workoutErr);
-        else console.log('운동 기록 저장 성공:', workout);
-        workoutId = workout?.id;
+        else workoutId = workout?.id;
       }
 
-      const finalPayload = { ...postPayload, workout_id: workoutId };
-      const { data: postData, error: postErr } = await supabase
+      const finalPayload = { ...postPayload, user_id: session.user.id, workout_id: workoutId };
+      const { error: postErr } = await supabase
         .from('fitbuddy_posts')
-        .insert(finalPayload)
-        .select();
-      console.log('SUPABASE RESULT:', postData);
+        .insert(finalPayload);
+      console.log('INSERT ERROR (post):', postErr);
       if (postErr) {
         console.error('SUPABASE ERROR:', postErr);
+        alert('게시글 저장 실패: ' + postErr.message);
         setError('게시글 저장에 실패했습니다: ' + postErr.message);
         return;
       }
-      console.log('게시글 저장 성공:', postData);
+      console.log('게시글 저장 성공');
       navigate('/feed');
     } catch (err) {
       console.error('예상 못한 오류:', err);
+      alert('오류: ' + err.message);
       setError('게시글 작성에 실패했습니다.');
     } finally {
       console.log('SAVE FINALLY');

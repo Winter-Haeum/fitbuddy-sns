@@ -59,35 +59,41 @@ export default function MealsPage() {
   }
 
   async function handleAdd() {
-    if (!form.content.trim() || !user) return;
+    if (!form.content.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('SESSION:', session?.user?.id || 'MISSING');
+    if (!session) {
+      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
     const payload = {
-      user_id: user.id,
+      user_id: session.user.id,
       meal_type: form.meal_type,
       content: form.content,
       image_url: form.image_url,
       calories: Number(form.calories) || 0,
     };
     console.log('SAVE START:', payload);
-    console.log('AUTH USER:', user);
     setLoading(true);
     setError('');
     try {
-      const { data, error: insertErr } = await supabase
+      const { error: insertErr } = await supabase
         .from('fitbuddy_meals')
-        .insert(payload)
-        .select();
-      console.log('SUPABASE RESULT:', data);
+        .insert(payload);
+      console.log('INSERT ERROR:', insertErr);
       if (insertErr) {
         console.error('SUPABASE ERROR:', insertErr);
+        alert('저장 실패: ' + insertErr.message);
         setError('저장 실패: ' + insertErr.message);
         return;
       }
-      console.log('저장 성공:', data);
+      console.log('저장 성공');
       setOpen(false);
       setForm({ meal_type: 'breakfast', content: '', image_url: '', calories: '' });
       fetchMeals();
     } catch (err) {
       console.error('예상 못한 오류:', err);
+      alert('오류: ' + err.message);
       setError('저장 중 오류가 발생했습니다.');
     } finally {
       console.log('SAVE FINALLY');

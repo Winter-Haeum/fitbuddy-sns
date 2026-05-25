@@ -129,21 +129,28 @@ export default function TimerPage() {
       rest_seconds: totalRestSeconds,
       workout_status: 'completed',
     };
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('SESSION:', session?.user?.id || 'MISSING');
+    if (!session) {
+      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+      setSaving(false);
+      return;
+    }
+    payload.user_id = session.user.id;
     console.log('SAVE START:', payload);
-    console.log('AUTH USER:', user);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('fitbuddy_workouts')
-        .insert(payload)
-        .select();
-      console.log('SUPABASE RESULT:', data);
+        .insert(payload);
+      console.log('INSERT ERROR:', error);
       if (error) {
         console.error('SUPABASE ERROR:', error);
+        alert('운동 저장 실패: ' + error.message);
         setSnack({ open: true, msg: '저장 실패: ' + error.message, severity: 'error' });
         return;
       }
-      console.log('운동 저장 성공:', data);
+      console.log('운동 저장 성공');
 
       // 캐릭터 XP/포인트 업데이트
       const xpGain = minutes;
@@ -151,7 +158,7 @@ export default function TimerPage() {
       const { data: charData } = await supabase
         .from('fitbuddy_characters')
         .select('experience, points, growth_stage, level')
-        .eq('user_id', user.id)
+        .eq('user_id', session.user.id)
         .single();
 
       if (charData) {
@@ -169,7 +176,7 @@ export default function TimerPage() {
           points: newPoints,
           growth_stage: Math.min(newStage, 5),
           level: Math.min(newLevel, 99),
-        }).eq('user_id', user.id);
+        }).eq('user_id', session.user.id);
         if (charErr) console.error('SUPABASE ERROR (character):', charErr);
       }
 
@@ -179,6 +186,7 @@ export default function TimerPage() {
       setSnack({ open: true, msg: `운동 완료! ${minutes}분 ${cal}kcal · +${xpGain}XP +${pointsGain}pt 💪`, severity: 'success' });
     } catch (err) {
       console.error('예상 못한 오류:', err);
+      alert('오류: ' + err.message);
       setSnack({ open: true, msg: '저장에 실패했습니다.', severity: 'error' });
     } finally {
       console.log('SAVE FINALLY');

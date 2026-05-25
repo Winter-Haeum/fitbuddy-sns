@@ -124,12 +124,8 @@ export default function ProfilePage() {
   }
 
   async function saveProfile() {
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('SESSION:', session?.user?.id || 'MISSING');
-    if (!session) {
-      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
-      return;
-    }
+    setLoading(true);
+    setSaveError('');
     const payload = {
       display_name: editForm.display_name,
       bio: editForm.bio,
@@ -139,13 +135,11 @@ export default function ProfilePage() {
       workout_goal: editForm.workout_goal,
     };
     console.log('SAVE START:', payload);
-    setLoading(true);
-    setSaveError('');
     try {
       const { error } = await supabase
         .from('fitbuddy_users')
         .update(payload)
-        .eq('id', session.user.id);
+        .eq('id', user.id);
       console.log('INSERT ERROR:', error);
       if (error) {
         console.error('SUPABASE ERROR:', error);
@@ -154,7 +148,7 @@ export default function ProfilePage() {
         return;
       }
       console.log('저장 성공');
-      await fetchProfile(session.user.id);
+      await fetchProfile(user.id);
       setEditOpen(false);
       setSnack({ open: true, msg: '프로필이 저장되었습니다!', severity: 'success' });
     } catch (err) {

@@ -97,12 +97,6 @@ export default function ChallengesPage() {
 
   async function handleCreate() {
     if (!form.title.trim()) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('SESSION:', session?.user?.id || 'MISSING');
-    if (!session) {
-      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
-      return;
-    }
     setLoading(true);
     setError('');
     try {
@@ -119,7 +113,7 @@ export default function ChallengesPage() {
         goal: form.goal,
         start_date: todayStr,
         end_date: endDate.toISOString().split('T')[0],
-        creator_id: session.user.id,
+        creator_id: user.id,
         challenge_type: form.type,
       };
       console.log('SAVE START:', payload);

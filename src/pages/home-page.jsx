@@ -79,14 +79,8 @@ export default function HomePage() {
   }
 
   async function saveMood(moodKey) {
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('SESSION:', session?.user?.id || 'MISSING');
-    if (!session) {
-      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
-      return;
-    }
     const today = new Date().toISOString().split('T')[0];
-    const payload = { user_id: session.user.id, log_date: today, mood_status: moodKey };
+    const payload = { user_id: user.id, log_date: today, mood_status: moodKey };
     console.log('SAVE START:', payload);
     try {
       const { error } = await supabase

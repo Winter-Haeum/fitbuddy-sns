@@ -97,15 +97,9 @@ export default function RecordsPage() {
 
   async function saveDiary() {
     if (!diaryForm.mood && !diaryForm.content.trim()) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('SESSION:', session?.user?.id || 'MISSING');
-    if (!session) {
-      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
-      return;
-    }
     setDiaryLoading(true);
     try {
-      const upsertData = { user_id: session.user.id, log_date: today };
+      const upsertData = { user_id: user.id, log_date: today };
       if (diaryForm.mood) upsertData.mood_status = diaryForm.mood;
       if (diaryForm.content.trim()) upsertData.diary_content = diaryForm.content.trim();
 

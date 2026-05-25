@@ -127,24 +127,16 @@ export default function PostCreatePage() {
       unsplash_author_url: selectedImage?.author_url || '',
       hashtags,
     };
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('SESSION:', session?.user?.id || 'MISSING');
-    if (!session) {
-      setError('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
-      alert('로그인 세션이 만료되었습니다.');
-      return;
-    }
-
-    console.log('SAVE START:', postPayload);
     setLoading(true);
     setError('');
+    console.log('SAVE START:', postPayload);
 
     try {
       let workoutId = null;
 
       if (postType === 'workout' && workoutType && duration) {
         const workoutPayload = {
-          user_id: session.user.id,
+          user_id: user.id,
           workout_type: workoutType,
           duration_minutes: Number(duration),
           intensity,
@@ -153,17 +145,14 @@ export default function PostCreatePage() {
           workout_status: 'completed',
         };
         console.log('WORKOUT SAVE START:', workoutPayload);
-        const { data: workout, error: workoutErr } = await supabase
+        const { error: workoutErr } = await supabase
           .from('fitbuddy_workouts')
-          .insert(workoutPayload)
-          .select('id')
-          .single();
+          .insert(workoutPayload);
         console.log('INSERT ERROR (workout):', workoutErr);
         if (workoutErr) console.error('SUPABASE ERROR (workout):', workoutErr);
-        else workoutId = workout?.id;
       }
 
-      const finalPayload = { ...postPayload, user_id: session.user.id, workout_id: workoutId };
+      const finalPayload = { ...postPayload, workout_id: workoutId };
       const { error: postErr } = await supabase
         .from('fitbuddy_posts')
         .insert(finalPayload);

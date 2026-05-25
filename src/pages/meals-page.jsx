@@ -60,21 +60,15 @@ export default function MealsPage() {
 
   async function handleAdd() {
     if (!form.content.trim()) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('SESSION:', session?.user?.id || 'MISSING');
-    if (!session) {
-      alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
-      return;
-    }
+    setLoading(true);
     const payload = {
-      user_id: session.user.id,
+      user_id: user.id,
       meal_type: form.meal_type,
       content: form.content,
       image_url: form.image_url,
       calories: Number(form.calories) || 0,
     };
     console.log('SAVE START:', payload);
-    setLoading(true);
     setError('');
     try {
       const { error: insertErr } = await supabase

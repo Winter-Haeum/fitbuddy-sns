@@ -20,6 +20,10 @@ import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import GroupIcon from '@mui/icons-material/Group';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import Snackbar from '@mui/material/Snackbar';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -36,6 +40,14 @@ export default function ChallengesPage() {
   const [form, setForm] = useState({ title: '', description: '', goal: '', days: 7, type: 'period' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuChallenge, setMenuChallenge] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
   useEffect(() => {
     fetchChallenges();
@@ -141,6 +153,54 @@ export default function ChallengesPage() {
     }
   }
 
+  function openMenu(e, challenge) {
+    e.stopPropagation();
+    setMenuAnchor(e.currentTarget);
+    setMenuChallenge(challenge);
+  }
+
+  function closeMenu() { setMenuAnchor(null); }
+
+  function startEdit() {
+    closeMenu();
+    setEditForm({ title: menuChallenge.title || '', description: menuChallenge.description || '', goal: menuChallenge.goal || '' });
+    setEditOpen(true);
+  }
+
+  function startDelete() { closeMenu(); setDeleteOpen(true); }
+
+  async function handleEditChallenge() {
+    if (!menuChallenge) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('fitbuddy_challenges')
+        .update({ title: editForm.title, description: editForm.description, goal: editForm.goal })
+        .eq('id', menuChallenge.id)
+        .eq('creator_id', user.id);
+      if (error) { alert('수정 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '챌린지가 수정되었습니다.', severity: 'success' });
+      setEditOpen(false);
+      fetchChallenges();
+    } catch (err) { alert('오류: ' + err.message); }
+    finally { setActionLoading(false); }
+  }
+
+  async function handleDeleteChallenge() {
+    if (!menuChallenge) return;
+    setActionLoading(true);
+    try {
+      await supabase.from('fitbuddy_challenge_users').delete().eq('challenge_id', menuChallenge.id);
+      const { error } = await supabase.from('fitbuddy_challenges').delete().eq('id', menuChallenge.id).eq('creator_id', user.id);
+      if (error) { alert('삭제 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '챌린지가 삭제되었습니다.', severity: 'info' });
+      setDeleteOpen(false);
+      setChallenges((prev) => prev.filter((c) => c.id !== menuChallenge.id));
+      setMenuChallenge(null);
+    } catch (err) { alert('오류: ' + err.message); }
+    finally { setActionLoading(false); }
+  }
+
   function getDaysLeft(endDate) {
     const end = new Date(endDate);
     const now = new Date();
@@ -217,7 +277,14 @@ export default function ChallengesPage() {
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Typography variant='h3' sx={{ fontWeight: 600, flex: 1 }}>🏆 {challenge.title}</Typography>
-                    {joined && <Chip label='참여중 ✓' size='small' sx={{ bgcolor: '#A084E8', color: 'white' }} />}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {joined && <Chip label='참여중 ✓' size='small' sx={{ bgcolor: '#A084E8', color: 'white' }} />}
+                      {challenge.creator_id === user?.id && (
+                        <IconButton size='small' onClick={(e) => openMenu(e, challenge)} sx={{ p: 0.3 }}>
+                          <MoreVertIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      )}
+                    </Box>
                   </Box>
 
                   {challenge.description && (
@@ -337,6 +404,47 @@ export default function ChallengesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 컨텍스트 메뉴 */}
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+        <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
+        <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+      </Menu>
+
+      {/* 챌린지 수정 다이얼로그 */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth='sm'>
+        <DialogTitle>챌린지 수정 🎯</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField label='챌린지 이름' value={editForm.title || ''} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} fullWidth />
+          <TextField label='설명' value={editForm.description || ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} fullWidth multiline rows={2} />
+          <TextField label='목표 내용' value={editForm.goal || ''} onChange={(e) => setEditForm({ ...editForm, goal: e.target.value })} fullWidth />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditOpen(false)}>취소</Button>
+          <Button variant='contained' onClick={handleEditChallenge} disabled={actionLoading} sx={{ bgcolor: '#A084E8', '&:hover': { bgcolor: '#8B6FD4' } }}>
+            {actionLoading ? '저장 중...' : '저장'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={deleteOpen} onClose={() => !actionLoading && setDeleteOpen(false)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🗑️</Typography>
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>정말 삭제하시겠습니까?</Typography>
+          <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>챌린지와 모든 참여 기록이 삭제됩니다.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setDeleteOpen(false)} disabled={actionLoading}>취소</Button>
+          <Button variant='contained' fullWidth color='error' onClick={handleDeleteChallenge} disabled={actionLoading}>
+            {actionLoading ? '삭제 중...' : '삭제'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={2500} onClose={() => setSnack({ ...snack, open: false })} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert severity={snack.severity} onClose={() => setSnack({ ...snack, open: false })} sx={{ width: '100%' }}>{snack.msg}</Alert>
+      </Snackbar>
     </Layout>
   );
 }

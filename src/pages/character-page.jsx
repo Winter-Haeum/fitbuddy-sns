@@ -3,26 +3,19 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 
-const HEALTH_INFO = {
-  tired: { emoji: '😴', color: '#9E9E9E' },
-  normal: { emoji: '😐', color: '#5DA9E9' },
-  healthy: { emoji: '😊', color: '#6BCB77' },
-  active: { emoji: '💪', color: '#A084E8' },
-};
-
-const GROWTH_STAGES = [
-  { stage: 1, name: '새싹', emoji: '🌱', xpRequired: 0 },
-  { stage: 2, name: '성장', emoji: '🌿', xpRequired: 100 },
-  { stage: 3, name: '개화', emoji: '🌸', xpRequired: 300 },
-  { stage: 4, name: '열매', emoji: '🌳', xpRequired: 700 },
-  { stage: 5, name: '마스터', emoji: '🏆', xpRequired: 1500 },
+const XP_STAGES = [
+  { stage: 1, name: '새싹', xpRequired: 0, color: '#6BCB77' },
+  { stage: 2, name: '성장', xpRequired: 100, color: '#5DA9E9' },
+  { stage: 3, name: '개화', xpRequired: 300, color: '#FF7043' },
+  { stage: 4, name: '열매', xpRequired: 700, color: '#A084E8' },
+  { stage: 5, name: '마스터', xpRequired: 1500, color: '#FFB300' },
 ];
 
 const ITEMS = [
@@ -39,23 +32,30 @@ const ITEMS = [
 ];
 
 export default function CharacterPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [character, setCharacter] = useState(null);
   const [equippedItemId, setEquippedItemId] = useState(null);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).single()
-      .then(({ data }) => setCharacter(data));
+    supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { if (data) setCharacter(data); });
   }, [user]);
 
-  const healthInfo = HEALTH_INFO[character?.health_status || 'tired'];
-  const currentStage = GROWTH_STAGES.find((s) => s.stage === (character?.growth_stage || 1)) || GROWTH_STAGES[0];
-  const nextStage = GROWTH_STAGES[currentStage.stage] || null;
-  const xpProgress = nextStage
-    ? ((character?.experience || 0) - currentStage.xpRequired) / (nextStage.xpRequired - currentStage.xpRequired) * 100
-    : 100;
+  const xp = character?.experience || 0;
   const points = character?.points || 0;
+  const level = character?.level || 1;
+
+  const currentStage = [...XP_STAGES].reverse().find((s) => xp >= s.xpRequired) || XP_STAGES[0];
+  const nextStage = XP_STAGES.find((s) => s.stage === currentStage.stage + 1);
+  const xpInStage = xp - currentStage.xpRequired;
+  const xpNeeded = nextStage ? nextStage.xpRequired - currentStage.xpRequired : 1;
+  const xpPct = nextStage ? Math.min((xpInStage / xpNeeded) * 100, 100) : 100;
+  const circumference = 2 * Math.PI * 52;
+  const filledArc = (xpPct / 100) * circumference;
+
+  const gender = profile?.gender || 'female';
+  const stageColor = currentStage.color;
 
   return (
     <Layout>
@@ -63,59 +63,89 @@ export default function CharacterPage() {
         <Typography variant='h2' sx={{ fontWeight: 700, mb: 2 }}>내 캐릭터 🎮</Typography>
 
         {/* 캐릭터 메인 카드 */}
-        <Card sx={{ mb: 2, bgcolor: 'white', border: `2px solid ${healthInfo.color}66` }}>
-          <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <Box sx={{
-              width: 120, height: 120, borderRadius: '50%',
-              bgcolor: `${healthInfo.color}22`,
-              border: `2px solid ${healthInfo.color}66`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              mx: 'auto', mb: 2, fontSize: '4rem',
-              boxShadow: `0 0 20px ${healthInfo.color}44`,
-            }}>
-              {healthInfo.emoji}
+        <Card sx={{ mb: 2, background: `linear-gradient(135deg, ${stageColor}18 0%, white 60%)`, border: `1.5px solid ${stageColor}44` }}>
+          <CardContent sx={{ textAlign: 'center', py: 3 }}>
+            {/* 원형 XP 게이지 + 캐릭터 */}
+            <Box sx={{ position: 'relative', width: 180, height: 180, mx: 'auto', mb: 1.5 }}>
+              <svg width='180' height='180' viewBox='0 0 120 120'>
+                <circle cx='60' cy='60' r='52' fill='none' stroke={`${stageColor}30`} strokeWidth='7' />
+                <circle
+                  cx='60' cy='60' r='52'
+                  fill='none'
+                  stroke={stageColor}
+                  strokeWidth='7'
+                  strokeLinecap='round'
+                  strokeDasharray={`${filledArc} ${circumference}`}
+                  transform='rotate(-90 60 60)'
+                  style={{ transition: 'stroke-dasharray 0.6s ease' }}
+                />
+              </svg>
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FitBuddyCharacter size={110} gender={gender} />
+              </Box>
             </Box>
-            <Typography variant='h2' sx={{ fontWeight: 700, mb: 1 }}>
+
+            <Typography variant='h2' sx={{ fontWeight: 700, mb: 0.5 }}>
               {character?.character_name || '내 캐릭터'}
             </Typography>
-            <Chip
-              label={`${currentStage.emoji} ${currentStage.name} · Lv.${character?.level || 1}`}
-              color='primary'
-              sx={{ fontSize: '0.85rem', mb: 1 }}
-            />
-            <Box>
-              <Chip
-                label={`🪙 ${points} 포인트`}
-                variant='outlined'
-                sx={{ borderColor: '#FFB300', color: '#F57F17', fontWeight: 600 }}
-              />
+
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 1 }}>
+              <Chip label={`Lv.${level}`} sx={{ bgcolor: stageColor, color: 'white', fontWeight: 700 }} />
+              <Chip label={`${currentStage.name}`} variant='outlined' sx={{ borderColor: stageColor, color: stageColor, fontWeight: 600 }} />
             </Box>
+
+            <Chip
+              label={`🪙 ${points} 포인트`}
+              variant='outlined'
+              sx={{ borderColor: '#FFB300', color: '#F57F17', fontWeight: 600 }}
+            />
           </CardContent>
         </Card>
 
-        {/* 경험치 바 */}
+        {/* 경험치 정보 */}
         <Card sx={{ mb: 2 }}>
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant='body2' sx={{ fontWeight: 600 }}>
-                경험치 ({character?.experience || 0} XP)
-              </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant='body2' sx={{ fontWeight: 700 }}>경험치</Typography>
               <Typography variant='body2' color='text.secondary'>
-                {nextStage ? `다음: ${nextStage.emoji} ${nextStage.name} (${nextStage.xpRequired} XP)` : '최고 단계 달성!'}
+                {xp} XP {nextStage ? `/ ${nextStage.xpRequired} XP` : '(최고 단계)'}
               </Typography>
             </Box>
-            <LinearProgress
-              variant='determinate'
-              value={Math.min(xpProgress, 100)}
-              sx={{ height: 12, borderRadius: 6, bgcolor: '#E8F5E9', '& .MuiLinearProgress-bar': { bgcolor: '#6BCB77' } }}
-            />
+            <Box sx={{ bgcolor: `${stageColor}20`, borderRadius: 3, height: 12, overflow: 'hidden' }}>
+              <Box sx={{ bgcolor: stageColor, width: `${xpPct}%`, height: '100%', borderRadius: 3, transition: 'width 0.5s ease' }} />
+            </Box>
+            {nextStage && (
+              <Typography variant='caption' color='text.secondary' sx={{ mt: 0.5, display: 'block' }}>
+                다음 단계까지 {nextStage.xpRequired - xp} XP 남음
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 포인트 획득 방법 */}
+        <Card sx={{ mb: 2, bgcolor: '#FFFDE7', border: '1px solid #FFF9C4' }}>
+          <CardContent sx={{ py: 1.5 }}>
+            <Typography variant='body2' sx={{ fontWeight: 700, mb: 0.8, color: '#F57F17' }}>🪙 포인트 획득 방법</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+              {[
+                ['운동 완료 (낮은 강도)', '+5pt'],
+                ['운동 완료 (보통 강도)', '+10pt'],
+                ['운동 완료 (높은 강도)', '+15pt'],
+                ['XP', '운동 시간(분) = XP'],
+              ].map(([label, val]) => (
+                <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant='caption' color='text.secondary'>{label}</Typography>
+                  <Typography variant='caption' sx={{ fontWeight: 700, color: '#F57F17' }}>{val}</Typography>
+                </Box>
+              ))}
+            </Box>
           </CardContent>
         </Card>
 
         {/* 운동 아이템 */}
         <Card>
           <CardContent>
-            <Typography variant='body2' sx={{ fontWeight: 600, mb: 1.5 }}>운동 아이템</Typography>
+            <Typography variant='body2' sx={{ fontWeight: 700, mb: 1.5 }}>운동 아이템</Typography>
             <Grid container spacing={1}>
               {ITEMS.map((item) => {
                 const unlocked = points >= item.price;
@@ -138,19 +168,11 @@ export default function CharacterPage() {
                           {item.name}
                         </Typography>
                         {equipped ? (
-                          <Chip
-                            label='착용중'
-                            size='small'
-                            sx={{ bgcolor: '#A084E8', color: 'white', fontSize: '0.6rem', height: 18, mt: 0.3 }}
-                          />
+                          <Chip label='착용중' size='small' sx={{ bgcolor: '#A084E8', color: 'white', fontSize: '0.6rem', height: 18, mt: 0.3 }} />
                         ) : unlocked ? (
-                          <Typography variant='caption' sx={{ color: '#6BCB77', fontSize: '0.65rem', display: 'block' }}>
-                            장착 가능
-                          </Typography>
+                          <Typography variant='caption' sx={{ color: '#6BCB77', fontSize: '0.65rem', display: 'block' }}>장착 가능</Typography>
                         ) : (
-                          <Typography variant='caption' sx={{ color: '#999', fontSize: '0.65rem', display: 'block' }}>
-                            🪙 {item.price}
-                          </Typography>
+                          <Typography variant='caption' sx={{ color: '#999', fontSize: '0.65rem', display: 'block' }}>🪙 {item.price}</Typography>
                         )}
                       </CardContent>
                     </Card>

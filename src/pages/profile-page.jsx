@@ -27,6 +27,7 @@ import TodayIcon from '@mui/icons-material/Today';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -119,6 +120,7 @@ export default function ProfilePage() {
       weight: profile?.weight > 0 ? String(profile.weight) : '',
       goal_weight: profile?.goal_weight > 0 ? String(profile.goal_weight) : '',
       workout_goal: profile?.workout_goal || '',
+      gender: profile?.gender || '',
     });
     setEditOpen(true);
   }
@@ -133,6 +135,7 @@ export default function ProfilePage() {
       weight: editForm.weight ? Number(editForm.weight) : 0,
       goal_weight: editForm.goal_weight ? Number(editForm.goal_weight) : 0,
       workout_goal: editForm.workout_goal,
+      gender: editForm.gender,
     };
     console.log('SAVE START:', payload);
     try {
@@ -170,24 +173,19 @@ export default function ProfilePage() {
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      // CASCADE가 설정되었으므로 fitbuddy_users 삭제 시 관련 데이터 자동 삭제
-      const { error: postsErr } = await supabase.from('fitbuddy_posts').delete().eq('user_id', user.id);
-      if (postsErr) console.error('posts delete:', postsErr);
-
-      const { error: charErr } = await supabase.from('fitbuddy_characters').delete().eq('user_id', user.id);
-      if (charErr) console.error('characters delete:', charErr);
-
-      const { error: userErr } = await supabase.from('fitbuddy_users').delete().eq('id', user.id);
-      if (userErr) {
-        console.error('users delete:', userErr);
-        setDeleteError('데이터 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      const { error } = await supabase
+        .from('fitbuddy_users')
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) {
+        console.error('탈퇴 처리 오류:', error);
+        setDeleteError('탈퇴 처리 중 오류가 발생했습니다: ' + error.message);
         return;
       }
-
       await signOut();
       navigate('/login');
     } catch (err) {
-      console.error('회원 탈퇴 오류:', err);
+      console.error('탈퇴 예상 못한 오류:', err);
       setDeleteError('탈퇴 처리 중 오류가 발생했습니다.');
     } finally {
       setDeleteLoading(false);
@@ -380,6 +378,28 @@ export default function ProfilePage() {
             fullWidth size='small'
             helperText='예: 다이어트, 근력 증가'
           />
+          <Box>
+            <Typography variant='body2' sx={{ fontWeight: 600, mb: 1 }}>성별</Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {[{ value: 'female', label: '여성' }, { value: 'male', label: '남성' }].map((opt) => (
+                <Box
+                  key={opt.value}
+                  onClick={() => setEditForm({ ...editForm, gender: opt.value })}
+                  sx={{
+                    flex: 1, textAlign: 'center', py: 1.2, borderRadius: 2, cursor: 'pointer',
+                    border: `2px solid ${editForm.gender === opt.value ? '#6BCB77' : '#E0E0E0'}`,
+                    bgcolor: editForm.gender === opt.value ? '#E8F5E9' : '#FAFAFA',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <FitBuddyCharacter size={36} gender={opt.value} />
+                  <Typography variant='caption' sx={{ display: 'block', fontWeight: editForm.gender === opt.value ? 700 : 400, color: editForm.gender === opt.value ? '#2E7D32' : '#757575' }}>
+                    {opt.label}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setEditOpen(false)} disabled={loading}>취소</Button>

@@ -6,7 +6,7 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
-import LinearProgress from '@mui/material/LinearProgress';
+import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -140,7 +140,7 @@ export default function HomePage() {
       .select('*')
       .eq('user_id', user.id)
       .eq('log_date', today)
-      .single()
+      .maybeSingle()
       .then(({ data }) => { if (data) setTodayLog(data); });
 
     supabase
@@ -216,41 +216,58 @@ export default function HomePage() {
         </Card>
 
         {/* 2. 캐릭터 상태 카드 */}
-        <Card sx={{ mb: 2 }}>
+        <Card sx={{ mb: 2, cursor: 'pointer' }} onClick={() => navigate('/character')}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
-              <Box sx={{
-                width: 72, height: 72, borderRadius: '50%',
-                bgcolor: '#F3EEFF', border: '2px solid #A084E8',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '2.2rem', cursor: 'pointer',
-              }}
-                onClick={() => navigate('/character')}
-              >
-                {activityState.emoji}
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant='h4' sx={{ fontWeight: 600 }}>
-                  {character?.character_name || '내 캐릭터'}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                  <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
-                  <Chip
-                    label={activityState.label}
-                    size='small'
-                    sx={{ bgcolor: activityState.color + '22', color: activityState.color, fontWeight: 600 }}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {/* 원형 게이지 */}
+              <Box sx={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
+                <svg width='100' height='100' viewBox='0 0 100 100'>
+                  <circle cx='50' cy='50' r='42' fill='none' stroke='#E8F5E9' strokeWidth='8' />
+                  <circle
+                    cx='50' cy='50' r='42'
+                    fill='none'
+                    stroke={progress >= 100 ? '#FFB300' : '#5FCB77'}
+                    strokeWidth='8'
+                    strokeLinecap='round'
+                    strokeDasharray={`${(progress / 100) * 2 * Math.PI * 42} ${2 * Math.PI * 42}`}
+                    transform='rotate(-90 50 50)'
+                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
                   />
+                </svg>
+                <Box sx={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Typography sx={{ fontSize: '1.3rem', fontWeight: 700, color: progress >= 100 ? '#FFB300' : '#5FCB77', lineHeight: 1 }}>
+                    {todayWorkout?.duration || 0}
+                  </Typography>
+                  <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.6rem', lineHeight: 1 }}>분</Typography>
+                  <Typography variant='caption' sx={{ color: '#B0BEC5', fontSize: '0.55rem' }}>/{goalMinutes}분</Typography>
+                </Box>
+              </Box>
+
+              {/* 캐릭터 + 정보 */}
+              <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 1 }}>
+                <FitBuddyCharacter size={70} gender={profile?.gender || 'female'} />
+                <Box>
+                  <Typography variant='h4' sx={{ fontWeight: 600 }}>
+                    {character?.character_name || '내 캐릭터'}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                    <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
+                    <Chip
+                      label={activityState.label}
+                      size='small'
+                      sx={{ bgcolor: activityState.color + '22', color: activityState.color, fontWeight: 600 }}
+                    />
+                  </Box>
+                  <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mt: 0.5 }}>
+                    {progress >= 100 ? '🏆 오늘 목표 달성!' : `달성률 ${Math.round(progress)}%`}
+                  </Typography>
                 </Box>
               </Box>
             </Box>
-            <Typography variant='caption' color='text.secondary' sx={{ mb: 0.5, display: 'block' }}>
-              오늘 운동 달성률 ({todayWorkout?.duration || 0}/{goalMinutes}분)
-            </Typography>
-            <LinearProgress
-              variant='determinate'
-              value={progress}
-              sx={{ height: 8, borderRadius: 4, bgcolor: '#E8F5E9', '& .MuiLinearProgress-bar': { bgcolor: '#5FCB77' } }}
-            />
           </CardContent>
         </Card>
 

@@ -14,7 +14,14 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -26,6 +33,12 @@ const MOODS = [
   { key: 'great', emoji: '💪', label: '활기참', text: '에너지가 넘치는 날이에요.' },
 ];
 
+const WORKOUT_TYPES = ['홈트', '스트레칭', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산', '기타'];
+const INTENSITIES = [
+  { value: 'low', label: '낮음' },
+  { value: 'medium', label: '보통' },
+  { value: 'high', label: '높음' },
+];
 const TAB_LIST = ['운동 기록', '운동 일기'];
 
 export default function RecordsPage() {
@@ -40,6 +53,17 @@ export default function RecordsPage() {
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [diaryForm, setDiaryForm] = useState({ mood: '', content: '' });
   const [diaryLoading, setDiaryLoading] = useState(false);
+
+  // 메뉴 & 수정/삭제 상태
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuTarget, setMenuTarget] = useState(null); // { type: 'workout'|'diary', item }
+
+  const [editWorkoutOpen, setEditWorkoutOpen] = useState(false);
+  const [editWorkoutForm, setEditWorkoutForm] = useState({});
+  const [editDiaryOpen, setEditDiaryOpen] = useState(false);
+  const [editDiaryForm, setEditDiaryForm] = useState({});
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -125,8 +149,115 @@ export default function RecordsPage() {
       alert('오류: ' + err.message);
       setSnack({ open: true, msg: '저장 중 오류가 발생했습니다.', severity: 'error' });
     } finally {
-      console.log('SAVE FINALLY');
       setDiaryLoading(false);
+    }
+  }
+
+  // ---- 메뉴 핸들러 ----
+  function openMenu(e, type, item) {
+    e.stopPropagation();
+    setMenuAnchor(e.currentTarget);
+    setMenuTarget({ type, item });
+  }
+
+  function closeMenu() {
+    setMenuAnchor(null);
+  }
+
+  function startEdit() {
+    closeMenu();
+    if (menuTarget.type === 'workout') {
+      setEditWorkoutForm({
+        workout_type: menuTarget.item.workout_type || '',
+        duration_minutes: String(menuTarget.item.duration_minutes || ''),
+        intensity: menuTarget.item.intensity || 'medium',
+        calories_burned: String(menuTarget.item.calories_burned || ''),
+      });
+      setEditWorkoutOpen(true);
+    } else {
+      setEditDiaryForm({
+        mood: menuTarget.item.mood_status || '',
+        content: menuTarget.item.diary_content || '',
+      });
+      setEditDiaryOpen(true);
+    }
+  }
+
+  function startDelete() {
+    closeMenu();
+    setDeleteOpen(true);
+  }
+
+  async function handleEditWorkout() {
+    if (!menuTarget) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('fitbuddy_workouts')
+        .update({
+          workout_type: editWorkoutForm.workout_type,
+          duration_minutes: Number(editWorkoutForm.duration_minutes),
+          intensity: editWorkoutForm.intensity,
+          calories_burned: Number(editWorkoutForm.calories_burned),
+        })
+        .eq('id', menuTarget.item.id)
+        .eq('user_id', user.id);
+      if (error) { alert('수정 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '운동 기록이 수정되었습니다.', severity: 'success' });
+      setEditWorkoutOpen(false);
+      fetchWeekWorkouts();
+      fetchTodayWorkouts();
+    } catch (err) {
+      alert('오류: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleEditDiary() {
+    if (!menuTarget) return;
+    setActionLoading(true);
+    try {
+      const updateData = {};
+      if (editDiaryForm.mood) updateData.mood_status = editDiaryForm.mood;
+      if (editDiaryForm.content !== undefined) updateData.diary_content = editDiaryForm.content;
+      const { error } = await supabase
+        .from('fitbuddy_daily_logs')
+        .update(updateData)
+        .eq('id', menuTarget.item.id)
+        .eq('user_id', user.id);
+      if (error) { alert('수정 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '운동 일기가 수정되었습니다.', severity: 'success' });
+      setEditDiaryOpen(false);
+      fetchDiaryLogs();
+    } catch (err) {
+      alert('오류: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!menuTarget) return;
+    setActionLoading(true);
+    try {
+      const table = menuTarget.type === 'workout' ? 'fitbuddy_workouts' : 'fitbuddy_daily_logs';
+      const idField = menuTarget.type === 'workout' ? 'user_id' : 'user_id';
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', menuTarget.item.id)
+        .eq(idField, user.id);
+      if (error) { alert('삭제 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '삭제되었습니다.', severity: 'info' });
+      setDeleteOpen(false);
+      if (menuTarget.type === 'workout') { fetchWeekWorkouts(); fetchTodayWorkouts(); }
+      else fetchDiaryLogs();
+      setMenuTarget(null);
+    } catch (err) {
+      alert('오류: ' + err.message);
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -200,6 +331,9 @@ export default function RecordsPage() {
                             <FitnessCenterIcon sx={{ fontSize: 16, color: '#6BCB77' }} />
                             <Typography variant='body2' sx={{ flex: 1 }}>{w.workout_type}</Typography>
                             <Typography variant='caption' color='text.secondary'>{w.duration_minutes}분 {w.calories_burned}kcal</Typography>
+                            <IconButton size='small' onClick={(e) => openMenu(e, 'workout', w)} sx={{ p: 0.3 }}>
+                              <MoreVertIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
                           </Box>
                           {i < workouts.length - 1 && <Divider />}
                         </Box>
@@ -257,6 +391,9 @@ export default function RecordsPage() {
                             <Typography variant='caption' color='text.secondary'>컨디션만 기록됨</Typography>
                           )}
                         </Box>
+                        <IconButton size='small' onClick={(e) => openMenu(e, 'diary', log)} sx={{ p: 0.3 }}>
+                          <MoreVertIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
                       </Box>
                     </CardContent>
                   </Card>
@@ -267,6 +404,97 @@ export default function RecordsPage() {
         )}
       </Box>
 
+      {/* ⋯ 컨텍스트 메뉴 */}
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+        <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
+        <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+      </Menu>
+
+      {/* 운동 기록 수정 다이얼로그 */}
+      <Dialog open={editWorkoutOpen} onClose={() => setEditWorkoutOpen(false)} fullWidth maxWidth='sm'>
+        <DialogTitle>운동 기록 수정</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <FormControl fullWidth size='small'>
+            <InputLabel>운동 종류</InputLabel>
+            <Select value={editWorkoutForm.workout_type || ''} onChange={(e) => setEditWorkoutForm({ ...editWorkoutForm, workout_type: e.target.value })} label='운동 종류'>
+              {WORKOUT_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size='small'>
+            <InputLabel>강도</InputLabel>
+            <Select value={editWorkoutForm.intensity || 'medium'} onChange={(e) => setEditWorkoutForm({ ...editWorkoutForm, intensity: e.target.value })} label='강도'>
+              {INTENSITIES.map((i) => <MenuItem key={i.value} value={i.value}>{i.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label='운동 시간 (분)' type='number' value={editWorkoutForm.duration_minutes || ''} onChange={(e) => setEditWorkoutForm({ ...editWorkoutForm, duration_minutes: e.target.value })} fullWidth size='small' />
+          <TextField label='소모 칼로리 (kcal)' type='number' value={editWorkoutForm.calories_burned || ''} onChange={(e) => setEditWorkoutForm({ ...editWorkoutForm, calories_burned: e.target.value })} fullWidth size='small' />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditWorkoutOpen(false)}>취소</Button>
+          <Button variant='contained' onClick={handleEditWorkout} disabled={actionLoading} sx={{ bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}>
+            {actionLoading ? '저장 중...' : '저장'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 운동 일기 수정 다이얼로그 */}
+      <Dialog open={editDiaryOpen} onClose={() => setEditDiaryOpen(false)} fullWidth maxWidth='sm'>
+        <DialogTitle>운동 일기 수정 ✍️</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Box>
+            <Typography variant='body2' sx={{ fontWeight: 700, mb: 1 }}>컨디션</Typography>
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-around' }}>
+              {MOODS.map((m) => (
+                <Box
+                  key={m.key}
+                  onClick={() => setEditDiaryForm((prev) => ({ ...prev, mood: prev.mood === m.key ? '' : m.key }))}
+                  sx={{
+                    flex: 1, textAlign: 'center', py: 1, borderRadius: 2, cursor: 'pointer',
+                    bgcolor: editDiaryForm.mood === m.key ? '#EDE7F6' : '#F5F5F5',
+                    border: editDiaryForm.mood === m.key ? '2px solid #A084E8' : '2px solid transparent',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '1.4rem', lineHeight: 1 }}>{m.emoji}</Typography>
+                  <Typography variant='caption' sx={{ color: editDiaryForm.mood === m.key ? '#A084E8' : '#888', fontWeight: editDiaryForm.mood === m.key ? 700 : 400, fontSize: '0.7rem' }}>
+                    {m.label}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+          <TextField
+            multiline rows={4} fullWidth label='일기 내용'
+            value={editDiaryForm.content || ''}
+            onChange={(e) => setEditDiaryForm((prev) => ({ ...prev, content: e.target.value }))}
+            size='small'
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditDiaryOpen(false)}>취소</Button>
+          <Button variant='contained' onClick={handleEditDiary} disabled={actionLoading} sx={{ bgcolor: '#5DA9E9', '&:hover': { bgcolor: '#4A96D8' } }}>
+            {actionLoading ? '저장 중...' : '저장'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={deleteOpen} onClose={() => !actionLoading && setDeleteOpen(false)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🗑️</Typography>
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>정말 삭제하시겠습니까?</Typography>
+          <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+            이 작업은 되돌릴 수 없습니다.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setDeleteOpen(false)} disabled={actionLoading}>취소</Button>
+          <Button variant='contained' fullWidth color='error' onClick={handleDelete} disabled={actionLoading}>
+            {actionLoading ? '삭제 중...' : '삭제'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* 운동 일기 작성 모달 */}
       <Dialog
         open={diaryOpen}
@@ -276,7 +504,6 @@ export default function RecordsPage() {
       >
         <DialogTitle>운동 일기 쓰기 ✍️</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          {/* 오늘 운동 자동 첨부 */}
           {todayWorkouts.length > 0 && (
             <Card sx={{ bgcolor: '#E8F5E9', border: '1px solid #C8E6C9' }}>
               <CardContent sx={{ py: 1.5 }}>
@@ -289,8 +516,6 @@ export default function RecordsPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* 컨디션 선택 */}
           <Box>
             <Typography variant='body2' sx={{ fontWeight: 700, mb: 1 }}>오늘의 컨디션</Typography>
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-around' }}>
@@ -313,13 +538,8 @@ export default function RecordsPage() {
               ))}
             </Box>
           </Box>
-
-          {/* 일기 내용 */}
           <TextField
-            multiline
-            rows={4}
-            fullWidth
-            label='일기 내용'
+            multiline rows={4} fullWidth label='일기 내용'
             placeholder='오늘의 운동은 어땠나요? 느낀 점, 목표 달성 여부 등을 자유롭게 기록해보세요.'
             value={diaryForm.content}
             onChange={(e) => setDiaryForm((prev) => ({ ...prev, content: e.target.value }))}

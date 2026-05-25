@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
         .from('fitbuddy_users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setProfile(data);
@@ -88,6 +88,7 @@ export function AuthProvider({ children }) {
           goal_weight: 0,
           workout_goal: 'health',
           interests: [],
+          gender: '',
         };
 
         const { data: created, error: createErr } = await supabase
@@ -140,6 +141,7 @@ export function AuthProvider({ children }) {
         goal_weight: extraData.goalWeight ? Number(extraData.goalWeight) : 0,
         workout_goal: extraData.workoutGoals?.join(',') || 'health',
         interests: extraData.interests || [],
+        gender: extraData.gender || '',
       };
 
       const { error: upsertErr } = await supabase

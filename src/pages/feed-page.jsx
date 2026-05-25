@@ -20,6 +20,16 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -35,6 +45,14 @@ export default function FeedPage() {
   const [search, setSearch] = useState('');
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
+
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuPost, setMenuPost] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', caption: '' });
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -93,6 +111,68 @@ export default function FeedPage() {
     } else {
       await supabase.from('fitbuddy_saved_posts').insert({ post_id: postId, user_id: user.id });
       setSavedIds((prev) => new Set(prev).add(postId));
+    }
+  }
+
+  function openMenu(e, post) {
+    e.stopPropagation();
+    setMenuAnchor(e.currentTarget);
+    setMenuPost(post);
+  }
+
+  function closeMenu() {
+    setMenuAnchor(null);
+  }
+
+  function startEdit() {
+    closeMenu();
+    setEditForm({ title: menuPost.title || '', caption: menuPost.caption || '' });
+    setEditOpen(true);
+  }
+
+  function startDelete() {
+    closeMenu();
+    setDeleteOpen(true);
+  }
+
+  async function handleEditPost() {
+    if (!menuPost) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('fitbuddy_posts')
+        .update({ title: editForm.title, caption: editForm.caption })
+        .eq('id', menuPost.id)
+        .eq('user_id', user.id);
+      if (error) { alert('수정 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '게시글이 수정되었습니다.', severity: 'success' });
+      setEditOpen(false);
+      fetchPosts();
+    } catch (err) {
+      alert('오류: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDeletePost() {
+    if (!menuPost) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('fitbuddy_posts')
+        .delete()
+        .eq('id', menuPost.id)
+        .eq('user_id', user.id);
+      if (error) { alert('삭제 실패: ' + error.message); return; }
+      setSnack({ open: true, msg: '게시글이 삭제되었습니다.', severity: 'info' });
+      setDeleteOpen(false);
+      setPosts((prev) => prev.filter((p) => p.id !== menuPost.id));
+      setMenuPost(null);
+    } catch (err) {
+      alert('오류: ' + err.message);
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -167,6 +247,11 @@ export default function FeedPage() {
                     </Typography>
                   </Box>
                   <Chip label={typeLabel[post.post_type] || post.post_type} size='small' color='primary' variant='outlined' />
+                  {post.user_id === user?.id && (
+                    <IconButton size='small' onClick={(e) => openMenu(e, post)} sx={{ p: 0.3 }}>
+                      <MoreVertIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  )}
                 </Box>
 
                 {post.title && (
@@ -219,6 +304,46 @@ export default function FeedPage() {
           ))
         )}
       </Box>
+
+      {/* 컨텍스트 메뉴 */}
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+        <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
+        <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+      </Menu>
+
+      {/* 게시글 수정 다이얼로그 */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth='sm'>
+        <DialogTitle>게시글 수정</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField label='제목' value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} fullWidth size='small' />
+          <TextField label='내용' value={editForm.caption} onChange={(e) => setEditForm({ ...editForm, caption: e.target.value })} fullWidth multiline rows={4} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditOpen(false)}>취소</Button>
+          <Button variant='contained' onClick={handleEditPost} disabled={actionLoading} sx={{ bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}>
+            {actionLoading ? '저장 중...' : '저장'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={deleteOpen} onClose={() => !actionLoading && setDeleteOpen(false)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🗑️</Typography>
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>정말 삭제하시겠습니까?</Typography>
+          <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>이 작업은 되돌릴 수 없습니다.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setDeleteOpen(false)} disabled={actionLoading}>취소</Button>
+          <Button variant='contained' fullWidth color='error' onClick={handleDeletePost} disabled={actionLoading}>
+            {actionLoading ? '삭제 중...' : '삭제'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={2500} onClose={() => setSnack({ ...snack, open: false })} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert severity={snack.severity} onClose={() => setSnack({ ...snack, open: false })} sx={{ width: '100%' }}>{snack.msg}</Alert>
+      </Snackbar>
 
       {/* FAB */}
       <Fab

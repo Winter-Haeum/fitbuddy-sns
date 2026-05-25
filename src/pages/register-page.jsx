@@ -85,7 +85,7 @@ export default function RegisterPage() {
 
   const [form, setForm] = useState({
     email: '', password: '', confirmPw: '',
-    displayName: '', height: '', weight: '', goalWeight: '',
+    displayName: '', gender: '', height: '', weight: '', goalWeight: '',
     workoutGoals: [], interests: [],
   });
 
@@ -131,6 +131,7 @@ export default function RegisterPage() {
         goalWeight: form.goalWeight,
         workoutGoals: form.workoutGoals,
         interests: form.interests,
+        gender: form.gender,
       });
       // 회원가입 후 autoLogin 설정 (새로고침 시 자동 로그아웃 방지)
       localStorage.setItem('fitbuddy_autoLogin', '1');
@@ -230,6 +231,35 @@ export default function RegisterPage() {
           {step === 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField label='닉네임' value={form.displayName} onChange={(e) => update('displayName', e.target.value)} fullWidth sx={inputSx} />
+
+              {/* 성별 선택 */}
+              <Box>
+                <Typography variant='body2' sx={{ fontWeight: 600, mb: 1, color: '#333' }}>성별</Typography>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                  {[
+                    { value: 'female', label: '여성', char: <FitBuddyCharacter size={44} gender='female' /> },
+                    { value: 'male', label: '남성', char: <FitBuddyCharacter size={44} gender='male' /> },
+                  ].map((opt) => (
+                    <Box
+                      key={opt.value}
+                      onClick={() => update('gender', opt.value)}
+                      sx={{
+                        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        py: 1.5, borderRadius: 3, cursor: 'pointer',
+                        border: `2px solid ${form.gender === opt.value ? '#6BCB77' : '#E0E0E0'}`,
+                        bgcolor: form.gender === opt.value ? '#E8F5E9' : '#FAFAFA',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {opt.char}
+                      <Typography variant='caption' sx={{ fontWeight: form.gender === opt.value ? 700 : 400, color: form.gender === opt.value ? '#2E7D32' : '#757575' }}>
+                        {opt.label}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+
               <TextField label='이메일' type='email' value={form.email} onChange={(e) => update('email', e.target.value)} fullWidth sx={inputSx} />
               <TextField
                 label='비밀번호'

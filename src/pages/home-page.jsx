@@ -132,7 +132,7 @@ export default function HomePage() {
       .from('fitbuddy_characters')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
       .then(({ data }) => setCharacter(data));
 
     supabase

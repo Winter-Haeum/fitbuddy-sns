@@ -95,7 +95,7 @@ export function AuthProvider({ children }) {
           .from('fitbuddy_users')
           .upsert(profilePayload, { onConflict: 'id' })
           .select()
-          .single();
+          .maybeSingle();
 
         if (createErr) console.error('프로필 자동 생성 오류:', createErr);
         setProfile(created || profilePayload);

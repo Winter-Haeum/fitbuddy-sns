@@ -151,7 +151,7 @@ export default function TimerPage() {
         .from('fitbuddy_characters')
         .select('experience, points, growth_stage, level')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (charData) {
         const newXp = (charData.experience || 0) + xpGain;

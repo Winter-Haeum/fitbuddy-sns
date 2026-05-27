@@ -51,7 +51,7 @@ export default function ProfilePage() {
     fetchMyPosts();
     fetchSavedPosts();
     fetchStats();
-    supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).single()
+    supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setCharacter(data));
   }, [user]);
 

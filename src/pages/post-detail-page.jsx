@@ -53,7 +53,7 @@ export default function PostDetailPage() {
       .from('fitbuddy_posts')
       .select('*, fitbuddy_users(display_name, avatar_url, username, role), fitbuddy_workouts(workout_type, duration_minutes, calories_burned)')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     setPost(data);
     setLoading(false);
   }
@@ -77,7 +77,7 @@ export default function PostDetailPage() {
       .select('id')
       .eq('post_id', id)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
     setLiked(!!data);
   }
 

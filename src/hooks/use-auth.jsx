@@ -34,10 +34,12 @@ export function AuthProvider({ children }) {
           }
         }
 
-        setUser(session?.user ?? null);
         if (session?.user) {
-          fetchProfile(session.user.id, timeout);
+          // user를 즉시 설정하지 않음 — fetchProfile이 탈퇴 여부 검증 후 setUser 호출
+          setLoading(true);
+          fetchProfile(session.user.id, timeout, session.user);
         } else {
+          setUser(null);
           setProfile(null);
           clearTimeout(timeout);
           safeSetLoadingFalse();
@@ -56,7 +58,7 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function fetchProfile(userId, timeout) {
+  async function fetchProfile(userId, timeout, sessionUser) {
     try {
       const { data, error } = await supabase
         .from('fitbuddy_users')
@@ -74,6 +76,7 @@ export function AuthProvider({ children }) {
           safeSetLoadingFalse();
           return;
         }
+        if (sessionUser) setUser(sessionUser);
         setProfile(data);
       } else {
         // 프로필이 없으면 자동 생성 (이메일 인증 타이밍 이슈 방어)
@@ -107,6 +110,7 @@ export function AuthProvider({ children }) {
           .maybeSingle();
 
         if (createErr) console.error('프로필 자동 생성 오류:', createErr);
+        if (sessionUser) setUser(sessionUser);
         setProfile(created || profilePayload);
 
         // 캐릭터도 없으면 자동 생성
@@ -123,6 +127,8 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error('fetchProfile 오류:', err);
       setProfile(null);
+      // 프로필 조회 실패 시에도 sessionUser가 있으면 user는 유지
+      if (sessionUser) setUser(sessionUser);
     } finally {
       if (timeout) clearTimeout(timeout);
       safeSetLoadingFalse();
@@ -189,7 +195,7 @@ export function AuthProvider({ children }) {
 
     if (profileData?.is_deleted === true) {
       await supabase.auth.signOut();
-      const deletedErr = new Error('탈퇴 처리된 계정입니다. 다시 가입해주세요.');
+      const deletedErr = new Error('가입되지 않은 이메일입니다.');
       deletedErr.code = 'ACCOUNT_DELETED';
       throw deletedErr;
     }

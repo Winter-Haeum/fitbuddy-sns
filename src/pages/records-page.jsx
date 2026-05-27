@@ -74,6 +74,8 @@ export default function RecordsPage() {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const todayDiaryLog = diaryLogs.find((l) => l.log_date === today) || null;
+
   useEffect(() => {
     if (!user) return;
     fetchAll();
@@ -126,6 +128,14 @@ export default function RecordsPage() {
     }
   }
 
+  function openDiaryModal() {
+    setDiaryForm({
+      mood: todayDiaryLog?.mood_status || '',
+      content: todayDiaryLog?.diary_content || '',
+    });
+    setDiaryOpen(true);
+  }
+
   async function saveDiary() {
     if (!diaryForm.mood && !diaryForm.content.trim()) return;
     setDiaryLoading(true);
@@ -150,8 +160,8 @@ export default function RecordsPage() {
         .from('fitbuddy_daily_logs')
         .upsert(upsertData, { onConflict: 'user_id,log_date' });
 
-      // auto_workout_summary 컬럼 없는 경우 fallback
-      if (error && error.message?.includes('auto_workout_summary')) {
+      // auto_workout_summary 컬럼 없는 경우 fallback (에러코드 42703 = undefined_column)
+      if (error && (error.code === '42703' || error.message?.includes('auto_workout_summary'))) {
         delete upsertData.auto_workout_summary;
         const fallback = await supabase
           .from('fitbuddy_daily_logs')
@@ -385,7 +395,7 @@ export default function RecordsPage() {
               variant='contained'
               fullWidth
               size='large'
-              onClick={() => setDiaryOpen(true)}
+              onClick={openDiaryModal}
               sx={{ mb: 2, bgcolor: '#5DA9E9', '&:hover': { bgcolor: '#4A96D8' } }}
             >
               ✍️ 운동 일기 쓰기

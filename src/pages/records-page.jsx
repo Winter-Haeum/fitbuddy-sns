@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -20,8 +20,10 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import Fab from '@mui/material/Fab';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -43,12 +45,17 @@ const TAB_LIST = ['운동 기록', '운동 일기'];
 
 export default function RecordsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(location.state?.initialTab ?? 0);
   const [weekWorkouts, setWeekWorkouts] = useState([]);
   const [diaryLogs, setDiaryLogs] = useState([]);
   const [todayWorkouts, setTodayWorkouts] = useState([]);
-  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+  const [snack, setSnack] = useState(
+    location.state?.saved
+      ? { open: true, msg: '운동 기록이 저장되었습니다 💪', severity: 'success' }
+      : { open: false, msg: '', severity: 'success' }
+  );
 
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [diaryForm, setDiaryForm] = useState({ mood: '', content: '' });
@@ -126,12 +133,30 @@ export default function RecordsPage() {
       const upsertData = { user_id: user.id, log_date: today };
       if (diaryForm.mood) upsertData.mood_status = diaryForm.mood;
       if (diaryForm.content.trim()) upsertData.diary_content = diaryForm.content.trim();
+      if (todayWorkouts.length > 0) {
+        upsertData.auto_workout_summary = {
+          count: todayWorkouts.length,
+          duration: todayStats.duration,
+          calories: todayStats.calories,
+          types: [...new Set(todayWorkouts.map((w) => w.workout_type))],
+        };
+      }
 
       console.log('SAVE START:', upsertData);
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from('fitbuddy_daily_logs')
         .upsert(upsertData, { onConflict: 'user_id,log_date' });
+
+      // auto_workout_summary 컬럼 없는 경우 fallback
+      if (error && error.message?.includes('auto_workout_summary')) {
+        delete upsertData.auto_workout_summary;
+        const fallback = await supabase
+          .from('fitbuddy_daily_logs')
+          .upsert(upsertData, { onConflict: 'user_id,log_date' });
+        error = fallback.error;
+      }
+
       console.log('INSERT ERROR:', error);
       if (error) {
         console.error('SUPABASE ERROR:', error);
@@ -390,6 +415,15 @@ export default function RecordsPage() {
                           ) : (
                             <Typography variant='caption' color='text.secondary'>컨디션만 기록됨</Typography>
                           )}
+                          {log.auto_workout_summary && (
+                            <Box sx={{ mt: 0.8, px: 1, py: 0.5, bgcolor: '#E8F5E9', borderRadius: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                              <FitnessCenterIcon sx={{ fontSize: 12, color: '#4CAF50' }} />
+                              <Typography variant='caption' sx={{ color: '#2E7D32', fontSize: '0.7rem' }}>
+                                {log.auto_workout_summary.count}회 · {log.auto_workout_summary.duration}분 · {log.auto_workout_summary.calories}kcal
+                                {log.auto_workout_summary.types?.length > 0 && ` (${log.auto_workout_summary.types.join(', ')})`}
+                              </Typography>
+                            </Box>
+                          )}
                         </Box>
                         <IconButton size='small' onClick={(e) => openMenu(e, 'diary', log)} sx={{ p: 0.3 }}>
                           <MoreVertIcon sx={{ fontSize: 16 }} />
@@ -504,7 +538,7 @@ export default function RecordsPage() {
       >
         <DialogTitle>운동 일기 쓰기 ✍️</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          {todayWorkouts.length > 0 && (
+          {todayWorkouts.length > 0 ? (
             <Card sx={{ bgcolor: '#E8F5E9', border: '1px solid #C8E6C9' }}>
               <CardContent sx={{ py: 1.5 }}>
                 <Typography variant='caption' sx={{ fontWeight: 700, color: '#4CAF5A', display: 'block', mb: 0.5 }}>
@@ -515,6 +549,12 @@ export default function RecordsPage() {
                 </Typography>
               </CardContent>
             </Card>
+          ) : (
+            <Box sx={{ bgcolor: '#FFF8E1', border: '1px solid #FFE082', borderRadius: 2, px: 2, py: 1.5 }}>
+              <Typography variant='caption' sx={{ color: '#F57F17' }}>
+                ⚠️ 오늘 저장된 운동 기록이 없습니다.
+              </Typography>
+            </Box>
           )}
           <Box>
             <Typography variant='body2' sx={{ fontWeight: 700, mb: 1 }}>오늘의 컨디션</Typography>
@@ -558,6 +598,20 @@ export default function RecordsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {tab === 0 && (
+        <Fab
+          onClick={() => navigate('/timer')}
+          sx={{
+            position: 'fixed', bottom: 80, right: 16,
+            bgcolor: '#5FCB77', color: 'white',
+            '&:hover': { bgcolor: '#4DBB68' },
+            boxShadow: '0 4px 16px rgba(95,203,119,0.4)',
+          }}
+        >
+          <DirectionsRunIcon />
+        </Fab>
+      )}
 
       <Snackbar
         open={snack.open}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { keyframes } from '@emotion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -68,6 +68,7 @@ const MOODS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile, signOut } = useAuth();
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [character, setCharacter] = useState(null);
@@ -162,7 +163,7 @@ export default function HomePage() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .then(({ count }) => setJoinedCount(count || 0));
-  }, [user]);
+  }, [user, location.key]);
 
   const goalMinutes = 60;
   const progress = todayWorkout ? Math.min((todayWorkout.duration / goalMinutes) * 100, 100) : 0;

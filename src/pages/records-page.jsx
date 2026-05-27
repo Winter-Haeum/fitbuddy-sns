@@ -138,6 +138,8 @@ export default function RecordsPage() {
           count: todayWorkouts.length,
           duration: todayStats.duration,
           calories: todayStats.calories,
+          rest_seconds: todayStats.rest_seconds,
+          steps: todayStats.steps,
           types: [...new Set(todayWorkouts.map((w) => w.workout_type))],
         };
       }
@@ -297,8 +299,13 @@ export default function RecordsPage() {
   }
 
   const todayStats = todayWorkouts.reduce(
-    (acc, w) => ({ duration: acc.duration + (w.duration_minutes || 0), calories: acc.calories + (w.calories_burned || 0) }),
-    { duration: 0, calories: 0 }
+    (acc, w) => ({
+      duration: acc.duration + (w.duration_minutes || 0),
+      calories: acc.calories + (w.calories_burned || 0),
+      rest_seconds: acc.rest_seconds + (w.rest_seconds || 0),
+      steps: acc.steps + (w.steps || 0),
+    }),
+    { duration: 0, calories: 0, rest_seconds: 0, steps: 0 }
   );
 
   return (
@@ -420,6 +427,7 @@ export default function RecordsPage() {
                               <FitnessCenterIcon sx={{ fontSize: 12, color: '#4CAF50' }} />
                               <Typography variant='caption' sx={{ color: '#2E7D32', fontSize: '0.7rem' }}>
                                 {log.auto_workout_summary.count}회 · {log.auto_workout_summary.duration}분 · {log.auto_workout_summary.calories}kcal
+                                {log.auto_workout_summary.steps > 0 && ` · ${log.auto_workout_summary.steps.toLocaleString()}걸음`}
                                 {log.auto_workout_summary.types?.length > 0 && ` (${log.auto_workout_summary.types.join(', ')})`}
                               </Typography>
                             </Box>
@@ -546,6 +554,7 @@ export default function RecordsPage() {
                 </Typography>
                 <Typography variant='body2' sx={{ color: '#2E7D32' }}>
                   {todayWorkouts.length}회 운동 · {todayStats.duration}분 · {todayStats.calories}kcal
+                  {todayStats.steps > 0 && ` · ${todayStats.steps.toLocaleString()}걸음`}
                 </Typography>
               </CardContent>
             </Card>

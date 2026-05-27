@@ -39,10 +39,21 @@ function formatTime(seconds) {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// 타이머 상태: idle | running | paused | resting | completed
-function getTimerStatus(running, resting, saved, seconds) {
+/**
+ * 타이머 상태:
+ * idle        → 대기 (seconds=0, 미시작)
+ * running     → 운동 중
+ * paused      → 운동 일시정지 (seconds>0)
+ * rest_waiting → 휴식 대기 (resting=true, restRunning=false, currentRestSeconds=0)
+ * resting     → 휴식 중 (resting=true, restRunning=true)
+ * rest_paused → 휴식 일시정지 (resting=true, restRunning=false, currentRestSeconds>0)
+ * completed   → 저장 완료
+ */
+function getStatus(running, resting, restRunning, saved, seconds, currentRestSeconds) {
   if (saved) return 'completed';
-  if (resting) return 'resting';
+  if (resting && restRunning) return 'resting';
+  if (resting && !restRunning && currentRestSeconds > 0) return 'rest_paused';
+  if (resting && !restRunning) return 'rest_waiting';
   if (running) return 'running';
   if (seconds > 0) return 'paused';
   return 'idle';
@@ -56,19 +67,27 @@ export default function TimerPage() {
 
   const [workoutType, setWorkoutType] = useState(preset.workoutType || '헬스');
   const [intensity, setIntensity] = useState('medium');
+
+  // 운동 타이머
   const [seconds, setSeconds] = useState(0);
   const [running, setRunning] = useState(false);
+
+  // 휴식 상태 분리: resting=모드 진입, restRunning=실제 타이머 작동
+  const [resting, setResting] = useState(false);
+  const [restRunning, setRestRunning] = useState(false);
   const [currentRestSeconds, setCurrentRestSeconds] = useState(0);
   const [totalRestSeconds, setTotalRestSeconds] = useState(0);
-  const [resting, setResting] = useState(false);
+
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+
   const intervalRef = useRef(null);
   const restRef = useRef(null);
 
-  const status = getTimerStatus(running, resting, saved, seconds);
+  const status = getStatus(running, resting, restRunning, saved, seconds, currentRestSeconds);
 
+  // 운동 타이머
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -78,42 +97,46 @@ export default function TimerPage() {
     return () => clearInterval(intervalRef.current);
   }, [running]);
 
+  // 휴식 타이머 - restRunning이 true일 때만 작동
   useEffect(() => {
-    if (resting) {
+    if (restRunning) {
       restRef.current = setInterval(() => {
         setCurrentRestSeconds((s) => s + 1);
         setTotalRestSeconds((s) => s + 1);
       }, 1000);
     } else {
       clearInterval(restRef.current);
-      setCurrentRestSeconds(0);
     }
     return () => clearInterval(restRef.current);
-  }, [resting]);
+  }, [restRunning]);
 
-  // 첫 번째 버튼: 시작 / 일시정지 / 재개
-  // 휴식 중에도 이 버튼을 누르면 → 휴식 종료 + 운동 재개
+  // 시작/일시정지/재개 버튼
+  // - 운동 모드: 운동 타이머 토글
+  // - 휴식 모드: 휴식 타이머 토글
   function handleStartPause() {
     if (saved) return;
     if (resting) {
-      setResting(false);
-      setRunning(true);
+      setRestRunning((prev) => !prev);
     } else {
       setRunning((prev) => !prev);
     }
   }
 
-  // 두 번째 버튼: 휴식 ↔ 운동 전환
-  // 운동→휴식: 운동 타이머 정지, 휴식 타이머 시작
-  // 휴식→운동: 휴식 타이머 정지, 운동 모드로 전환 (자동 시작 X)
+  // 휴식 ↔ 운동 전환 버튼
+  // - 운동 → 휴식: 운동 정지, 휴식 대기 상태로 진입 (타이머 자동 시작 안 함)
+  // - 휴식 → 운동: 휴식 종료, 운동 대기 상태로 복귀 (타이머 자동 시작 안 함)
   function handleRest() {
     if (seconds === 0 || saved) return;
     if (resting) {
+      setRestRunning(false);
       setResting(false);
-      setRunning(false); // 자동 시작 안 함, 재개 대기
+      setCurrentRestSeconds(0);
+      setRunning(false); // 재개는 사용자가 직접
     } else {
       setRunning(false);
       setResting(true);
+      setRestRunning(false); // 자동 시작 안 함
+      setCurrentRestSeconds(0);
     }
   }
 
@@ -121,7 +144,9 @@ export default function TimerPage() {
     if (!user || seconds === 0 || saved) return;
     setSaving(true);
     const minutes = Math.ceil(seconds / 60);
-    const cal = Math.round(minutes * (INTENSITIES.find((i) => i.value === intensity)?.cal || 7));
+    const intensityObj = INTENSITIES.find((i) => i.value === intensity);
+    const cal = Math.round(minutes * (intensityObj?.cal || 7));
+    const today = new Date().toISOString().split('T')[0];
 
     const payload = {
       user_id: user.id,
@@ -129,22 +154,19 @@ export default function TimerPage() {
       duration_minutes: minutes,
       intensity,
       calories_burned: cal,
-      workout_date: new Date().toISOString().split('T')[0],
+      steps: 0,
+      workout_date: today,
       workout_seconds: seconds,
       rest_seconds: totalRestSeconds,
       workout_status: 'completed',
     };
-    console.log('SAVE START:', payload);
 
     try {
       const { error } = await supabase.from('fitbuddy_workouts').insert(payload);
-      console.log('INSERT ERROR:', error);
       if (error) {
-        console.error('SUPABASE ERROR:', error);
         setSnack({ open: true, msg: '저장 실패: ' + error.message, severity: 'error' });
         return;
       }
-      console.log('운동 저장 성공');
 
       // 캐릭터 XP/포인트 업데이트
       const xpGain = minutes;
@@ -174,13 +196,17 @@ export default function TimerPage() {
 
       setRunning(false);
       setResting(false);
+      setRestRunning(false);
       setSaved(true);
-      setSnack({ open: true, msg: `운동 완료! ${minutes}분 ${cal}kcal · +${xpGain}XP +${pointsGain}pt 💪`, severity: 'success' });
+      setSnack({
+        open: true,
+        msg: `운동 기록이 저장되었습니다. ${minutes}분 ${cal}kcal · +${xpGain}XP +${pointsGain}pt 💪`,
+        severity: 'success',
+      });
 
-      // 2초 후 기록관으로 이동
       setTimeout(() => navigate('/records', { state: { initialTab: 0, saved: true } }), 2000);
     } catch (err) {
-      console.error('예상 못한 오류:', err);
+      console.error('운동 저장 오류:', err);
       setSnack({ open: true, msg: '저장에 실패했습니다.', severity: 'error' });
     } finally {
       setSaving(false);
@@ -190,6 +216,7 @@ export default function TimerPage() {
   function handleReset() {
     setRunning(false);
     setResting(false);
+    setRestRunning(false);
     setSeconds(0);
     setCurrentRestSeconds(0);
     setTotalRestSeconds(0);
@@ -197,19 +224,20 @@ export default function TimerPage() {
   }
 
   const minutes = Math.floor(seconds / 60);
-  const intensity_obj = INTENSITIES.find((i) => i.value === intensity);
-  const calories = Math.round(minutes * (intensity_obj?.cal || 7));
+  const intensityObj = INTENSITIES.find((i) => i.value === intensity);
+  const calories = Math.round(minutes * (intensityObj?.cal || 7));
 
-  // 휴식 중에는 현재 휴식 시간 기준으로 원형 진행률
-  const progress = resting
-    ? Math.min((currentRestSeconds % 60) / 60 * 100, 100)
-    : Math.min((seconds % 60) / 60 * 100, 100);
+  // 원형 진행: 휴식 중에는 현재 휴식 시간, 아니면 운동 시간 기준 (1분 단위 루프)
+  const progressVal = (resting ? currentRestSeconds : seconds) % 60;
+  const progress = Math.min((progressVal / 60) * 100, 100);
 
   const statusLabels = {
     idle: '대기 중',
     running: '운동 중 💪',
     paused: '일시정지 ⏸',
+    rest_waiting: '휴식 대기 중 😴',
     resting: '휴식 중 😴',
+    rest_paused: '휴식 일시정지 ⏸',
     completed: '운동 완료 ✅',
   };
 
@@ -217,15 +245,22 @@ export default function TimerPage() {
     idle: '#9E9E9E',
     running: '#5FCB77',
     paused: '#FF7043',
+    rest_waiting: '#5DA9E9',
     resting: '#5DA9E9',
+    rest_paused: '#FF7043',
     completed: '#A084E8',
   };
 
-  // 첫 번째 버튼 레이블
-  const btn1Label = status === 'idle' ? '시작'
-    : status === 'running' ? '일시정지'
-    : status === 'completed' ? '완료됨'
-    : '재개'; // paused | resting
+  // btn1: 시작 / 일시정지 / 재개 (운동/휴식 모드 공통)
+  const btn1Label = (() => {
+    if (status === 'completed') return '완료됨';
+    if (status === 'running') return '일시정지';
+    if (status === 'resting') return '일시정지';
+    if (status === 'rest_waiting') return '시작';
+    return '재개'; // paused | rest_paused | idle (idle엔 비활성이지만 레이블 필요)
+  })();
+
+  const isSettingDisabled = ['running', 'paused', 'resting', 'rest_waiting', 'rest_paused'].includes(status);
 
   return (
     <Layout>
@@ -241,7 +276,7 @@ export default function TimerPage() {
                 value={workoutType}
                 onChange={(e) => setWorkoutType(e.target.value)}
                 label='운동 종류'
-                disabled={status === 'running' || status === 'paused' || status === 'resting'}
+                disabled={isSettingDisabled}
               >
                 {WORKOUT_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </Select>
@@ -252,7 +287,7 @@ export default function TimerPage() {
                 value={intensity}
                 onChange={(e) => setIntensity(e.target.value)}
                 label='강도'
-                disabled={status === 'running' || status === 'paused' || status === 'resting'}
+                disabled={isSettingDisabled}
               >
                 {INTENSITIES.map((i) => <MenuItem key={i.value} value={i.value}>{i.label}</MenuItem>)}
               </Select>
@@ -279,7 +314,7 @@ export default function TimerPage() {
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: 0.3,
               }}>
-                {/* 메인 타이머: 휴식 중에는 휴식 시간, 아니면 운동 시간 */}
+                {/* 휴식 모드에서는 현재 휴식 타이머, 아니면 운동 타이머 */}
                 <Typography sx={{ fontSize: '2.5rem', fontWeight: 700, fontFamily: 'monospace', color: statusColors[status], lineHeight: 1 }}>
                   {resting ? formatTime(currentRestSeconds) : formatTime(seconds)}
                 </Typography>
@@ -309,15 +344,14 @@ export default function TimerPage() {
               </Box>
             </Box>
 
-            {/* 칼로리 + 시간 칩 */}
+            {/* 칩 */}
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
               <Chip icon={<FitnessCenterIcon />} label={`${minutes}분`} color='primary' variant='outlined' size='small' />
               <Chip label={`🔥 ${calories} kcal`} color='warning' variant='outlined' size='small' />
               {totalRestSeconds > 0 && (
                 <Chip
                   label={`💤 ${formatTime(totalRestSeconds)}`}
-                  variant='outlined'
-                  size='small'
+                  variant='outlined' size='small'
                   sx={{ color: '#5DA9E9', borderColor: '#5DA9E9' }}
                 />
               )}
@@ -325,24 +359,37 @@ export default function TimerPage() {
 
             {/* 버튼 */}
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-              {/* 첫 번째: 시작/일시정지/재개 */}
+              {/* 시작 / 일시정지 / 재개 */}
               <Button
                 variant='contained'
                 size='large'
-                startIcon={status === 'running' ? <PauseIcon /> : <PlayArrowIcon />}
+                startIcon={['running', 'resting'].includes(status) ? <PauseIcon /> : <PlayArrowIcon />}
                 onClick={handleStartPause}
-                disabled={status === 'completed'}
+                disabled={status === 'completed' || status === 'idle'}
                 sx={{
                   px: 3,
-                  bgcolor: status === 'running' ? '#FF7043' : '#5FCB77',
-                  '&:hover': { bgcolor: status === 'running' ? '#E55C2F' : '#4DBB68' },
+                  bgcolor: ['running', 'resting'].includes(status) ? '#FF7043' : '#5FCB77',
+                  '&:hover': { bgcolor: ['running', 'resting'].includes(status) ? '#E55C2F' : '#4DBB68' },
                   '&:disabled': { bgcolor: '#E0E0E0' },
                 }}
               >
                 {btn1Label}
               </Button>
 
-              {/* 두 번째: 휴식 ↔ 운동 전환 */}
+              {/* 시작 버튼 (idle 상태만) */}
+              {status === 'idle' && (
+                <Button
+                  variant='contained'
+                  size='large'
+                  startIcon={<PlayArrowIcon />}
+                  onClick={() => setRunning(true)}
+                  sx={{ px: 3, bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}
+                >
+                  시작
+                </Button>
+              )}
+
+              {/* 휴식 ↔ 운동 전환 */}
               <Button
                 variant='outlined'
                 size='large'

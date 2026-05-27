@@ -65,6 +65,14 @@ export function AuthProvider({ children }) {
         .maybeSingle();
 
       if (data) {
+        if (data.is_deleted === true) {
+          if (timeout) clearTimeout(timeout);
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          safeSetLoadingFalse();
+          return;
+        }
         setProfile(data);
       } else {
         // 프로필이 없으면 자동 생성 (이메일 인증 타이밍 이슈 방어)
@@ -171,6 +179,20 @@ export function AuthProvider({ children }) {
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    const { data: profileData } = await supabase
+      .from('fitbuddy_users')
+      .select('is_deleted')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profileData?.is_deleted === true) {
+      await supabase.auth.signOut();
+      const deletedErr = new Error('탈퇴 처리된 계정입니다. 다시 가입해주세요.');
+      deletedErr.code = 'ACCOUNT_DELETED';
+      throw deletedErr;
+    }
+
     return data;
   }
 

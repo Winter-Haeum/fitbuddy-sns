@@ -173,6 +173,11 @@ export default function ProfilePage() {
     setDeleteLoading(true);
     setDeleteError('');
     try {
+      const { error } = await supabase
+        .from('fitbuddy_users')
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) throw error;
       await signOut();
       navigate('/login');
     } catch (err) {

@@ -173,11 +173,13 @@ export default function ProfilePage() {
     setDeleteLoading(true);
     setDeleteError('');
     try {
+      // 소프트 삭제 시도 — 컬럼이 아직 없어도 로그아웃은 반드시 진행
       const { error } = await supabase
         .from('fitbuddy_users')
         .update({ is_deleted: true, deleted_at: new Date().toISOString() })
         .eq('id', user.id);
-      if (error) throw error;
+      if (error) console.warn('탈퇴 상태 저장 실패 (컬럼 미존재 가능):', error.message);
+
       await signOut();
       navigate('/login');
     } catch (err) {

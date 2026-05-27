@@ -33,15 +33,12 @@ function ProtectedRoute({ children }) {
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress sx={{ color: '#6BCB77' }} />
-      </Box>
-    );
-  }
+  // 로딩이 완전히 끝나고 user가 확인된 경우에만 이동
+  // 로딩 중에는 children(LoginPage)을 언마운트하지 않음
+  // → 언마운트 시 error/state가 초기화되는 문제 방지
+  if (!loading && user) return <Navigate to='/' replace />;
 
-  return user ? <Navigate to='/' replace /> : children;
+  return children;
 }
 
 export default function App() {

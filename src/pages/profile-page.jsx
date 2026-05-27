@@ -173,15 +173,6 @@ export default function ProfilePage() {
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      const { error } = await supabase
-        .from('fitbuddy_users')
-        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
-        .eq('id', user.id);
-      if (error) {
-        console.error('탈퇴 처리 오류:', error);
-        setDeleteError('탈퇴 처리 중 오류가 발생했습니다: ' + error.message);
-        return;
-      }
       await signOut();
       navigate('/login');
     } catch (err) {

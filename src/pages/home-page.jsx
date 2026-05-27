@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { keyframes } from '@emotion/react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -28,6 +29,19 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../utils/supabase';
 import Layout from '../components/common/layout';
+
+const confettiFall = keyframes({
+  '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
+  '100%': { transform: 'translateY(160px) rotate(540deg)', opacity: 0 },
+});
+
+const CONFETTI_COLORS = ['#5FCB77', '#FFB300', '#5DA9E9', '#A084E8', '#FF7043', '#FF9AA2'];
+const CONFETTI_PIECES = Array.from({ length: 16 }, (_, i) => ({
+  x: 2 + i * 6.2,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  delay: parseFloat(((i * 0.12) % 1.6).toFixed(2)),
+  isSquare: i % 3 === 0,
+}));
 
 const QUOTES = [
   '오늘의 땀이 내일의 자신감을 만든다.',
@@ -161,6 +175,7 @@ export default function HomePage() {
   }
 
   const activityState = getActivityState();
+  const characterMood = progress === 0 ? 'idle' : progress >= 70 ? 'celebrating' : progress >= 30 ? 'running' : 'active';
 
   return (
     <Layout>
@@ -215,58 +230,91 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 2. 캐릭터 상태 카드 */}
-        <Card sx={{ mb: 2, cursor: 'pointer' }} onClick={() => navigate('/character')}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {/* 원형 게이지 */}
-              <Box sx={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
-                <svg width='100' height='100' viewBox='0 0 100 100'>
-                  <circle cx='50' cy='50' r='42' fill='none' stroke='#E8F5E9' strokeWidth='8' />
-                  <circle
-                    cx='50' cy='50' r='42'
-                    fill='none'
-                    stroke={progress >= 100 ? '#FFB300' : '#5FCB77'}
-                    strokeWidth='8'
-                    strokeLinecap='round'
-                    strokeDasharray={`${(progress / 100) * 2 * Math.PI * 42} ${2 * Math.PI * 42}`}
-                    transform='rotate(-90 50 50)'
-                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
-                  />
-                </svg>
-                <Box sx={{
-                  position: 'absolute', inset: 0,
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Typography sx={{ fontSize: '1.3rem', fontWeight: 700, color: progress >= 100 ? '#FFB300' : '#5FCB77', lineHeight: 1 }}>
-                    {todayWorkout?.duration || 0}
-                  </Typography>
-                  <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.6rem', lineHeight: 1 }}>분</Typography>
-                  <Typography variant='caption' sx={{ color: '#B0BEC5', fontSize: '0.55rem' }}>/{goalMinutes}분</Typography>
-                </Box>
+        {/* 2. 캐릭터 게이지 카드 */}
+        <Card sx={{ mb: 2, cursor: 'pointer', overflow: 'hidden', position: 'relative' }} onClick={() => navigate('/character')}>
+          {/* 폭죽 효과 (100% 달성 시) */}
+          {progress >= 100 && (
+            <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 5 }}>
+              {CONFETTI_PIECES.map((p, i) => (
+                <Box key={i} sx={{
+                  position: 'absolute',
+                  left: `${p.x}%`,
+                  top: 0,
+                  width: p.isSquare ? 9 : 7,
+                  height: p.isSquare ? 7 : 9,
+                  borderRadius: p.isSquare ? '2px' : '50%',
+                  bgcolor: p.color,
+                  animation: `${confettiFall} 1.6s ${p.delay}s ease-in infinite`,
+                }} />
+              ))}
+            </Box>
+          )}
+
+          <CardContent sx={{ pb: 1.5, position: 'relative', zIndex: 6 }}>
+            {/* 헤더 */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Typography variant='h4' sx={{ fontWeight: 700 }}>오늘의 운동 목표</Typography>
+                <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: '0.65rem' }} />
+              </Box>
+              <Chip
+                label={progress >= 100 ? '🏆 달성!' : `${Math.round(progress)}%`}
+                size='small'
+                sx={{
+                  bgcolor: progress >= 100 ? '#FFB300' : `${activityState.color}22`,
+                  color: progress >= 100 ? 'white' : activityState.color,
+                  fontWeight: 700,
+                }}
+              />
+            </Box>
+            <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1.5 }}>
+              {character?.character_name || '내 캐릭터'} · {activityState.label} {activityState.emoji}
+            </Typography>
+
+            {/* 게이지 트랙 */}
+            <Box sx={{ position: 'relative', height: 84, mx: 0.5 }}>
+              {/* 캐릭터 (게이지 위에서 이동) */}
+              <Box sx={{
+                position: 'absolute',
+                bottom: 16,
+                left: `calc(${Math.min(Math.max(progress, 0), 93)}% - 22px)`,
+                transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                zIndex: 2,
+                filter: progress >= 100 ? 'drop-shadow(0 0 8px rgba(255,179,0,0.8))' : 'none',
+              }}>
+                <FitBuddyCharacter size={44} gender={profile?.gender || 'female'} mood={characterMood} />
               </Box>
 
-              {/* 캐릭터 + 정보 */}
-              <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 1 }}>
-                <FitBuddyCharacter size={70} gender={profile?.gender || 'female'} />
-                <Box>
-                  <Typography variant='h4' sx={{ fontWeight: 600 }}>
-                    {character?.character_name || '내 캐릭터'}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                    <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
-                    <Chip
-                      label={activityState.label}
-                      size='small'
-                      sx={{ bgcolor: activityState.color + '22', color: activityState.color, fontWeight: 600 }}
-                    />
-                  </Box>
-                  <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mt: 0.5 }}>
-                    {progress >= 100 ? '🏆 오늘 목표 달성!' : `달성률 ${Math.round(progress)}%`}
-                  </Typography>
-                </Box>
+              {/* 진행 바 트랙 */}
+              <Box sx={{
+                position: 'absolute',
+                bottom: 4,
+                left: 0, right: 0,
+                height: 12,
+                bgcolor: '#F0F0F0',
+                borderRadius: 6,
+                overflow: 'hidden',
+              }}>
+                <Box sx={{
+                  width: `${progress}%`,
+                  minWidth: progress > 0 ? 12 : 0,
+                  height: '100%',
+                  borderRadius: 6,
+                  background: progress >= 100
+                    ? 'linear-gradient(90deg, #FFB300, #FF8F00)'
+                    : progress >= 60
+                    ? 'linear-gradient(90deg, #5FCB77, #5DA9E9)'
+                    : 'linear-gradient(90deg, #5FCB77, #6BCB77)',
+                  transition: 'width 0.7s ease',
+                  boxShadow: progress > 0 ? '0 1px 4px rgba(95,203,119,0.4)' : 'none',
+                }} />
               </Box>
+            </Box>
+
+            {/* 시간 라벨 */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant='caption' color='text.secondary'>{todayWorkout?.duration || 0}분</Typography>
+              <Typography variant='caption' color='text.secondary'>목표 {goalMinutes}분</Typography>
             </Box>
           </CardContent>
         </Card>

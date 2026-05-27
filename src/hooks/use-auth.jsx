@@ -67,6 +67,7 @@ export function AuthProvider({ children }) {
       if (data) {
         if (data.is_deleted === true) {
           if (timeout) clearTimeout(timeout);
+          localStorage.removeItem('fitbuddy_autoLogin');
           await supabase.auth.signOut();
           setUser(null);
           setProfile(null);

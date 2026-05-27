@@ -60,6 +60,7 @@ export default function RecordsPage() {
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [diaryForm, setDiaryForm] = useState({ mood: '', content: '' });
   const [diaryLoading, setDiaryLoading] = useState(false);
+  const [todayConditionLog, setTodayConditionLog] = useState(null);
 
   // 메뉴 & 수정/삭제 상태
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -74,15 +75,13 @@ export default function RecordsPage() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const todayDiaryLog = diaryLogs.find((l) => l.log_date === today) || null;
-
   useEffect(() => {
     if (!user) return;
     fetchAll();
   }, [user]);
 
   async function fetchAll() {
-    await Promise.all([fetchWeekWorkouts(), fetchDiaryLogs(), fetchTodayWorkouts()]);
+    await Promise.all([fetchWeekWorkouts(), fetchDiaryLogs(), fetchTodayWorkouts(), fetchTodayCondition()]);
   }
 
   async function fetchWeekWorkouts() {
@@ -107,6 +106,8 @@ export default function RecordsPage() {
         .from('fitbuddy_daily_logs')
         .select('*')
         .eq('user_id', user.id)
+        .not('diary_content', 'is', null)
+        .neq('diary_content', '')
         .order('log_date', { ascending: false })
         .limit(30);
       setDiaryLogs(data || []);
@@ -128,10 +129,25 @@ export default function RecordsPage() {
     }
   }
 
+  // 오늘 컨디션 & 일기 row 별도 조회 (diary_content 필터 없이)
+  async function fetchTodayCondition() {
+    try {
+      const { data } = await supabase
+        .from('fitbuddy_daily_logs')
+        .select('id, mood_status, diary_content, auto_workout_summary')
+        .eq('user_id', user.id)
+        .eq('log_date', today)
+        .maybeSingle();
+      setTodayConditionLog(data);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   function openDiaryModal() {
     setDiaryForm({
-      mood: todayDiaryLog?.mood_status || '',
-      content: todayDiaryLog?.diary_content || '',
+      mood: todayConditionLog?.mood_status || '',
+      content: todayConditionLog?.diary_content || '',
     });
     setDiaryOpen(true);
   }
@@ -180,6 +196,7 @@ export default function RecordsPage() {
         setDiaryOpen(false);
         setDiaryForm({ mood: '', content: '' });
         fetchDiaryLogs();
+        fetchTodayCondition();
       }
     } catch (err) {
       console.error('예상 못한 오류:', err);
@@ -267,6 +284,7 @@ export default function RecordsPage() {
       setSnack({ open: true, msg: '운동 일기가 수정되었습니다.', severity: 'success' });
       setEditDiaryOpen(false);
       fetchDiaryLogs();
+      fetchTodayCondition();
     } catch (err) {
       alert('오류: ' + err.message);
     } finally {
@@ -278,18 +296,34 @@ export default function RecordsPage() {
     if (!menuTarget) return;
     setActionLoading(true);
     try {
-      const table = menuTarget.type === 'workout' ? 'fitbuddy_workouts' : 'fitbuddy_daily_logs';
-      const idField = menuTarget.type === 'workout' ? 'user_id' : 'user_id';
-      const { error } = await supabase
-        .from(table)
-        .delete()
-        .eq('id', menuTarget.item.id)
-        .eq(idField, user.id);
+      let error;
+      if (menuTarget.type === 'workout') {
+        ({ error } = await supabase
+          .from('fitbuddy_workouts')
+          .delete()
+          .eq('id', menuTarget.item.id)
+          .eq('user_id', user.id));
+      } else {
+        // 일기 삭제: mood_status가 있으면 일기 내용만 지우고 row 유지 (컨디션 보존)
+        if (menuTarget.item.mood_status) {
+          ({ error } = await supabase
+            .from('fitbuddy_daily_logs')
+            .update({ diary_content: null, auto_workout_summary: null })
+            .eq('id', menuTarget.item.id)
+            .eq('user_id', user.id));
+        } else {
+          ({ error } = await supabase
+            .from('fitbuddy_daily_logs')
+            .delete()
+            .eq('id', menuTarget.item.id)
+            .eq('user_id', user.id));
+        }
+      }
       if (error) { alert('삭제 실패: ' + error.message); return; }
       setSnack({ open: true, msg: '삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
       if (menuTarget.type === 'workout') { fetchWeekWorkouts(); fetchTodayWorkouts(); }
-      else fetchDiaryLogs();
+      else { fetchDiaryLogs(); fetchTodayCondition(); }
       setMenuTarget(null);
     } catch (err) {
       alert('오류: ' + err.message);

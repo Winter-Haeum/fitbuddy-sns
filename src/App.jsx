@@ -15,6 +15,7 @@ import CharacterPage from './pages/character-page';
 import MealsPage from './pages/meals-page';
 import ChallengesPage from './pages/challenges-page';
 import RecordsPage from './pages/records-page';
+import TimerMiniPlayer from './components/common/timer-mini-player';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -43,6 +44,7 @@ function PublicRoute({ children }) {
 
 export default function App() {
   return (
+    <>
     <Routes>
       <Route path='/login' element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path='/register' element={<PublicRoute><RegisterPage /></PublicRoute>} />
@@ -60,5 +62,7 @@ export default function App() {
 
       <Route path='*' element={<Navigate to='/' replace />} />
     </Routes>
+    <TimerMiniPlayer />
+    </>
   );
 }

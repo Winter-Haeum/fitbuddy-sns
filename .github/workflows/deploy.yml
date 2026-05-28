@@ -38,6 +38,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsd2d0aWxpYnBrZXd3ZW1rY2NkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NjYwNzgsImV4cCI6MjA5NDM0MjA3OH0.FrWxOFBofEZEmeIWBP_OVCIH95DVTUfGCsK8RhR3-0U
         run: npm run build
 
+      - name: Copy index.html to 404.html for SPA routing
+        run: cp dist/index.html dist/404.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

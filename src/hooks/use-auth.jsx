@@ -162,6 +162,7 @@ export function AuthProvider({ children }) {
       workout_goal: extraData.workoutGoals?.join(',') || 'health',
       interests: extraData.interests || [],
       gender: extraData.gender || '',
+      avatar_url: null,
       is_deleted: false,
       deleted_at: null,
     };

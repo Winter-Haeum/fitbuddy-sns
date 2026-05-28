@@ -286,10 +286,21 @@ export default function ProfilePage() {
       // 6. 캐릭터 삭제
       await supabase.from('fitbuddy_characters').delete().eq('user_id', uid);
 
-      // 7. 프로필 소프트 삭제
+      // 6a. Storage 프로필 이미지 삭제
+      try {
+        const { data: avatarFiles } = await supabase.storage.from('fitbuddy-avatars').list(uid);
+        if (avatarFiles?.length > 0) {
+          const paths = avatarFiles.map((f) => `${uid}/${f.name}`);
+          await supabase.storage.from('fitbuddy-avatars').remove(paths);
+        }
+      } catch (storageErr) {
+        console.warn('스토리지 이미지 삭제 실패 (무시):', storageErr.message);
+      }
+
+      // 7. 프로필 소프트 삭제 (avatar_url도 초기화)
       const { error } = await supabase
         .from('fitbuddy_users')
-        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .update({ is_deleted: true, deleted_at: new Date().toISOString(), avatar_url: null })
         .eq('id', uid);
       if (error) console.warn('탈퇴 상태 저장 실패:', error.message);
 

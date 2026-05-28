@@ -61,7 +61,12 @@ export default function ChallengesPage() {
         .from('fitbuddy_challenges')
         .select('*')
         .order('created_at', { ascending: false });
-      setChallenges(data || []);
+
+      // 제목·설명이 비어있거나 너무 짧은 테스트 데이터 제외
+      const validData = (data || []).filter(
+        (c) => c.title?.trim().length > 1 && c.description?.trim().length > 1 && c.creator_id
+      );
+      setChallenges(validData);
 
       const counts = {};
       await Promise.all(

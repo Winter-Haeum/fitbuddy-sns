@@ -171,6 +171,16 @@ export function TimerProvider({ children }) {
       });
 
       if (onComplete) onComplete();
+      // 저장 완료 2.5초 후 자동 초기화 (내비게이션 후 깔끔하게 리셋)
+      setTimeout(() => {
+        setRunning(false);
+        setResting(false);
+        setRestRunning(false);
+        setSeconds(0);
+        setCurrentRestSeconds(0);
+        setTotalRestSeconds(0);
+        setSaved(false);
+      }, 2500);
     } catch (err) {
       console.error('운동 저장 오류:', err);
       setSnack({ open: true, msg: '저장에 실패했습니다.', severity: 'error' });

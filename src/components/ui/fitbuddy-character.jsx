@@ -87,9 +87,17 @@ function selectImg(gender, mood, percentage, variant, workoutType) {
 }
 
 function selectAnim(mood, percentage, variant, workoutType, clicked) {
-  if (clicked) return 'fitbuddy-jump 0.55s ease-in-out 3';
-  if (workoutType === '러닝' || variant === 'running' || mood === 'running') return 'fitbuddy-run 0.45s ease-in-out infinite alternate';
-  if (workoutType && workoutType !== '기타') return 'fitbuddy-run 0.6s ease-in-out infinite alternate';
+  // 클릭 시: 운동 종류에 맞는 3초 애니메이션
+  if (clicked) {
+    if (workoutType === '러닝' || workoutType === '자전거' || workoutType === '수영') {
+      return 'fitbuddy-run 0.4s ease-in-out 7'; // ~2.8s
+    }
+    return 'fitbuddy-jump 0.6s ease-in-out 5'; // ~3s
+  }
+  // workoutType이 있으면 정지 (터치 전까지 움직이지 않음)
+  if (workoutType) return 'none';
+  // variant 기반 (타이머 외 사용처)
+  if (variant === 'running' || mood === 'running') return 'fitbuddy-run 0.45s ease-in-out infinite alternate';
   if (variant) return 'fitbuddy-run 0.55s ease-in-out infinite alternate';
   if (mood === 'celebrating' || percentage >= 100) return 'fitbuddy-jump 0.55s ease-in-out infinite';
   if (mood === 'idle' || percentage === 0) return 'fitbuddy-float 3s ease-in-out infinite';
@@ -121,7 +129,7 @@ function FitBuddyCharacter({ size = 64, gender = 'female', mood = 'active', perc
   function handleClick() {
     if (!clickable || clicked) return;
     setClicked(true);
-    setTimeout(() => setClicked(false), 1800);
+    setTimeout(() => setClicked(false), 3000);
   }
 
   const src = selectImg(gender, mood, percentage, variant, workoutType);

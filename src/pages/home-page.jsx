@@ -56,10 +56,21 @@ const QUOTES = [
 ];
 
 const ROUTINES = [
-  { name: '홈트 루틴', icon: '🏠', duration: '30분', level: '초급', type: '홈트', durationNum: 30 },
-  { name: '전신 스트레칭', icon: '🧘', duration: '15분', level: '초급', type: '스트레칭', durationNum: 15 },
+  { name: '상체 집중 루틴', icon: '💪', duration: '35분', level: '중급', type: '헬스', durationNum: 35 },
+  { name: '하체 집중 루틴', icon: '🦵', duration: '35분', level: '중급', type: '헬스', durationNum: 35 },
   { name: '유산소 런닝', icon: '🏃', duration: '40분', level: '중급', type: '러닝', durationNum: 40 },
+  { name: '전신 홈트', icon: '🏠', duration: '45분', level: '중급', type: '홈트', durationNum: 45 },
+  { name: '코어 & 플랭크', icon: '🔥', duration: '30분', level: '초급', type: '홈트', durationNum: 30 },
+  { name: '장거리 러닝', icon: '🏅', duration: '60분', level: '고급', type: '러닝', durationNum: 60 },
+  { name: '회복 스트레칭', icon: '🧘', duration: '20분', level: '초급', type: '스트레칭', durationNum: 20 },
 ];
+
+function getTodayRoutine() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now - start) / 86400000);
+  return ROUTINES[dayOfYear % ROUTINES.length];
+}
 
 const MOODS = [
   { key: 'tired', emoji: '😴', label: '피곤', text: '피곤한 하루예요.' },
@@ -461,17 +472,17 @@ export default function HomePage() {
           운동 시작하기
         </Button>
 
-        {/* 5. 추천 루틴 */}
+        {/* 5. 추천 루틴 (날짜 기반 - 매일 자동 변경) */}
         <Typography variant='h4' sx={{ mb: 1.2, fontWeight: 600 }}>오늘의 추천 루틴</Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-          {ROUTINES.map((r) => (
+        {(() => {
+          const r = getTodayRoutine();
+          return (
             <Card
-              key={r.name}
-              sx={{ cursor: 'pointer', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
+              sx={{ cursor: 'pointer', mb: 2, '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
               onClick={() => navigate('/timer', { state: { workoutType: r.type, duration: r.durationNum, level: r.level } })}
             >
               <CardContent sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography sx={{ fontSize: '1.8rem' }}>{r.icon}</Typography>
+                <Typography sx={{ fontSize: '2rem' }}>{r.icon}</Typography>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant='h4'>{r.name}</Typography>
                   <Typography variant='body2' color='text.secondary'>{r.duration} · {r.level}</Typography>
@@ -479,8 +490,8 @@ export default function HomePage() {
                 <Chip label='시작' size='small' color='primary' />
               </CardContent>
             </Card>
-          ))}
-        </Box>
+          );
+        })()}
 
         {/* 6. 오늘 운동 기록 요약 */}
         <Typography variant='h4' sx={{ mb: 1.2, fontWeight: 600 }}>오늘 운동 요약</Typography>

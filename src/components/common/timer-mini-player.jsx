@@ -6,6 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import SaveIcon from '@mui/icons-material/Save';
 import { useTimer, formatTime } from '../../hooks/use-timer';
 
 const WORKOUT_EMOJI = {
@@ -21,7 +22,7 @@ export default function TimerMiniPlayer() {
   const navigate = useNavigate();
   const {
     isActive, status, workoutType, seconds,
-    resting, currentRestSeconds, handleStartPause,
+    resting, currentRestSeconds, handleStartPause, handleSave,
   } = useTimer();
 
   if (!isActive || location.pathname === '/timer') return null;
@@ -69,6 +70,19 @@ export default function TimerMiniPlayer() {
           }}
         >
           {isRunning ? <PauseIcon fontSize='small' /> : <PlayArrowIcon fontSize='small' />}
+        </IconButton>
+        <IconButton
+          size='small'
+          onClick={() => handleSave(() => {
+            setTimeout(() => navigate('/records', { state: { initialTab: 0, saved: true } }), 2000);
+          })}
+          sx={{
+            color: '#A084E8',
+            bgcolor: 'rgba(255,255,255,0.75)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.95)' },
+          }}
+        >
+          <SaveIcon fontSize='small' />
         </IconButton>
         <IconButton
           size='small'

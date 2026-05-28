@@ -64,8 +64,12 @@ export default function LoginPage() {
         localStorage.removeItem('fitbuddy_autoLogin');
       }
       navigate('/');
-    } catch {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+    } catch (err) {
+      if (err.code === 'ACCOUNT_DELETED') {
+        setError(err.message);
+      } else {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      }
     } finally {
       setLoading(false);
     }
@@ -156,14 +160,16 @@ export default function LoginPage() {
               required
               fullWidth
               sx={inputSx}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position='end'>
-                    <IconButton onClick={() => setShowPw(!showPw)} edge='end' size='small'>
-                      {showPw ? <VisibilityOff fontSize='small' /> : <Visibility fontSize='small' />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position='end'>
+                      <IconButton onClick={() => setShowPw(!showPw)} edge='end' size='small'>
+                        {showPw ? <VisibilityOff fontSize='small' /> : <Visibility fontSize='small' />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <Box sx={{ display: 'flex', gap: 2 }}>

@@ -389,7 +389,7 @@ export default function ChallengesPage() {
               onChange={(e) => setForm({ ...form, days: e.target.value })}
               fullWidth
               size='small'
-              inputProps={{ min: 1, max: 90 }}
+              slotProps={{ htmlInput: { min: 1, max: 90 } }}
             />
           )}
         </DialogContent>

@@ -133,9 +133,8 @@ export default function RegisterPage() {
         interests: form.interests,
         gender: form.gender,
       });
-      // 회원가입 후 autoLogin 설정 (새로고침 시 자동 로그아웃 방지)
-      localStorage.setItem('fitbuddy_autoLogin', '1');
-      navigate('/');
+      // 회원가입 완료 → 로그인 페이지로 이동 (수동 로그인)
+      navigate('/login');
     } catch (err) {
       setError(err.message || '회원가입에 실패했습니다.');
     } finally {

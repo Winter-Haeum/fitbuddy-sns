@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -16,6 +16,9 @@ import Grid from '@mui/material/Grid';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import EditIcon from '@mui/icons-material/Edit';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
@@ -24,27 +27,59 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TodayIcon from '@mui/icons-material/Today';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 
+const POSTS_PER_PAGE = 3;
+
+const WORKOUT_GOALS = ['다이어트', '근력 증가', '건강 관리', '습관 만들기'];
+const INTERESTS = ['홈트', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산'];
+
+const TYPE_LABEL = { workout: '운동', diet: '식단', free: '자유' };
+const TYPE_EMOJI = { workout: '🏋️', diet: '🥗', free: '💬' };
+const TYPE_BG = { workout: '#E8F5E9', diet: '#FFF8E1', free: '#F3E5F5' };
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, signOut, fetchProfile } = useAuth();
+  const avatarInputRef = useRef(null);
+
   const [posts, setPosts] = useState([]);
   const [savedPosts, setSavedPosts] = useState([]);
   const [stats, setStats] = useState({ totalWorkouts: 0, thisWeek: 0, todayCount: 0, streak: 0 });
+  const [character, setCharacter] = useState(null);
+
+  const [tab, setTab] = useState('posts');
+  const [postsPage, setPostsPage] = useState(1);
+  const [savedPage, setSavedPage] = useState(1);
+
+  // 프로필 수정
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({});
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [tab, setTab] = useState('posts');
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  // 탈퇴
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const [saveError, setSaveError] = useState('');
+
+  // 게시글 메뉴
+  const [postMenuAnchor, setPostMenuAnchor] = useState(null);
+  const [postMenuTarget, setPostMenuTarget] = useState(null);
+  const [postDeleteOpen, setPostDeleteOpen] = useState(false);
+  const [postEditOpen, setPostEditOpen] = useState(false);
+  const [postEditForm, setPostEditForm] = useState({ title: '', content: '' });
+
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
-  const [character, setCharacter] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -92,7 +127,6 @@ export default function ProfilePage() {
       const uniqueDates = [...new Set(all.map((w) => w.workout_date))];
       const dateSet = new Set(uniqueDates);
 
-      // 연속 운동 계산
       let streak = 0;
       const checkDate = new Date();
       while (true) {
@@ -112,6 +146,38 @@ export default function ProfilePage() {
     } catch (err) { console.error(err); }
   }
 
+  // 프로필 이미지 업로드
+  async function handleAvatarUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('fitbuddy-avatars')
+        .upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('fitbuddy-avatars').getPublicUrl(path);
+      const { error: updateErr } = await supabase
+        .from('fitbuddy_users')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('id', user.id);
+      if (updateErr) throw updateErr;
+      await fetchProfile(user.id);
+      setSnack({ open: true, msg: '프로필 이미지가 변경되었습니다!', severity: 'success' });
+    } catch (err) {
+      console.error('아바타 업로드 실패:', err);
+      const msg = err?.message?.includes('Bucket not found')
+        ? 'Supabase Storage 버킷이 없습니다. 아래 안내에 따라 생성해주세요.'
+        : '이미지 업로드에 실패했습니다.';
+      setSnack({ open: true, msg, severity: 'error' });
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = '';
+    }
+  }
+
   function openEdit() {
     setEditForm({
       display_name: profile?.display_name || '',
@@ -119,10 +185,31 @@ export default function ProfilePage() {
       height: profile?.height > 0 ? String(profile.height) : '',
       weight: profile?.weight > 0 ? String(profile.weight) : '',
       goal_weight: profile?.goal_weight > 0 ? String(profile.goal_weight) : '',
-      workout_goal: profile?.workout_goal || '',
+      workoutGoals: profile?.workout_goal
+        ? profile.workout_goal.split(',').map((g) => g.trim()).filter(Boolean)
+        : [],
+      interests: Array.isArray(profile?.interests) ? profile.interests : [],
       gender: profile?.gender || '',
     });
     setEditOpen(true);
+  }
+
+  function toggleEditGoal(item) {
+    setEditForm((prev) => ({
+      ...prev,
+      workoutGoals: prev.workoutGoals.includes(item)
+        ? prev.workoutGoals.filter((g) => g !== item)
+        : [...prev.workoutGoals, item],
+    }));
+  }
+
+  function toggleEditInterest(item) {
+    setEditForm((prev) => ({
+      ...prev,
+      interests: prev.interests.includes(item)
+        ? prev.interests.filter((i) => i !== item)
+        : [...prev.interests, item],
+    }));
   }
 
   async function saveProfile() {
@@ -134,32 +221,19 @@ export default function ProfilePage() {
       height: editForm.height ? Number(editForm.height) : 0,
       weight: editForm.weight ? Number(editForm.weight) : 0,
       goal_weight: editForm.goal_weight ? Number(editForm.goal_weight) : 0,
-      workout_goal: editForm.workout_goal,
+      workout_goal: (editForm.workoutGoals || []).join(','),
+      interests: editForm.interests || [],
       gender: editForm.gender,
     };
-    console.log('SAVE START:', payload);
     try {
-      const { error } = await supabase
-        .from('fitbuddy_users')
-        .update(payload)
-        .eq('id', user.id);
-      console.log('INSERT ERROR:', error);
-      if (error) {
-        console.error('SUPABASE ERROR:', error);
-        alert('저장 실패: ' + error.message);
-        setSaveError('저장에 실패했습니다: ' + error.message);
-        return;
-      }
-      console.log('저장 성공');
+      const { error } = await supabase.from('fitbuddy_users').update(payload).eq('id', user.id);
+      if (error) { setSaveError('저장에 실패했습니다: ' + error.message); return; }
       await fetchProfile(user.id);
       setEditOpen(false);
       setSnack({ open: true, msg: '프로필이 저장되었습니다!', severity: 'success' });
     } catch (err) {
-      console.error('예상 못한 오류:', err);
-      alert('오류: ' + err.message);
       setSaveError('저장 중 오류가 발생했습니다.');
     } finally {
-      console.log('SAVE FINALLY');
       setLoading(false);
     }
   }
@@ -173,34 +247,169 @@ export default function ProfilePage() {
     setDeleteLoading(true);
     setDeleteError('');
     try {
+      const uid = user.id;
+
+      // 0. 내가 만든 챌린지의 참여자 삭제 후 챌린지 삭제
+      const { data: myChallenges } = await supabase
+        .from('fitbuddy_challenges').select('id').eq('creator_id', uid);
+      if (myChallenges?.length > 0) {
+        const cids = myChallenges.map((c) => c.id);
+        await supabase.from('fitbuddy_challenge_users').delete().in('challenge_id', cids);
+        await supabase.from('fitbuddy_challenges').delete().in('id', cids);
+      }
+
+      // 1. 내가 참여한 챌린지 기록 삭제
+      await supabase.from('fitbuddy_challenge_users').delete().eq('user_id', uid);
+
+      // 2. 내 게시글에 달린 좋아요·댓글 삭제
+      const { data: myPostIds } = await supabase
+        .from('fitbuddy_posts').select('id').eq('user_id', uid);
+      if (myPostIds?.length > 0) {
+        const ids = myPostIds.map((p) => p.id);
+        await supabase.from('fitbuddy_post_likes').delete().in('post_id', ids);
+        await supabase.from('fitbuddy_comments').delete().in('post_id', ids);
+      }
+
+      // 3. 내가 남긴 좋아요·댓글·저장 삭제
+      await supabase.from('fitbuddy_post_likes').delete().eq('user_id', uid);
+      await supabase.from('fitbuddy_comments').delete().eq('user_id', uid);
+      await supabase.from('fitbuddy_saved_posts').delete().eq('user_id', uid);
+
+      // 4. 게시글 삭제
+      await supabase.from('fitbuddy_posts').delete().eq('user_id', uid);
+
+      // 5. 운동·식단·일지 기록 삭제
+      await supabase.from('fitbuddy_workouts').delete().eq('user_id', uid);
+      await supabase.from('fitbuddy_daily_logs').delete().eq('user_id', uid);
+      await supabase.from('fitbuddy_meals').delete().eq('user_id', uid);
+
+      // 6. 캐릭터 삭제
+      await supabase.from('fitbuddy_characters').delete().eq('user_id', uid);
+
+      // 7. 프로필 소프트 삭제
+      const { error } = await supabase
+        .from('fitbuddy_users')
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .eq('id', uid);
+      if (error) console.warn('탈퇴 상태 저장 실패:', error.message);
+
       await signOut();
       navigate('/login');
     } catch (err) {
-      console.error('탈퇴 예상 못한 오류:', err);
+      console.error('탈퇴 오류:', err);
       setDeleteError('탈퇴 처리 중 오류가 발생했습니다.');
     } finally {
       setDeleteLoading(false);
     }
   }
 
-  const displayPosts = tab === 'posts' ? posts : savedPosts;
+  // 게시글 도트 메뉴
+  function openPostMenu(e, post) {
+    e.stopPropagation();
+    setPostMenuAnchor(e.currentTarget);
+    setPostMenuTarget(post);
+  }
+
+  function handleEditPost() {
+    setPostMenuAnchor(null);
+    setPostEditForm({ title: postMenuTarget.title || '', content: postMenuTarget.content || '' });
+    setPostEditOpen(true);
+  }
+
+  async function savePostEdit() {
+    if (!postMenuTarget) return;
+    try {
+      const { error } = await supabase
+        .from('fitbuddy_posts')
+        .update({ title: postEditForm.title, content: postEditForm.content })
+        .eq('id', postMenuTarget.id);
+      if (error) throw error;
+      setPosts((prev) =>
+        prev.map((p) => p.id === postMenuTarget.id ? { ...p, title: postEditForm.title, content: postEditForm.content } : p)
+      );
+      setPostEditOpen(false);
+      setSnack({ open: true, msg: '게시글이 수정되었습니다.', severity: 'success' });
+    } catch (err) {
+      setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' });
+    }
+  }
+
+  async function handleDeletePost() {
+    if (!postMenuTarget) return;
+    try {
+      const postId = postMenuTarget.id;
+      await supabase.from('fitbuddy_post_likes').delete().eq('post_id', postId);
+      await supabase.from('fitbuddy_comments').delete().eq('post_id', postId);
+      await supabase.from('fitbuddy_saved_posts').delete().eq('post_id', postId);
+      await supabase.from('fitbuddy_posts').delete().eq('id', postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setPostDeleteOpen(false);
+      setSnack({ open: true, msg: '게시글이 삭제되었습니다.', severity: 'success' });
+    } catch (err) {
+      setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' });
+    }
+  }
+
+  async function handleUnsavePost() {
+    if (!postMenuTarget) return;
+    setPostMenuAnchor(null);
+    try {
+      await supabase.from('fitbuddy_saved_posts')
+        .delete().eq('user_id', user.id).eq('post_id', postMenuTarget.id);
+      setSavedPosts((prev) => prev.filter((p) => p.id !== postMenuTarget.id));
+      setSnack({ open: true, msg: '저장이 취소되었습니다.', severity: 'success' });
+    } catch (err) {
+      setSnack({ open: true, msg: '저장 취소에 실패했습니다.', severity: 'error' });
+    }
+  }
+
+  // 페이지네이션 계산
+  const currentPage = tab === 'posts' ? postsPage : savedPage;
+  const setCurrentPage = tab === 'posts' ? setPostsPage : setSavedPage;
+  const allPosts = tab === 'posts' ? posts : savedPosts;
+  const totalPages = Math.max(1, Math.ceil(allPosts.length / POSTS_PER_PAGE));
+  const pagedPosts = allPosts.slice((currentPage - 1) * POSTS_PER_PAGE, currentPage * POSTS_PER_PAGE);
 
   return (
     <Layout>
       <Box sx={{ p: 2 }}>
         {/* 프로필 헤더 */}
         <Card sx={{ mb: 2, bgcolor: '#EAF7EE', border: '1.5px solid #B2DFC0' }}>
-          <CardContent>
+          <CardContent sx={{ pb: '20px !important' }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-              <Avatar sx={{ width: 80, height: 80, bgcolor: '#5FCB77', fontSize: '2rem', border: '3px solid white', boxShadow: '0 2px 8px rgba(95,203,119,0.3)' }}>
-                {profile?.display_name?.[0] || 'F'}
-              </Avatar>
+              {/* 프로필 이미지 + 카메라 아이콘 */}
+              <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                <Avatar
+                  src={profile?.avatar_url}
+                  sx={{ width: 80, height: 80, bgcolor: '#5FCB77', fontSize: '2rem', border: '3px solid white', boxShadow: '0 2px 8px rgba(95,203,119,0.3)', cursor: 'pointer', opacity: avatarUploading ? 0.6 : 1 }}
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {!profile?.avatar_url && (profile?.display_name?.[0] || 'F')}
+                </Avatar>
+                <Box
+                  onClick={() => avatarInputRef.current?.click()}
+                  sx={{
+                    position: 'absolute', bottom: 0, right: 0,
+                    width: 24, height: 24, borderRadius: '50%',
+                    bgcolor: '#5FCB77', border: '2px solid white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', '&:hover': { bgcolor: '#4DBB68' },
+                  }}
+                >
+                  <CameraAltIcon sx={{ fontSize: 13, color: 'white' }} />
+                </Box>
+                <input type='file' accept='image/*' ref={avatarInputRef} style={{ display: 'none' }} onChange={handleAvatarUpload} />
+              </Box>
+
               <Box sx={{ flex: 1 }}>
-                <Typography variant='h2' sx={{ fontWeight: 700, color: '#1B5E20' }}>
+                <Typography variant='h2' sx={{ fontWeight: 700, color: '#1B5E20', mb: 1.2 }}>
                   {profile?.display_name || '사용자'}
                 </Typography>
-                <Typography variant='body2' sx={{ color: '#388E3C', mb: 0.5 }}>@{profile?.username}</Typography>
-                {profile?.bio && <Typography variant='body2' color='text.secondary'>{profile.bio}</Typography>}
+                {profile?.bio && (
+                  <Typography variant='body2' color='text.secondary'>
+                    {profile.bio}
+                  </Typography>
+                )}
               </Box>
               <Button
                 variant='outlined' size='small' startIcon={<EditIcon />} onClick={openEdit}
@@ -209,29 +418,58 @@ export default function ProfilePage() {
                 수정
               </Button>
             </Box>
-            {(profile?.height > 0 || profile?.weight > 0 || profile?.workout_goal) && (
-              <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
-                {profile?.height > 0 && <Chip label={`키: ${profile.height}cm`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32' }} />}
-                {profile?.weight > 0 && <Chip label={`몸무게: ${profile.weight}kg`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32' }} />}
-                {profile?.goal_weight > 0 && <Chip label={`목표: ${profile.goal_weight}kg`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32' }} />}
-                {profile?.workout_goal && profile.workout_goal.split(',').filter(Boolean).map((g) => (
-                  <Chip key={g} label={g.trim()} size='small' sx={{ bgcolor: '#E8F5E9', color: '#388E3C' }} />
-                ))}
-              </Box>
-            )}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.6, mt: 1.8 }}>
+              {/* 신체 정보 */}
+              {(profile?.height > 0 || profile?.weight > 0 || profile?.goal_weight > 0) && (
+                <Box>
+                  <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.7 }}>
+                    👤 신체 정보
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+                    {profile?.height > 0 && <Chip label={`키: ${profile.height}cm`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
+                    {profile?.weight > 0 && <Chip label={`몸무게: ${profile.weight}kg`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
+                    {profile?.goal_weight > 0 && <Chip label={`목표: ${profile.goal_weight}kg`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
+                  </Box>
+                </Box>
+              )}
+              {/* 운동 목표 */}
+              {profile?.workout_goal && profile.workout_goal.split(',').filter(Boolean).length > 0 && (
+                <Box>
+                  <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.7 }}>
+                    🎯 운동 목표
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+                    {profile.workout_goal.split(',').filter(Boolean).map((g) => (
+                      <Chip key={g} label={g.trim()} size='small' sx={{ bgcolor: '#E9D8FD', color: '#6B46C1', fontWeight: 500 }} />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              {/* 관심 운동 */}
+              {Array.isArray(profile?.interests) && profile.interests.length > 0 && (
+                <Box>
+                  <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.7 }}>
+                    🏃 관심 운동
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+                    {profile.interests.map((i) => (
+                      <Chip key={i} label={i} size='small' sx={{ bgcolor: '#E3F2FD', color: '#1565C0', fontWeight: 500 }} />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </Box>
           </CardContent>
         </Card>
 
-        {/* 캐릭터 + 운동 통계 */}
+        {/* 캐릭터 요약 카드 */}
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography sx={{ fontSize: '2.5rem' }}>
-                  {character?.health_status === 'active' ? '💪' : character?.health_status === 'healthy' ? '😊' : character?.health_status === 'normal' ? '😐' : '😴'}
-                </Typography>
+                <FitBuddyCharacter size={56} gender={profile?.gender || 'female'} />
                 <Box>
-                  <Typography variant='h4' sx={{ fontWeight: 600 }}>{character?.character_name || '내 캐릭터'}</Typography>
+                  <Typography variant='h4' sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
                     <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
@@ -266,45 +504,119 @@ export default function ProfilePage() {
         {/* 탭 */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
           <Button
-            variant={tab === 'posts' ? 'contained' : 'outlined'} onClick={() => setTab('posts')}
+            variant={tab === 'posts' ? 'contained' : 'outlined'}
+            onClick={() => { setTab('posts'); setPostsPage(1); }}
             sx={{ flex: 1, ...(tab === 'posts' && { bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }) }}
           >
             내 게시글 ({posts.length})
           </Button>
           <Button
-            variant={tab === 'saved' ? 'contained' : 'outlined'} onClick={() => setTab('saved')}
+            variant={tab === 'saved' ? 'contained' : 'outlined'}
+            onClick={() => { setTab('saved'); setSavedPage(1); }}
             sx={{ flex: 1, ...(tab === 'saved' && { bgcolor: '#A084E8', '&:hover': { bgcolor: '#8B6FD4' } }) }}
           >
             저장한 글 ({savedPosts.length})
           </Button>
         </Box>
 
-        {/* 게시글 그리드 */}
-        {displayPosts.length === 0 ? (
+        {/* 게시글 카드 리스트 */}
+        {allPosts.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color='text.secondary'>
               {tab === 'posts' ? '아직 작성한 게시글이 없습니다.' : '저장한 게시글이 없습니다.'}
             </Typography>
           </Box>
         ) : (
-          <Grid container spacing={1}>
-            {displayPosts.map((post) => (
-              <Grid size={{ xs: 4 }} key={post.id}>
+          <>
+            {pagedPosts.map((post) => (
+              <Card key={post.id} sx={{ mb: 1.5 }}>
                 <Box
                   onClick={() => navigate(`/post/${post.id}`)}
-                  sx={{ aspectRatio: '1', borderRadius: 2, overflow: 'hidden', cursor: 'pointer', bgcolor: '#e0e0e0', position: 'relative' }}
+                  sx={{ display: 'flex', gap: 1.5, p: 1.5, cursor: 'pointer' }}
                 >
-                  {post.image_url ? (
-                    <Box component='img' src={post.image_url} alt={post.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#E8F5E9' }}>
-                      <FitnessCenterIcon sx={{ color: '#6BCB77', fontSize: 28 }} />
+                  {/* 썸네일 */}
+                  <Box sx={{
+                    width: 80, height: 80, borderRadius: 1.5, overflow: 'hidden',
+                    flexShrink: 0, bgcolor: TYPE_BG[post.post_type] || '#f0f0f0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {post.image_url ? (
+                      <Box component='img' src={post.image_url} alt={post.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <Typography sx={{ fontSize: '2rem' }}>{TYPE_EMOJI[post.post_type] || '📝'}</Typography>
+                    )}
+                  </Box>
+
+                  {/* 내용 */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.3 }}>
+                      <Chip
+                        label={TYPE_LABEL[post.post_type] || '게시글'}
+                        size='small'
+                        sx={{ height: 18, fontSize: '0.65rem', mr: 0.5 }}
+                      />
+                      <Box sx={{ flex: 1 }} />
+                      <IconButton
+                        size='small'
+                        onClick={(e) => openPostMenu(e, post)}
+                        sx={{ p: 0.3 }}
+                      >
+                        <MoreVertIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
                     </Box>
-                  )}
+                    <Typography sx={{
+                      fontWeight: 600, fontSize: '0.9rem', mb: 0.2,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {post.title || '(제목 없음)'}
+                    </Typography>
+                    <Typography variant='body2' color='text.secondary' sx={{
+                      fontSize: '0.78rem', lineHeight: 1.4,
+                      display: '-webkit-box', WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>
+                      {post.content}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
+                      <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem' }}>
+                        {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                      </Typography>
+                      <Box sx={{ flex: 1 }} />
+                      <FavoriteIcon sx={{ fontSize: 12, color: '#bbb' }} />
+                      <Typography variant='caption' sx={{ fontSize: '0.7rem', color: '#999' }}>
+                        {post.like_count || 0}
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Box>
-              </Grid>
+              </Card>
             ))}
-          </Grid>
+
+            {/* 페이지네이션 */}
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mt: 1, mb: 1 }}>
+                <IconButton
+                  size='small'
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  sx={{ border: '1px solid #E0E0E0' }}
+                >
+                  <NavigateBeforeIcon />
+                </IconButton>
+                <Typography variant='body2' sx={{ fontWeight: 600, minWidth: 48, textAlign: 'center' }}>
+                  {currentPage} / {totalPages}
+                </Typography>
+                <IconButton
+                  size='small'
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  sx={{ border: '1px solid #E0E0E0' }}
+                >
+                  <NavigateNextIcon />
+                </IconButton>
+              </Box>
+            )}
+          </>
         )}
 
         <Divider sx={{ my: 3 }} />
@@ -312,12 +624,49 @@ export default function ProfilePage() {
           로그아웃
         </Button>
         <Button
-          variant='text' fullWidth startIcon={<DeleteForeverIcon />} onClick={() => { setDeleteError(''); setDeleteOpen(true); }}
+          variant='text' fullWidth startIcon={<DeleteForeverIcon />}
+          onClick={() => { setDeleteError(''); setDeleteOpen(true); }}
           sx={{ color: '#BDBDBD', fontSize: '0.8rem' }}
         >
           회원 탈퇴
         </Button>
       </Box>
+
+      {/* 게시글 도트 메뉴 */}
+      <Menu anchorEl={postMenuAnchor} open={Boolean(postMenuAnchor)} onClose={() => setPostMenuAnchor(null)}>
+        {tab === 'posts' ? [
+          <MenuItem key='edit' onClick={handleEditPost}>수정하기</MenuItem>,
+          <MenuItem key='delete' sx={{ color: 'error.main' }} onClick={() => { setPostMenuAnchor(null); setPostDeleteOpen(true); }}>삭제하기</MenuItem>,
+        ] : (
+          <MenuItem onClick={handleUnsavePost}>저장 취소</MenuItem>
+        )}
+      </Menu>
+
+      {/* 게시글 수정 다이얼로그 */}
+      <Dialog open={postEditOpen} onClose={() => setPostEditOpen(false)} fullWidth maxWidth='sm'>
+        <DialogTitle>게시글 수정</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField label='제목' value={postEditForm.title} onChange={(e) => setPostEditForm({ ...postEditForm, title: e.target.value })} fullWidth />
+          <TextField label='내용' value={postEditForm.content} onChange={(e) => setPostEditForm({ ...postEditForm, content: e.target.value })} fullWidth multiline rows={4} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPostEditOpen(false)}>취소</Button>
+          <Button variant='contained' onClick={savePostEdit} sx={{ bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}>저장</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 게시글 삭제 확인 다이얼로그 */}
+      <Dialog open={postDeleteOpen} onClose={() => setPostDeleteOpen(false)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <WarningAmberIcon sx={{ fontSize: 40, color: '#FF7043', mb: 1 }} />
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>게시글을 삭제할까요?</Typography>
+          <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>이 작업은 되돌릴 수 없습니다.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setPostDeleteOpen(false)}>취소</Button>
+          <Button variant='contained' fullWidth color='error' onClick={handleDeletePost}>삭제</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 탈퇴 확인 다이얼로그 */}
       <Dialog open={deleteOpen} onClose={() => !deleteLoading && setDeleteOpen(false)} maxWidth='xs' fullWidth>
@@ -330,9 +679,7 @@ export default function ProfilePage() {
           {deleteError && <Alert severity='error' sx={{ mt: 2, textAlign: 'left' }}>{deleteError}</Alert>}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button variant='outlined' fullWidth onClick={() => setDeleteOpen(false)} disabled={deleteLoading}>
-            취소
-          </Button>
+          <Button variant='outlined' fullWidth onClick={() => setDeleteOpen(false)} disabled={deleteLoading}>취소</Button>
           <Button variant='contained' fullWidth color='error' onClick={handleDeleteAccount} disabled={deleteLoading}>
             {deleteLoading ? '처리 중...' : '탈퇴하기'}
           </Button>
@@ -349,7 +696,7 @@ export default function ProfilePage() {
             value={editForm.display_name || ''}
             onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
             fullWidth
-            inputProps={{ maxLength: 20 }}
+            slotProps={{ htmlInput: { maxLength: 20 } }}
           />
           <TextField
             label='자기소개'
@@ -362,13 +709,65 @@ export default function ProfilePage() {
             <TextField label='몸무게 (kg)' type='number' value={editForm.weight || ''} onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })} fullWidth size='small' />
             <TextField label='목표 (kg)' type='number' value={editForm.goal_weight || ''} onChange={(e) => setEditForm({ ...editForm, goal_weight: e.target.value })} fullWidth size='small' />
           </Box>
-          <TextField
-            label='운동 목표'
-            value={editForm.workout_goal || ''}
-            onChange={(e) => setEditForm({ ...editForm, workout_goal: e.target.value })}
-            fullWidth size='small'
-            helperText='예: 다이어트, 근력 증가'
-          />
+          {/* 운동 목표 pill 선택 */}
+          <Box>
+            <Typography variant='body2' sx={{ fontWeight: 600, mb: 0.8, color: '#333' }}>
+              운동 목표 <Typography component='span' variant='caption' color='text.secondary'>(복수 선택 가능)</Typography>
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+              {WORKOUT_GOALS.map((g) => {
+                const selected = (editForm.workoutGoals || []).includes(g);
+                return (
+                  <Box
+                    key={g}
+                    onClick={() => toggleEditGoal(g)}
+                    sx={{
+                      px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
+                      border: `2px solid ${selected ? '#9F7AEA' : '#E0E0E0'}`,
+                      bgcolor: selected ? '#E9D8FD' : '#FAFAFA',
+                      color: selected ? '#6B46C1' : '#757575',
+                      fontWeight: selected ? 700 : 400,
+                      fontSize: '0.85rem',
+                      userSelect: 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {g}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+
+          {/* 관심 운동 pill 선택 */}
+          <Box>
+            <Typography variant='body2' sx={{ fontWeight: 600, mb: 0.8, color: '#333' }}>
+              관심 운동 <Typography component='span' variant='caption' color='text.secondary'>(복수 선택 가능)</Typography>
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+              {INTERESTS.map((i) => {
+                const selected = (editForm.interests || []).includes(i);
+                return (
+                  <Box
+                    key={i}
+                    onClick={() => toggleEditInterest(i)}
+                    sx={{
+                      px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
+                      border: `2px solid ${selected ? '#5DA9E9' : '#E0E0E0'}`,
+                      bgcolor: selected ? '#E3F2FD' : '#FAFAFA',
+                      color: selected ? '#1565C0' : '#757575',
+                      fontWeight: selected ? 700 : 400,
+                      fontSize: '0.85rem',
+                      userSelect: 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {i}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
           <Box>
             <Typography variant='body2' sx={{ fontWeight: 600, mb: 1 }}>성별</Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -399,6 +798,7 @@ export default function ProfilePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
       <Snackbar
         open={snack.open}
         autoHideDuration={2500}

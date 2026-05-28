@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { keyframes } from '@emotion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -20,6 +20,7 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import TimerIcon from '@mui/icons-material/Timer';
+import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
@@ -29,6 +30,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../utils/supabase';
 import Layout from '../components/common/layout';
+import { getLevelFromXP } from '../utils/xp-utils';
 
 const confettiFall = keyframes({
   '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
@@ -68,6 +70,7 @@ const MOODS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile, signOut } = useAuth();
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [character, setCharacter] = useState(null);
@@ -76,6 +79,8 @@ export default function HomePage() {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [reminderOn, setReminderOn] = useState(() => localStorage.getItem('workoutReminderEnabled') === '1');
   const [editingMood, setEditingMood] = useState(false);
+  const [goalEditMode, setGoalEditMode] = useState(false);
+  const [goalEditValue, setGoalEditValue] = useState('60');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
   const quote = QUOTES[new Date().getDay() % QUOTES.length];
 
@@ -119,6 +124,42 @@ export default function HomePage() {
     }
   }
 
+  async function saveGoalMinutes() {
+    setGoalEditMode(false);
+    const parsed = parseInt(goalEditValue, 10);
+    const v = isNaN(parsed) ? goalMinutes : Math.max(10, Math.min(300, parsed));
+    setGoalEditValue(String(v));
+    if (v === goalMinutes) return;
+    const today = new Date().toISOString().split('T')[0];
+    await supabase.from('fitbuddy_daily_logs').upsert(
+      { user_id: user.id, log_date: today, daily_goal_minutes: v },
+      { onConflict: 'user_id,log_date' }
+    );
+    setTodayLog((prev) => ({ ...(prev || { user_id: user.id, log_date: today }), daily_goal_minutes: v }));
+  }
+
+  async function awardGoalXP() {
+    const today = new Date().toISOString().split('T')[0];
+    const { data: charData } = await supabase
+      .from('fitbuddy_characters').select('experience, level').eq('user_id', user.id).maybeSingle();
+    if (!charData) return;
+    const newXp = (charData.experience || 0) + 10;
+    const newLevel = getLevelFromXP(newXp);
+    await supabase.from('fitbuddy_characters').update({ experience: newXp, level: newLevel }).eq('user_id', user.id);
+    await supabase.from('fitbuddy_daily_logs').upsert(
+      { user_id: user.id, log_date: today, goal_achieved: true, goal_achieved_at: new Date().toISOString() },
+      { onConflict: 'user_id,log_date' }
+    );
+    setTodayLog((prev) => ({ ...(prev || {}), goal_achieved: true }));
+    setCharacter((prev) => prev ? { ...prev, experience: newXp, level: newLevel } : prev);
+    setSnack({ open: true, msg: '오늘 목표 달성! +10 XP 🏆', severity: 'success' });
+  }
+
+  useEffect(() => {
+    if (!user || !todayWorkout || !todayLog || todayLog.goal_achieved) return;
+    if (todayWorkout.duration >= goalMinutes) awardGoalXP();
+  }, [todayWorkout, todayLog]);
+
   useEffect(() => {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
@@ -155,16 +196,21 @@ export default function HomePage() {
       .eq('user_id', user.id)
       .eq('log_date', today)
       .maybeSingle()
-      .then(({ data }) => { if (data) setTodayLog(data); });
+      .then(({ data }) => {
+        if (data) {
+          setTodayLog(data);
+          setGoalEditValue(String(data.daily_goal_minutes || 60));
+        }
+      });
 
     supabase
       .from('fitbuddy_challenge_users')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .then(({ count }) => setJoinedCount(count || 0));
-  }, [user]);
+  }, [user, location.key]);
 
-  const goalMinutes = 60;
+  const goalMinutes = todayLog?.daily_goal_minutes || 60;
   const progress = todayWorkout ? Math.min((todayWorkout.duration / goalMinutes) * 100, 100) : 0;
 
   function getActivityState() {
@@ -258,11 +304,11 @@ export default function HomePage() {
                 <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: '0.65rem' }} />
               </Box>
               <Chip
-                label={progress >= 100 ? '🏆 달성!' : `${Math.round(progress)}%`}
+                label={todayLog?.goal_achieved ? '🏆 달성!' : progress >= 100 ? '🎯 완료' : `${Math.round(progress)}%`}
                 size='small'
                 sx={{
-                  bgcolor: progress >= 100 ? '#FFB300' : `${activityState.color}22`,
-                  color: progress >= 100 ? 'white' : activityState.color,
+                  bgcolor: todayLog?.goal_achieved ? '#FFB300' : progress >= 100 ? '#FFB30044' : `${activityState.color}22`,
+                  color: todayLog?.goal_achieved ? 'white' : progress >= 100 ? '#FF8F00' : activityState.color,
                   fontWeight: 700,
                 }}
               />
@@ -312,9 +358,40 @@ export default function HomePage() {
             </Box>
 
             {/* 시간 라벨 */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant='caption' color='text.secondary'>{todayWorkout?.duration || 0}분</Typography>
-              <Typography variant='caption' color='text.secondary'>목표 {goalMinutes}분</Typography>
+              {goalEditMode ? (
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Typography variant='caption' color='text.secondary'>목표 </Typography>
+                  <input
+                    type='number'
+                    value={goalEditValue}
+                    autoFocus
+                    onChange={(e) => setGoalEditValue(e.target.value)}
+                    onBlur={saveGoalMinutes}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.target.blur(); }
+                      if (e.key === 'Escape') { setGoalEditMode(false); setGoalEditValue(String(goalMinutes)); }
+                    }}
+                    style={{
+                      width: '42px', fontSize: '0.75rem',
+                      border: 'none', borderBottom: '1.5px solid #6BCB77',
+                      background: 'transparent', textAlign: 'center', outline: 'none',
+                    }}
+                  />
+                  <Typography variant='caption' color='text.secondary'>분</Typography>
+                </Box>
+              ) : (
+                <Box
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); setGoalEditValue(String(goalMinutes)); setGoalEditMode(true); }}
+                >
+                  <Typography variant='caption' color='text.secondary'>목표 {goalMinutes}분</Typography>
+                  <EditIcon sx={{ fontSize: 10, color: '#ccc' }} />
+                </Box>
+              )}
             </Box>
           </CardContent>
         </Card>

@@ -12,7 +12,7 @@ console.log('APP INIT START');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter basename='/fitbuddy-sns'>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>

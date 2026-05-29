@@ -325,7 +325,7 @@ export default function HomePage() {
               />
             </Box>
             <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1.5 }}>
-              {character?.character_name || '내 캐릭터'} · {activityState.label} {activityState.emoji}
+              {profile?.display_name ? `${profile.display_name}의 캐릭터` : (character?.character_name || '내 캐릭터')} · {activityState.label} {activityState.emoji}
             </Typography>
 
             {/* 게이지 트랙 */}

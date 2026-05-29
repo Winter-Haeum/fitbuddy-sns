@@ -87,18 +87,10 @@ function selectImg(gender, mood, percentage, variant, workoutType) {
 }
 
 function selectAnim(mood, percentage, variant, workoutType, clicked) {
-  // 클릭 시: 운동 종류에 맞는 3초 애니메이션
-  if (clicked) {
-    if (workoutType === '러닝' || workoutType === '자전거' || workoutType === '수영') {
-      return 'fitbuddy-run 0.4s ease-in-out 7'; // ~2.8s
-    }
-    return 'fitbuddy-jump 0.6s ease-in-out 5'; // ~3s
-  }
-  // workoutType이 있으면 정지 (터치 전까지 움직이지 않음)
+  if (clicked) return 'fitbuddy-click 4s ease-in-out 1 both';
   if (workoutType) return 'none';
-  // variant 기반 (타이머 외 사용처)
-  if (variant === 'running' || mood === 'running') return 'fitbuddy-run 0.45s ease-in-out infinite alternate';
-  if (variant) return 'fitbuddy-run 0.55s ease-in-out infinite alternate';
+  if (variant === 'running' || mood === 'running') return 'fitbuddy-float 2s ease-in-out infinite';
+  if (variant) return 'fitbuddy-float 2.5s ease-in-out infinite';
   if (mood === 'celebrating' || percentage >= 100) return 'fitbuddy-jump 0.55s ease-in-out infinite';
   if (mood === 'idle' || percentage === 0) return 'fitbuddy-float 3s ease-in-out infinite';
   return 'fitbuddy-breathe 2.5s ease-in-out infinite';
@@ -107,8 +99,8 @@ function selectAnim(mood, percentage, variant, workoutType, clicked) {
 const CSS = `
   @keyframes fitbuddy-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   @keyframes fitbuddy-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
-  @keyframes fitbuddy-run{0%{transform:rotate(-5deg) translateX(-4px)}100%{transform:rotate(5deg) translateX(4px)}}
   @keyframes fitbuddy-jump{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(-15px) scale(1.07)}}
+  @keyframes fitbuddy-click{0%{transform:scale(1)}10%{transform:scale(1.22)}22%{transform:scale(1)}34%{transform:scale(1.15)}46%{transform:scale(1)}58%{transform:scale(1.09)}70%{transform:scale(1)}82%{transform:scale(1.04)}92%,100%{transform:scale(1)}}
 `;
 
 /**

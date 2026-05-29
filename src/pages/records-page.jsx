@@ -27,6 +27,7 @@ import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 
 const MOODS = [
   { key: 'tired', emoji: '😴', label: '피곤', text: '피곤한 하루예요.' },
@@ -46,7 +47,7 @@ const TAB_LIST = ['운동 기록', '운동 일기'];
 export default function RecordsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [tab, setTab] = useState(location.state?.initialTab ?? 0);
   const [weekWorkouts, setWeekWorkouts] = useState([]);
   const [diaryLogs, setDiaryLogs] = useState([]);
@@ -395,18 +396,29 @@ export default function RecordsPage() {
                 const dateObj = new Date(date);
                 const dayLabel = date === today ? '오늘' : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
                 return (
-                  <Card key={date} sx={{ mb: 2 }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Card key={date} sx={{ mb: 2.5 }}>
+                    <CardContent sx={{ px: 2.5 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
                         <Typography variant='body2' sx={{ fontWeight: 700 }}>{dayLabel}</Typography>
                         <Typography variant='caption' color='text.secondary'>{totalMin}분 · {totalCal}kcal</Typography>
                       </Box>
                       {workouts.map((w, i) => (
                         <Box key={w.id}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.8 }}>
-                            <FitnessCenterIcon sx={{ fontSize: 16, color: '#6BCB77' }} />
-                            <Typography variant='body2' sx={{ flex: 1 }}>{w.workout_type}</Typography>
-                            <Typography variant='caption' color='text.secondary'>{w.duration_minutes}분 {w.calories_burned}kcal</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1 }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.3 }}>
+                                <FitnessCenterIcon sx={{ fontSize: 14, color: '#6BCB77' }} />
+                                <Typography variant='body2' sx={{ fontWeight: 600 }}>{w.workout_type}</Typography>
+                              </Box>
+                              <Typography variant='caption' color='text.secondary'>
+                                {w.duration_minutes}분 · {w.calories_burned}kcal
+                              </Typography>
+                            </Box>
+                            <FitBuddyCharacter
+                              size={44}
+                              gender={profile?.gender || 'female'}
+                              workoutType={w.workout_type}
+                            />
                             <IconButton size='small' onClick={(e) => openMenu(e, 'workout', w)} sx={{ p: 0.3 }}>
                               <MoreVertIcon sx={{ fontSize: 16 }} />
                             </IconButton>

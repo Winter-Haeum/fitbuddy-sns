@@ -145,11 +145,17 @@ export default function PostCreatePage() {
           workout_status: 'completed',
         };
         console.log('WORKOUT SAVE START:', workoutPayload);
-        const { error: workoutErr } = await supabase
+        const { data: workoutData, error: workoutErr } = await supabase
           .from('fitbuddy_workouts')
-          .insert(workoutPayload);
+          .insert(workoutPayload)
+          .select('id')
+          .single();
         console.log('INSERT ERROR (workout):', workoutErr);
-        if (workoutErr) console.error('SUPABASE ERROR (workout):', workoutErr);
+        if (workoutErr) {
+          console.error('SUPABASE ERROR (workout):', workoutErr);
+        } else if (workoutData) {
+          workoutId = workoutData.id;
+        }
       }
 
       const finalPayload = { ...postPayload, workout_id: workoutId };

@@ -101,14 +101,20 @@ export default function PostDetailPage() {
   }
 
   async function deletePost() {
-    if (!window.confirm('게시글을 삭제하시겠습니까?')) return;
-    await supabase.from('fitbuddy_posts').delete().eq('id', id);
+    if (!user || !window.confirm('게시글을 삭제하시겠습니까?')) return;
+    let query = supabase.from('fitbuddy_posts').delete().eq('id', id);
+    if (!isAdmin) query = query.eq('user_id', user.id);
+    const { error } = await query;
+    if (error) { alert('삭제 실패: ' + error.message); return; }
     navigate('/feed');
   }
 
   async function deleteComment(commentId) {
-    if (!window.confirm('댓글을 삭제하시겠습니까?')) return;
-    await supabase.from('fitbuddy_comments').delete().eq('id', commentId);
+    if (!user || !window.confirm('댓글을 삭제하시겠습니까?')) return;
+    let query = supabase.from('fitbuddy_comments').delete().eq('id', commentId);
+    if (!isAdmin) query = query.eq('user_id', user.id);
+    const { error } = await query;
+    if (error) { alert('삭제 실패: ' + error.message); return; }
     fetchComments();
   }
 

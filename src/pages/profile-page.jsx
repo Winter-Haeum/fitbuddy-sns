@@ -333,7 +333,8 @@ export default function ProfilePage() {
       const { error } = await supabase
         .from('fitbuddy_posts')
         .update({ title: postEditForm.title, content: postEditForm.content })
-        .eq('id', postMenuTarget.id);
+        .eq('id', postMenuTarget.id)
+        .eq('user_id', user.id);
       if (error) throw error;
       setPosts((prev) =>
         prev.map((p) => p.id === postMenuTarget.id ? { ...p, title: postEditForm.title, content: postEditForm.content } : p)
@@ -352,7 +353,7 @@ export default function ProfilePage() {
       await supabase.from('fitbuddy_post_likes').delete().eq('post_id', postId);
       await supabase.from('fitbuddy_comments').delete().eq('post_id', postId);
       await supabase.from('fitbuddy_saved_posts').delete().eq('post_id', postId);
-      await supabase.from('fitbuddy_posts').delete().eq('id', postId);
+      await supabase.from('fitbuddy_posts').delete().eq('id', postId).eq('user_id', user.id);
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setPostDeleteOpen(false);
       setSnack({ open: true, msg: '게시글이 삭제되었습니다.', severity: 'success' });

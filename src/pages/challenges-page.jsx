@@ -70,7 +70,7 @@ export default function ChallengesPage() {
     try {
       const { data } = await supabase
         .from('fitbuddy_challenges')
-        .select('*')
+        .select('id, title, description, goal, start_date, end_date, creator_id, challenge_type')
         .order('created_at', { ascending: false });
 
       // 제목·설명이 비어있거나 너무 짧은 테스트 데이터 제외
@@ -79,17 +79,19 @@ export default function ChallengesPage() {
       );
       setChallenges(validData);
 
-      const counts = {};
-      await Promise.all(
-        (data || []).map(async (c) => {
-          const { count } = await supabase
-            .from('fitbuddy_challenge_users')
-            .select('id', { count: 'exact', head: true })
-            .eq('challenge_id', c.id);
-          counts[c.id] = count || 0;
-        })
-      );
-      setParticipants(counts);
+      // N+1 → 단일 쿼리로 전체 참여자 수 한 번에 조회
+      if (validData.length > 0) {
+        const ids = validData.map((c) => c.id);
+        const { data: memberRows } = await supabase
+          .from('fitbuddy_challenge_users')
+          .select('challenge_id')
+          .in('challenge_id', ids);
+        const counts = {};
+        (memberRows || []).forEach(({ challenge_id }) => {
+          counts[challenge_id] = (counts[challenge_id] || 0) + 1;
+        });
+        setParticipants(counts);
+      }
     } catch (err) {
       console.error('챌린지 로드 오류:', err);
     }

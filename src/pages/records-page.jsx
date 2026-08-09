@@ -25,6 +25,7 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloseIcon from '@mui/icons-material/Close';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -74,6 +75,9 @@ export default function RecordsPage() {
   const [editDiaryForm, setEditDiaryForm] = useState({});
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // 운동 일기 상세 모달
+  const [diaryDetailLog, setDiaryDetailLog] = useState(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -459,7 +463,17 @@ export default function RecordsPage() {
                   ? '오늘'
                   : `${dateObj.getMonth() + 1}/${dateObj.getDate()}(${['일', '월', '화', '수', '목', '금', '토'][dateObj.getDay()]})`;
                 return (
-                  <Card key={log.id} sx={{ mb: 1.5 }}>
+                  <Card
+                    key={log.id}
+                    onClick={() => setDiaryDetailLog(log)}
+                    sx={{
+                      mb: 1.5, cursor: 'pointer',
+                      border: '1px solid #EDE7F6',
+                      transition: 'transform 0.12s ease, border-color 0.15s',
+                      '&:hover': { borderColor: '#A084E8' },
+                      '&:active': { transform: 'scale(0.99)' },
+                    }}
+                  >
                     <CardContent sx={{ py: 1.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                         <Typography sx={{ fontSize: '1.8rem', lineHeight: 1 }}>{mood?.emoji || '📓'}</Typography>
@@ -489,14 +503,16 @@ export default function RecordsPage() {
                             <Box sx={{ mt: 0.8, px: 1, py: 0.5, bgcolor: '#E8F5E9', borderRadius: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                               <FitnessCenterIcon sx={{ fontSize: 12, color: '#4CAF50' }} />
                               <Typography variant='caption' sx={{ color: '#2E7D32', fontSize: '0.7rem' }}>
-                                {log.auto_workout_summary.count}회 · {log.auto_workout_summary.duration}분 · {log.auto_workout_summary.calories}kcal
-                                {log.auto_workout_summary.steps > 0 && ` · ${log.auto_workout_summary.steps.toLocaleString()}걸음`}
-                                {log.auto_workout_summary.types?.length > 0 && ` (${log.auto_workout_summary.types.join(', ')})`}
+                                {log.auto_workout_summary.duration}분 · {log.auto_workout_summary.calories}kcal
                               </Typography>
                             </Box>
                           )}
                         </Box>
-                        <IconButton size='small' onClick={(e) => openMenu(e, 'diary', log)} sx={{ p: 0.3 }}>
+                        <IconButton
+                          size='small'
+                          onClick={(e) => { e.stopPropagation(); openMenu(e, 'diary', log); }}
+                          sx={{ p: 0.3 }}
+                        >
                           <MoreVertIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Box>
@@ -684,6 +700,134 @@ export default function RecordsPage() {
           <DirectionsRunIcon />
         </Fab>
       )}
+
+      {/* 운동 일기 상세 모달 */}
+      {diaryDetailLog && (() => {
+        const detailMood = MOODS.find((m) => m.key === diaryDetailLog.mood_status);
+        const detailDateObj = new Date(diaryDetailLog.log_date + 'T00:00:00');
+        const detailDay = ['일', '월', '화', '수', '목', '금', '토'][detailDateObj.getDay()];
+        const detailDateLabel = diaryDetailLog.log_date === today
+          ? `오늘 (${detailDay})`
+          : `${detailDateObj.getFullYear()}년 ${detailDateObj.getMonth() + 1}월 ${detailDateObj.getDate()}일 (${detailDay})`;
+        const ws = diaryDetailLog.auto_workout_summary;
+
+        return (
+          <Dialog
+            open={Boolean(diaryDetailLog)}
+            onClose={() => setDiaryDetailLog(null)}
+            fullWidth
+            maxWidth='sm'
+            scroll='paper'
+            sx={{ '& .MuiDialog-paper': { maxHeight: '85vh', mx: 2 } }}
+          >
+            {/* 모달 헤더 */}
+            <Box sx={{ px: 3, pt: 2.5, pb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid #F0F0F0' }}>
+              <Typography sx={{ fontSize: '2rem', lineHeight: 1 }}>{detailMood?.emoji || '📓'}</Typography>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant='h4' sx={{ fontWeight: 700, color: '#1a1a2e' }}>{detailDateLabel}</Typography>
+                {detailMood && (
+                  <Typography variant='caption' sx={{ color: '#A084E8', fontWeight: 600 }}>{detailMood.text}</Typography>
+                )}
+              </Box>
+              <IconButton size='small' onClick={() => setDiaryDetailLog(null)} sx={{ color: 'text.secondary' }}>
+                <CloseIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+
+            <DialogContent sx={{ px: 3, py: 2 }}>
+              {/* 컨디션 섹션 */}
+              {detailMood && (
+                <Box sx={{ mb: 2.5, p: 1.5, bgcolor: '#F3E8FF', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Typography sx={{ fontSize: '1.6rem', lineHeight: 1 }}>{detailMood.emoji}</Typography>
+                  <Box>
+                    <Typography variant='caption' sx={{ color: '#9E9E9E', fontWeight: 600, display: 'block' }}>오늘의 컨디션</Typography>
+                    <Typography variant='body2' sx={{ fontWeight: 700, color: '#6B4FC8' }}>{detailMood.text}</Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {/* 일기 내용 */}
+              {diaryDetailLog.diary_content ? (
+                <Box sx={{ mb: 2.5 }}>
+                  <Typography variant='caption' sx={{ color: '#9E9E9E', fontWeight: 700, display: 'block', mb: 0.8 }}>
+                    ✍️ 일기 내용
+                  </Typography>
+                  <Typography
+                    variant='body2'
+                    sx={{
+                      lineHeight: 1.85, color: '#333', fontSize: '0.95rem',
+                      whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    }}
+                  >
+                    {diaryDetailLog.diary_content}
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ mb: 2.5, py: 2, textAlign: 'center' }}>
+                  <Typography variant='body2' color='text.secondary'>일기 내용 없음</Typography>
+                </Box>
+              )}
+
+              {/* 자동 첨부 운동 요약 */}
+              {ws && (
+                <Box sx={{ bgcolor: '#E8F5E9', borderRadius: 2, p: 1.8 }}>
+                  <Typography variant='caption' sx={{ color: '#4CAF50', fontWeight: 700, display: 'block', mb: 1.2 }}>
+                    📎 이날의 운동 기록
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: ws.types?.length > 0 ? 1 : 0 }}>
+                    {[
+                      { label: '운동 횟수', value: `${ws.count}회`, color: '#1B5E20' },
+                      { label: '운동 시간', value: `${ws.duration}분`, color: '#1B5E20' },
+                      { label: '소모 칼로리', value: `${ws.calories}kcal`, color: '#E65100' },
+                      ...(ws.steps > 0 ? [{ label: '걸음 수', value: `${ws.steps.toLocaleString()}걸음`, color: '#1565C0' }] : []),
+                    ].map((stat) => (
+                      <Box key={stat.label} sx={{ textAlign: 'center', minWidth: 64 }}>
+                        <Typography variant='caption' sx={{ color: '#757575', display: 'block', fontSize: '0.7rem' }}>{stat.label}</Typography>
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.92rem', color: stat.color }}>{stat.value}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                  {ws.types?.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                      {ws.types.map((t) => (
+                        <Chip key={t} label={t} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontSize: '0.72rem', height: 22 }} />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, borderTop: '1px solid #F0F0F0' }}>
+              <Button
+                variant='outlined'
+                size='small'
+                onClick={() => {
+                  setDiaryDetailLog(null);
+                  setMenuTarget({ type: 'diary', item: diaryDetailLog });
+                  setEditDiaryForm({
+                    mood: diaryDetailLog.mood_status || '',
+                    content: diaryDetailLog.diary_content || '',
+                  });
+                  setEditDiaryOpen(true);
+                }}
+                sx={{ borderColor: '#5DA9E9', color: '#5DA9E9', '&:hover': { bgcolor: '#E3F2FD' } }}
+              >
+                ✏️ 수정
+              </Button>
+              <Box sx={{ flex: 1 }} />
+              <Button
+                variant='contained'
+                size='small'
+                onClick={() => setDiaryDetailLog(null)}
+                sx={{ bgcolor: '#5DA9E9', '&:hover': { bgcolor: '#4A96D8' } }}
+              >
+                닫기
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+      })()}
 
       <Snackbar
         open={snack.open}

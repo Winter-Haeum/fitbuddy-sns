@@ -24,6 +24,7 @@ import Fab from '@mui/material/Fab';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -171,8 +172,6 @@ export default function RecordsPage() {
         };
       }
 
-      console.log('SAVE START:', upsertData);
-
       let { error } = await supabase
         .from('fitbuddy_daily_logs')
         .upsert(upsertData, { onConflict: 'user_id,log_date' });
@@ -186,22 +185,16 @@ export default function RecordsPage() {
         error = fallback.error;
       }
 
-      console.log('INSERT ERROR:', error);
       if (error) {
-        console.error('SUPABASE ERROR:', error);
-        alert('저장 실패: ' + error.message);
-        setSnack({ open: true, msg: '저장 실패: ' + error.message, severity: 'error' });
+        setSnack({ open: true, msg: '일기 저장에 실패했습니다.', severity: 'error' });
       } else {
-        console.log('일기 저장 성공');
         setSnack({ open: true, msg: '운동 일기가 저장되었습니다 📓', severity: 'success' });
         setDiaryOpen(false);
         setDiaryForm({ mood: '', content: '' });
         fetchDiaryLogs();
         fetchTodayCondition();
       }
-    } catch (err) {
-      console.error('예상 못한 오류:', err);
-      alert('오류: ' + err.message);
+    } catch {
       setSnack({ open: true, msg: '저장 중 오류가 발생했습니다.', severity: 'error' });
     } finally {
       setDiaryLoading(false);
@@ -257,13 +250,13 @@ export default function RecordsPage() {
         })
         .eq('id', menuTarget.item.id)
         .eq('user_id', user.id);
-      if (error) { alert('수정 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '운동 기록이 수정되었습니다.', severity: 'success' });
       setEditWorkoutOpen(false);
       fetchWeekWorkouts();
       fetchTodayWorkouts();
-    } catch (err) {
-      alert('오류: ' + err.message);
+    } catch {
+      setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -281,13 +274,13 @@ export default function RecordsPage() {
         .update(updateData)
         .eq('id', menuTarget.item.id)
         .eq('user_id', user.id);
-      if (error) { alert('수정 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '운동 일기가 수정되었습니다.', severity: 'success' });
       setEditDiaryOpen(false);
       fetchDiaryLogs();
       fetchTodayCondition();
-    } catch (err) {
-      alert('오류: ' + err.message);
+    } catch {
+      setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -320,14 +313,14 @@ export default function RecordsPage() {
             .eq('user_id', user.id));
         }
       }
-      if (error) { alert('삭제 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
       if (menuTarget.type === 'workout') { fetchWeekWorkouts(); fetchTodayWorkouts(); }
       else { fetchDiaryLogs(); fetchTodayCondition(); }
       setMenuTarget(null);
-    } catch (err) {
-      alert('오류: ' + err.message);
+    } catch {
+      setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -356,7 +349,13 @@ export default function RecordsPage() {
   return (
     <Layout>
       <Box sx={{ p: 2 }}>
-        <Typography variant='h2' sx={{ fontWeight: 700, mb: 2 }}>기록관 📓</Typography>
+        {/* 헤더 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+          <IconButton onClick={() => navigate(-1)} size='small' sx={{ color: 'text.secondary' }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant='h2' sx={{ fontWeight: 700 }}>기록관 📓</Typography>
+        </Box>
 
         {/* 탭 */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, borderBottom: '2px solid #EEE', pb: 1 }}>
@@ -464,7 +463,7 @@ export default function RecordsPage() {
                     <CardContent sx={{ py: 1.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                         <Typography sx={{ fontSize: '1.8rem', lineHeight: 1 }}>{mood?.emoji || '📓'}</Typography>
-                        <Box sx={{ flex: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.3 }}>
                             <Typography variant='body2' sx={{ fontWeight: 700 }}>{dayLabel}</Typography>
                             {mood && (
@@ -472,7 +471,15 @@ export default function RecordsPage() {
                             )}
                           </Box>
                           {log.diary_content ? (
-                            <Typography variant='body2' color='text.secondary' sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                            <Typography
+                              variant='body2'
+                              color='text.secondary'
+                              sx={{
+                                fontSize: '0.85rem', lineHeight: 1.5,
+                                overflow: 'hidden', textOverflow: 'ellipsis',
+                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                              }}
+                            >
                               {log.diary_content}
                             </Typography>
                           ) : (
@@ -509,9 +516,9 @@ export default function RecordsPage() {
       </Menu>
 
       {/* 운동 기록 수정 다이얼로그 */}
-      <Dialog open={editWorkoutOpen} onClose={() => setEditWorkoutOpen(false)} fullWidth maxWidth='sm'>
-        <DialogTitle>운동 기록 수정</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      <Dialog open={editWorkoutOpen} onClose={() => setEditWorkoutOpen(false)} fullWidth maxWidth='sm' scroll='paper' sx={{ '& .MuiDialog-paper': { maxHeight: '85vh', mx: 2 } }}>
+        <DialogTitle sx={{ pb: 1 }}>운동 기록 수정</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <FormControl fullWidth size='small'>
             <InputLabel>운동 종류</InputLabel>
             <Select value={editWorkoutForm.workout_type || ''} onChange={(e) => setEditWorkoutForm({ ...editWorkoutForm, workout_type: e.target.value })} label='운동 종류'>
@@ -536,9 +543,9 @@ export default function RecordsPage() {
       </Dialog>
 
       {/* 운동 일기 수정 다이얼로그 */}
-      <Dialog open={editDiaryOpen} onClose={() => setEditDiaryOpen(false)} fullWidth maxWidth='sm'>
-        <DialogTitle>운동 일기 수정 ✍️</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      <Dialog open={editDiaryOpen} onClose={() => setEditDiaryOpen(false)} fullWidth maxWidth='sm' scroll='paper' sx={{ '& .MuiDialog-paper': { maxHeight: '85vh', mx: 2 } }}>
+        <DialogTitle sx={{ pb: 1 }}>운동 일기 수정 ✍️</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box>
             <Typography variant='body2' sx={{ fontWeight: 700, mb: 1 }}>컨디션</Typography>
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-around' }}>

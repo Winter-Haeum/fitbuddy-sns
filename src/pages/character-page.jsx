@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -25,6 +28,7 @@ const XP_RULES = [
 ];
 
 export default function CharacterPage() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [character, setCharacter] = useState(null);
 
@@ -50,7 +54,12 @@ export default function CharacterPage() {
   return (
     <Layout>
       <Box sx={{ p: 2 }}>
-        <Typography variant='h2' sx={{ fontWeight: 700, mb: 2 }}>내 캐릭터 🎮</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+          <IconButton onClick={() => navigate(-1)} size='small' sx={{ color: 'text.secondary' }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant='h2' sx={{ fontWeight: 700 }}>내 캐릭터 🎮</Typography>
+        </Box>
 
         {/* 캐릭터 메인 카드 */}
         <Card sx={{ mb: 2, background: 'linear-gradient(135deg, #6BCB7718 0%, white 60%)', border: '1.5px solid #6BCB7744' }}>

@@ -68,29 +68,21 @@ export default function MealsPage() {
       image_url: form.image_url,
       calories: Number(form.calories) || 0,
     };
-    console.log('SAVE START:', payload);
     setError('');
     try {
       const { error: insertErr } = await supabase
         .from('fitbuddy_meals')
         .insert(payload);
-      console.log('INSERT ERROR:', insertErr);
       if (insertErr) {
-        console.error('SUPABASE ERROR:', insertErr);
-        alert('저장 실패: ' + insertErr.message);
-        setError('저장 실패: ' + insertErr.message);
+        setError('저장에 실패했습니다.');
         return;
       }
-      console.log('저장 성공');
       setOpen(false);
       setForm({ meal_type: 'breakfast', content: '', image_url: '', calories: '' });
       fetchMeals();
-    } catch (err) {
-      console.error('예상 못한 오류:', err);
-      alert('오류: ' + err.message);
+    } catch {
       setError('저장 중 오류가 발생했습니다.');
     } finally {
-      console.log('SAVE FINALLY');
       setLoading(false);
     }
   }

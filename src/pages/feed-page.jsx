@@ -20,6 +20,7 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -144,12 +145,12 @@ export default function FeedPage() {
         .update({ title: editForm.title, caption: editForm.caption })
         .eq('id', menuPost.id)
         .eq('user_id', user.id);
-      if (error) { alert('수정 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '게시글이 수정되었습니다.', severity: 'success' });
       setEditOpen(false);
       fetchPosts();
-    } catch (err) {
-      alert('오류: ' + err.message);
+    } catch {
+      setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -164,13 +165,13 @@ export default function FeedPage() {
         .delete()
         .eq('id', menuPost.id)
         .eq('user_id', user.id);
-      if (error) { alert('삭제 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '게시글이 삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
       setPosts((prev) => prev.filter((p) => p.id !== menuPost.id));
       setMenuPost(null);
-    } catch (err) {
-      alert('오류: ' + err.message);
+    } catch {
+      setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -182,7 +183,10 @@ export default function FeedPage() {
     <Layout>
       <Box sx={{ p: 2 }}>
         {/* 헤더 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+          <IconButton onClick={() => navigate(-1)} size='small' sx={{ color: 'text.secondary' }}>
+            <ArrowBackIcon />
+          </IconButton>
           <Typography variant='h2' sx={{ fontWeight: 700 }}>피드 🏋️</Typography>
         </Box>
 

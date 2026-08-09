@@ -2,14 +2,9 @@ import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { supabase } from '../utils/supabase';
 import { getLevelFromXP } from '../utils/xp-utils';
 import { useAuth } from './use-auth';
+import { WORKOUT_TYPES, INTENSITIES } from '../constants/workout';
 
-export const WORKOUT_TYPES = ['홈트', '스트레칭', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산', '기타'];
-
-export const INTENSITIES = [
-  { value: 'low', label: '낮음', cal: 4 },
-  { value: 'medium', label: '보통', cal: 7 },
-  { value: 'high', label: '높음', cal: 10 },
-];
+export { WORKOUT_TYPES, INTENSITIES };
 
 export function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -107,7 +102,7 @@ export function TimerProvider({ children }) {
     setSaved(false);
   }
 
-  async function handleSave(onComplete) {
+  async function handleSave(onComplete, steps = 0) {
     if (!user || seconds === 0 || saved) return;
     setSaving(true);
     const minutes = Math.ceil(seconds / 60);
@@ -121,7 +116,7 @@ export function TimerProvider({ children }) {
       duration_minutes: minutes,
       intensity,
       calories_burned: cal,
-      steps: 0,
+      steps: Math.round(steps),
       workout_date: today,
       workout_seconds: seconds,
       rest_seconds: totalRestSeconds,

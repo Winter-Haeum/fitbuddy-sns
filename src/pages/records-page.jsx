@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -52,6 +52,9 @@ export default function RecordsPage() {
   const { user, profile } = useAuth();
   const [tab, setTab] = useState(location.state?.initialTab ?? 0);
   const [weekWorkouts, setWeekWorkouts] = useState([]);
+  const [rangeFilter, setRangeFilter] = useState('week');
+  const [displayCount, setDisplayCount] = useState(10);
+  const sentinelRef = useRef(null);
   const [diaryLogs, setDiaryLogs] = useState([]);
   const [todayWorkouts, setTodayWorkouts] = useState([]);
   const [snack, setSnack] = useState(
@@ -86,20 +89,32 @@ export default function RecordsPage() {
     fetchAll();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetchWorkouts(rangeFilter);
+  }, [rangeFilter, user]);
+
   async function fetchAll() {
-    await Promise.all([fetchWeekWorkouts(), fetchDiaryLogs(), fetchTodayWorkouts(), fetchTodayCondition()]);
+    await Promise.all([fetchWorkouts(rangeFilter), fetchDiaryLogs(), fetchTodayWorkouts(), fetchTodayCondition()]);
   }
 
-  async function fetchWeekWorkouts() {
+  async function fetchWorkouts(range) {
     try {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 6);
-      const { data } = await supabase
+      let query = supabase
         .from('fitbuddy_workouts')
         .select('*')
         .eq('user_id', user.id)
-        .gte('workout_date', weekAgo.toISOString().split('T')[0])
         .order('workout_date', { ascending: false });
+      if (range === 'week') {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 6);
+        query = query.gte('workout_date', cutoff.toISOString().split('T')[0]);
+      } else if (range === 'month') {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 29);
+        query = query.gte('workout_date', cutoff.toISOString().split('T')[0]);
+      }
+      const { data } = await query;
       setWeekWorkouts(data || []);
     } catch (err) {
       console.error(err);
@@ -257,7 +272,7 @@ export default function RecordsPage() {
       if (error) { setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '운동 기록이 수정되었습니다.', severity: 'success' });
       setEditWorkoutOpen(false);
-      fetchWeekWorkouts();
+      fetchWorkouts(rangeFilter);
       fetchTodayWorkouts();
     } catch {
       setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
@@ -320,7 +335,7 @@ export default function RecordsPage() {
       if (error) { setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
-      if (menuTarget.type === 'workout') { fetchWeekWorkouts(); fetchTodayWorkouts(); }
+      if (menuTarget.type === 'workout') { fetchWorkouts(rangeFilter); fetchTodayWorkouts(); }
       else { fetchDiaryLogs(); fetchTodayCondition(); }
       setMenuTarget(null);
     } catch {
@@ -329,6 +344,22 @@ export default function RecordsPage() {
       setActionLoading(false);
     }
   }
+
+  // 무한 스크롤 - sentinel div가 보이면 더 로드
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setDisplayCount((prev) => prev + 10);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [weekWorkouts]);
 
   function groupByDate(workouts) {
     const map = {};
@@ -349,6 +380,10 @@ export default function RecordsPage() {
     }),
     { duration: 0, calories: 0, rest_seconds: 0, steps: 0 }
   );
+
+  const allWorkoutGroups = groupByDate(weekWorkouts);
+  const visibleWorkoutGroups = allWorkoutGroups.slice(0, displayCount);
+  const hasMoreWorkoutGroups = allWorkoutGroups.length > displayCount;
 
   return (
     <Layout>
@@ -383,7 +418,23 @@ export default function RecordsPage() {
         {/* 탭 0: 운동 기록 */}
         {tab === 0 && (
           <Box>
-            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>최근 7일 운동 기록</Typography>
+            {/* 기간 드롭다운 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant='body2' color='text.secondary'>
+                {weekWorkouts.length}개 기록
+              </Typography>
+              <FormControl size='small' sx={{ minWidth: 120 }}>
+                <Select
+                  value={rangeFilter}
+                  onChange={(e) => { setRangeFilter(e.target.value); setDisplayCount(10); }}
+                  sx={{ fontSize: '0.85rem' }}
+                >
+                  <MenuItem value='week'>최근 7일</MenuItem>
+                  <MenuItem value='month'>최근 한 달</MenuItem>
+                  <MenuItem value='all'>전체 기록</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
             {weekWorkouts.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <Typography sx={{ fontSize: '3rem', mb: 1 }}>💪</Typography>
@@ -393,46 +444,54 @@ export default function RecordsPage() {
                 </Button>
               </Box>
             ) : (
-              groupByDate(weekWorkouts).map(([date, workouts]) => {
-                const totalMin = workouts.reduce((s, w) => s + (w.duration_minutes || 0), 0);
-                const totalCal = workouts.reduce((s, w) => s + (w.calories_burned || 0), 0);
-                const dateObj = new Date(date);
-                const dayLabel = date === today ? '오늘' : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-                return (
-                  <Card key={date} sx={{ mb: 2.5 }}>
-                    <CardContent sx={{ px: 2.5 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                        <Typography variant='body2' sx={{ fontWeight: 700 }}>{dayLabel}</Typography>
-                        <Typography variant='caption' color='text.secondary'>{totalMin}분 · {totalCal}kcal</Typography>
-                      </Box>
-                      {workouts.map((w, i) => (
-                        <Box key={w.id}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1 }}>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.3 }}>
-                                <FitnessCenterIcon sx={{ fontSize: 14, color: '#6BCB77' }} />
-                                <Typography variant='body2' sx={{ fontWeight: 600 }}>{w.workout_type}</Typography>
-                              </Box>
-                              <Typography variant='caption' color='text.secondary'>
-                                {w.duration_minutes}분 · {w.calories_burned}kcal
-                              </Typography>
-                            </Box>
-                            <FitBuddyCharacter
-                              size={44}
-                              gender={profile?.gender || 'female'}
-                              workoutType={w.workout_type}
-                            />
-                            <IconButton size='small' onClick={(e) => openMenu(e, 'workout', w)} sx={{ p: 0.3 }}>
-                              <MoreVertIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Box>
-                          {i < workouts.length - 1 && <Divider />}
+              <>
+                {visibleWorkoutGroups.map(([date, workouts]) => {
+                  const totalMin = workouts.reduce((s, w) => s + (w.duration_minutes || 0), 0);
+                  const totalCal = workouts.reduce((s, w) => s + (w.calories_burned || 0), 0);
+                  const dateObj = new Date(date);
+                  const dayLabel = date === today ? '오늘' : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+                  return (
+                    <Card key={date} sx={{ mb: 2.5 }}>
+                      <CardContent sx={{ px: 2.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                          <Typography variant='body2' sx={{ fontWeight: 700 }}>{dayLabel}</Typography>
+                          <Typography variant='caption' color='text.secondary'>{totalMin}분 · {totalCal}kcal</Typography>
                         </Box>
-                      ))}
-                    </CardContent>
-                  </Card>
-                );
-              })
+                        {workouts.map((w, i) => (
+                          <Box key={w.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.3 }}>
+                                  <FitnessCenterIcon sx={{ fontSize: 14, color: '#6BCB77' }} />
+                                  <Typography variant='body2' sx={{ fontWeight: 600 }}>{w.workout_type}</Typography>
+                                </Box>
+                                <Typography variant='caption' color='text.secondary'>
+                                  {w.duration_minutes}분 · {w.calories_burned}kcal
+                                </Typography>
+                              </Box>
+                              <FitBuddyCharacter
+                                size={44}
+                                gender={profile?.gender || 'female'}
+                                workoutType={w.workout_type}
+                              />
+                              <IconButton size='small' onClick={(e) => openMenu(e, 'workout', w)} sx={{ p: 0.3 }}>
+                                <MoreVertIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Box>
+                            {i < workouts.length - 1 && <Divider />}
+                          </Box>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {/* 무한스크롤 sentinel */}
+                {hasMoreWorkoutGroups && (
+                  <Box ref={sentinelRef} sx={{ py: 2, textAlign: 'center' }}>
+                    <Typography variant='caption' color='text.secondary'>불러오는 중...</Typography>
+                  </Box>
+                )}
+              </>
             )}
           </Box>
         )}

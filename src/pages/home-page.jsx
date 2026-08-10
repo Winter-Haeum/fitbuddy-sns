@@ -222,6 +222,20 @@ export default function HomePage() {
 
   return (
     <Layout>
+      {/* 상단 오늘 목표 진행률 바 */}
+      <Box sx={{ position: 'sticky', top: 0, zIndex: 10, height: 3, bgcolor: '#E8F5E9', width: '100%' }}>
+        <Box
+          sx={{
+            height: '100%',
+            width: `${progress}%`,
+            bgcolor: progress >= 100 ? '#FFB300' : '#6BCB77',
+            borderRadius: '0 3px 3px 0',
+            transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease',
+            willChange: 'width',
+          }}
+        />
+      </Box>
+
       <Box sx={{ p: 2 }}>
         {/* 상단 헤더 */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

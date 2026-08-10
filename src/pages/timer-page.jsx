@@ -78,7 +78,7 @@ export default function TimerPage() {
   const {
     workoutType, setWorkoutType,
     intensity, setIntensity,
-    seconds, resting, restRunning,
+    seconds, resting,
     currentRestSeconds, totalRestSeconds,
     saved, saving, snack, setSnack,
     status,

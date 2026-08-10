@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -39,6 +39,7 @@ const CATEGORIES = ['전체', '운동', '식단', '자유'];
 
 export default function FeedPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,8 @@ export default function FeedPage() {
   const [search, setSearch] = useState('');
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
+
+  const [feedFilter] = useState(() => location.state?.myPostsOnly ? 'mine' : 'all');
 
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuPost, setMenuPost] = useState(null);
@@ -58,12 +61,26 @@ export default function FeedPage() {
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
+      if (feedFilter === 'saved') {
+        const { data } = await supabase
+          .from('fitbuddy_saved_posts')
+          .select('fitbuddy_posts(*, fitbuddy_users(display_name, avatar_url, username))')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        setPosts((data || []).map((d) => d.fitbuddy_posts).filter(Boolean));
+        return;
+      }
+
       let query = supabase
         .from('fitbuddy_posts')
         .select('*, fitbuddy_users(display_name, avatar_url, username)')
         .order('created_at', { ascending: false })
         .limit(30);
 
+      if (feedFilter === 'mine' && user) {
+        query = query.eq('user_id', user.id);
+      }
       if (category !== '전체') {
         const typeMap = { '운동': 'workout', '식단': 'diet', '자유': 'free' };
         query = query.eq('post_type', typeMap[category]);
@@ -77,7 +94,7 @@ export default function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [category, search]);
+  }, [feedFilter, category, search, user]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 

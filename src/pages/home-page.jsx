@@ -98,6 +98,22 @@ export default function HomePage() {
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
   const quote = QUOTES[new Date().getDay() % QUOTES.length];
 
+  // 날짜 변경 감지 — 자정 넘으면 오늘 데이터 초기화
+  const [currentDate, setCurrentDate] = useState(getLocalToday);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const newDate = getLocalToday();
+      if (newDate !== currentDate) {
+        setCurrentDate(newDate);
+        setTodayWorkout(null);
+        setTodayWorkoutList([]);
+        setTodayLog(null);
+        setGoalEditValue('60');
+      }
+    }, 30000); // 30초마다 날짜 체크
+    return () => clearInterval(timer);
+  }, [currentDate]);
+
   async function handleSignOut() {
     setMenuAnchor(null);
     await signOut();
@@ -167,7 +183,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalToday();
 
     supabase
       .from('fitbuddy_workouts')
@@ -214,7 +230,7 @@ export default function HomePage() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .then(({ count }) => setJoinedCount(count || 0));
-  }, [user, location.key]);
+  }, [user, location.key, currentDate]);
 
   const goalMinutes = todayLog?.daily_goal_minutes || 60;
   const progress = todayWorkout ? Math.min((todayWorkout.duration / goalMinutes) * 100, 100) : 0;

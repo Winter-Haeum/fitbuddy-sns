@@ -7,6 +7,11 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Divider from '@mui/material/Divider';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
@@ -33,6 +38,7 @@ import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import { getLevelFromXP } from '../utils/xp-utils';
 import { MOODS } from '../constants/workout';
+import StatsCard from '../components/ui/stats-card';
 
 const confettiFall = keyframes({
   '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
@@ -79,6 +85,8 @@ export default function HomePage() {
   const location = useLocation();
   const { user, profile, signOut } = useAuth();
   const [todayWorkout, setTodayWorkout] = useState(null);
+  const [todayWorkoutList, setTodayWorkoutList] = useState([]);
+  const [workoutSummaryOpen, setWorkoutSummaryOpen] = useState(false);
   const [character, setCharacter] = useState(null);
   const [todayLog, setTodayLog] = useState(null);
   const [joinedCount, setJoinedCount] = useState(0);
@@ -163,7 +171,7 @@ export default function HomePage() {
 
     supabase
       .from('fitbuddy_workouts')
-      .select('duration_minutes, calories_burned, steps')
+      .select('duration_minutes, calories_burned, steps, workout_type, intensity')
       .eq('user_id', user.id)
       .eq('workout_date', today)
       .then(({ data }) => {
@@ -177,6 +185,7 @@ export default function HomePage() {
             { duration: 0, calories: 0, steps: 0 }
           );
           setTodayWorkout(totals);
+          setTodayWorkoutList(data);
         }
       });
 
@@ -494,41 +503,35 @@ export default function HomePage() {
         })()}
 
         {/* 6. 오늘 운동 기록 요약 */}
-        <Typography variant='h4' sx={{ mb: 1.2, fontWeight: 600 }}>오늘 운동 요약</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.2 }}>
+          <Typography variant='h4' sx={{ fontWeight: 600 }}>오늘 운동 요약</Typography>
+          {todayWorkout && (
+            <Typography
+              variant='caption'
+              onClick={() => setWorkoutSummaryOpen(true)}
+              sx={{ color: '#6BCB77', cursor: 'pointer', fontWeight: 600 }}
+            >
+              상세 보기 →
+            </Typography>
+          )}
+        </Box>
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          <Grid size={{ xs: 4 }}>
-            <Card sx={{ textAlign: 'center', bgcolor: '#E8F5E9' }}>
-              <CardContent sx={{ py: 1.5, px: 1 }}>
-                <TimerIcon sx={{ color: '#6BCB77', fontSize: 24 }} />
-                <Typography variant='h4' sx={{ fontWeight: 700, color: '#4CAF5A' }}>
-                  {todayWorkout?.duration || 0}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>분</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 4 }}>
-            <Card sx={{ textAlign: 'center', bgcolor: '#FFF3E0' }}>
-              <CardContent sx={{ py: 1.5, px: 1 }}>
-                <LocalFireDepartmentIcon sx={{ color: '#FF7043', fontSize: 24 }} />
-                <Typography variant='h4' sx={{ fontWeight: 700, color: '#FF7043' }}>
-                  {todayWorkout?.calories || 0}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>kcal</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 4 }}>
-            <Card sx={{ textAlign: 'center', bgcolor: '#E3F2FD' }}>
-              <CardContent sx={{ py: 1.5, px: 1 }}>
-                <DirectionsWalkIcon sx={{ color: '#5DA9E9', fontSize: 24 }} />
-                <Typography variant='h4' sx={{ fontWeight: 700, color: '#5DA9E9' }}>
-                  {(todayWorkout?.steps || 0).toLocaleString()}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>걸음</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+          {[
+            { icon: <TimerIcon sx={{ color: '#6BCB77', fontSize: 24 }} />, value: todayWorkout?.duration || 0, unit: '분', bgcolor: '#E8F5E9', color: '#4CAF5A' },
+            { icon: <LocalFireDepartmentIcon sx={{ color: '#FF7043', fontSize: 24 }} />, value: todayWorkout?.calories || 0, unit: 'kcal', bgcolor: '#FFF3E0', color: '#FF7043' },
+            { icon: <DirectionsWalkIcon sx={{ color: '#5DA9E9', fontSize: 24 }} />, value: (todayWorkout?.steps || 0).toLocaleString(), unit: '걸음', bgcolor: '#E3F2FD', color: '#5DA9E9' },
+          ].map((item, i) => (
+            <Grid size={{ xs: 4 }} key={i}>
+              <StatsCard
+                icon={item.icon}
+                value={item.value}
+                unit={item.unit}
+                bgcolor={item.bgcolor}
+                color={item.color}
+                onClick={todayWorkout ? () => setWorkoutSummaryOpen(true) : undefined}
+              />
+            </Grid>
+          ))}
         </Grid>
 
         {/* 7. 기록관 바로가기 */}
@@ -579,6 +582,70 @@ export default function HomePage() {
           게시글 작성
         </Button>
       </Box>
+
+      {/* 오늘 운동 요약 상세 모달 */}
+      <Dialog
+        open={workoutSummaryOpen}
+        onClose={() => setWorkoutSummaryOpen(false)}
+        fullWidth maxWidth='xs'
+        scroll='paper'
+        sx={{ '& .MuiDialog-paper': { maxHeight: '85vh', mx: 2 } }}
+      >
+        <DialogTitle>오늘 운동 요약 💪</DialogTitle>
+        <DialogContent dividers>
+          {/* 총계 */}
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+            {[
+              { label: '운동 시간', value: `${todayWorkout?.duration || 0}분`, color: '#4CAF5A', bg: '#E8F5E9' },
+              { label: '소모 칼로리', value: `${todayWorkout?.calories || 0}kcal`, color: '#FF7043', bg: '#FFF3E0' },
+              { label: '걸음 수', value: `${(todayWorkout?.steps || 0).toLocaleString()}`, color: '#5DA9E9', bg: '#E3F2FD' },
+            ].map((s) => (
+              <Box key={s.label} sx={{ flex: 1, textAlign: 'center', bgcolor: s.bg, borderRadius: 2, py: 1.2 }}>
+                <Typography sx={{ fontWeight: 700, color: s.color, fontSize: '1rem' }}>{s.value}</Typography>
+                <Typography variant='caption' color='text.secondary'>{s.label}</Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* 운동 목록 */}
+          {todayWorkoutList.length > 0 && (
+            <>
+              <Typography variant='caption' sx={{ fontWeight: 700, color: '#757575', display: 'block', mb: 1 }}>
+                오늘의 운동 기록
+              </Typography>
+              {todayWorkoutList.map((w, i) => (
+                <Box key={i}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#6BCB77', flexShrink: 0 }} />
+                      <Typography variant='body2' sx={{ fontWeight: 600 }}>{w.workout_type || '운동'}</Typography>
+                    </Box>
+                    <Typography variant='body2' color='text.secondary'>
+                      {w.duration_minutes}분 · {w.calories_burned}kcal
+                      {w.intensity && ` · ${w.intensity === 'low' ? '낮음' : w.intensity === 'high' ? '높음' : '보통'}`}
+                    </Typography>
+                  </Box>
+                  {i < todayWorkoutList.length - 1 && <Divider />}
+                </Box>
+              ))}
+            </>
+          )}
+
+          {/* 응원 문구 */}
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: '#F3E8FF', borderRadius: 2, textAlign: 'center' }}>
+            <Typography variant='body2' sx={{ color: '#6B4FC8', fontWeight: 600 }}>
+              {(todayWorkout?.duration || 0) >= 60 ? '🏆 오늘 목표 달성! 정말 대단해요!'
+                : (todayWorkout?.duration || 0) >= 30 ? '💪 절반 이상 채웠어요. 파이팅!'
+                : '🌱 작은 시작이 큰 변화를 만들어요!'}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button fullWidth variant='contained' onClick={() => setWorkoutSummaryOpen(false)} sx={{ bgcolor: '#6BCB77', '&:hover': { bgcolor: '#4DBB68' } }}>
+            확인
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snack.open}

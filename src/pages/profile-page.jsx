@@ -30,8 +30,6 @@ import TodayIcon from '@mui/icons-material/Today';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
@@ -39,7 +37,7 @@ import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft } from '../utils/date-utils';
 
-const POSTS_PER_PAGE = 3;
+const POSTS_PREVIEW = 5;
 
 const WORKOUT_GOALS = ['다이어트', '근력 증가', '건강 관리', '습관 만들기'];
 const INTERESTS = ['홈트', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산'];
@@ -67,8 +65,6 @@ export default function ProfilePage() {
   const [character, setCharacter] = useState(null);
 
   const [tab, setTab] = useState('posts');
-  const [postsPage, setPostsPage] = useState(1);
-  const [savedPage, setSavedPage] = useState(1);
 
   // 프로필 수정
   const [editOpen, setEditOpen] = useState(false);
@@ -437,12 +433,9 @@ export default function ProfilePage() {
     }
   }
 
-  // 페이지네이션 계산
-  const currentPage = tab === 'posts' ? postsPage : savedPage;
-  const setCurrentPage = tab === 'posts' ? setPostsPage : setSavedPage;
   const allPosts = tab === 'posts' ? posts : savedPosts;
-  const totalPages = Math.max(1, Math.ceil(allPosts.length / POSTS_PER_PAGE));
-  const pagedPosts = allPosts.slice((currentPage - 1) * POSTS_PER_PAGE, currentPage * POSTS_PER_PAGE);
+  const previewPosts = allPosts.slice(0, POSTS_PREVIEW);
+  const hasMore = allPosts.length > POSTS_PREVIEW;
   const activeJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) > 0);
   const endedJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) === 0);
 
@@ -581,14 +574,14 @@ export default function ProfilePage() {
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
           <Button
             variant={tab === 'posts' ? 'contained' : 'outlined'}
-            onClick={() => { setTab('posts'); setPostsPage(1); }}
+            onClick={() => setTab('posts')}
             sx={{ flex: 1, ...(tab === 'posts' && { bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }) }}
           >
             내 게시글 ({posts.length})
           </Button>
           <Button
             variant={tab === 'saved' ? 'contained' : 'outlined'}
-            onClick={() => { setTab('saved'); setSavedPage(1); }}
+            onClick={() => setTab('saved')}
             sx={{ flex: 1, ...(tab === 'saved' && { bgcolor: '#A084E8', '&:hover': { bgcolor: '#8B6FD4' } }) }}
           >
             저장한 글 ({savedPosts.length})
@@ -742,104 +735,99 @@ export default function ProfilePage() {
         )}
 
         {/* 게시글 카드 리스트 — 챌린지 탭일 때는 렌더링 안 함 */}
-        {tab !== 'challenges' && (allPosts.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color='text.secondary'>
-              {tab === 'posts' ? '아직 작성한 게시글이 없습니다.' : '저장한 게시글이 없습니다.'}
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {pagedPosts.map((post) => (
-              <Card key={post.id} sx={{ mb: 1.5 }}>
-                <Box
-                  onClick={() => navigate(`/post/${post.id}`)}
-                  sx={{ display: 'flex', gap: 1.5, p: 1.5, cursor: 'pointer' }}
-                >
-                  {/* 썸네일 */}
-                  <Box sx={{
-                    width: 80, height: 80, borderRadius: 1.5, overflow: 'hidden',
-                    flexShrink: 0, bgcolor: TYPE_BG[post.post_type] || '#f0f0f0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {post.image_url ? (
-                      <Box component='img' src={post.image_url} alt={post.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <Typography sx={{ fontSize: '2rem' }}>{TYPE_EMOJI[post.post_type] || '📝'}</Typography>
-                    )}
-                  </Box>
-
-                  {/* 내용 */}
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.3 }}>
-                      <Chip
-                        label={TYPE_LABEL[post.post_type] || '게시글'}
-                        size='small'
-                        sx={{ height: 18, fontSize: '0.65rem', mr: 0.5 }}
-                      />
-                      <Box sx={{ flex: 1 }} />
-                      <IconButton
-                        size='small'
-                        onClick={(e) => openPostMenu(e, post)}
-                        sx={{ p: 0.3 }}
-                      >
-                        <MoreVertIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </Box>
-                    <Typography sx={{
-                      fontWeight: 600, fontSize: '0.9rem', mb: 0.2,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        {tab !== 'challenges' && (
+          allPosts.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color='text.secondary'>
+                {tab === 'posts' ? '아직 작성한 게시글이 없습니다.' : '저장한 게시글이 없습니다.'}
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              {previewPosts.map((post) => (
+                <Card key={post.id} sx={{ mb: 1.5 }}>
+                  <Box
+                    onClick={() => navigate(`/post/${post.id}`)}
+                    sx={{ display: 'flex', gap: 1.5, p: 1.5, cursor: 'pointer' }}
+                  >
+                    {/* 썸네일 */}
+                    <Box sx={{
+                      width: 80, height: 80, borderRadius: 1.5, overflow: 'hidden',
+                      flexShrink: 0, bgcolor: TYPE_BG[post.post_type] || '#f0f0f0',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      {post.title || '(제목 없음)'}
-                    </Typography>
-                    <Typography variant='body2' color='text.secondary' sx={{
-                      fontSize: '0.78rem', lineHeight: 1.4,
-                      display: '-webkit-box', WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }}>
-                      {post.content}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
-                      <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem' }}>
-                        {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                      {post.image_url ? (
+                        <Box component='img' src={post.image_url} alt={post.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Typography sx={{ fontSize: '2rem' }}>{TYPE_EMOJI[post.post_type] || '📝'}</Typography>
+                      )}
+                    </Box>
+
+                    {/* 내용 */}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.3 }}>
+                        <Chip
+                          label={TYPE_LABEL[post.post_type] || '게시글'}
+                          size='small'
+                          sx={{ height: 18, fontSize: '0.65rem', mr: 0.5 }}
+                        />
+                        <Box sx={{ flex: 1 }} />
+                        <IconButton
+                          size='small'
+                          onClick={(e) => openPostMenu(e, post)}
+                          sx={{ p: 0.3 }}
+                        >
+                          <MoreVertIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                      <Typography sx={{
+                        fontWeight: 600, fontSize: '0.9rem', mb: 0.2,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {post.title || '(제목 없음)'}
                       </Typography>
-                      <Box sx={{ flex: 1 }} />
-                      <FavoriteIcon sx={{ fontSize: 12, color: '#bbb' }} />
-                      <Typography variant='caption' sx={{ fontSize: '0.7rem', color: '#999' }}>
-                        {post.like_count || 0}
+                      <Typography variant='body2' color='text.secondary' sx={{
+                        fontSize: '0.78rem', lineHeight: 1.4,
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {post.content}
                       </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem' }}>
+                          {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                        </Typography>
+                        <Box sx={{ flex: 1 }} />
+                        <FavoriteIcon sx={{ fontSize: 12, color: '#bbb' }} />
+                        <Typography variant='caption' sx={{ fontSize: '0.7rem', color: '#999' }}>
+                          {post.like_count || 0}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Box>
-                </Box>
-              </Card>
-            ))}
+                </Card>
+              ))}
 
-            {/* 페이지네이션 */}
-            {totalPages > 1 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mt: 1, mb: 1 }}>
-                <IconButton
+              {/* 모두 보기 버튼 */}
+              {hasMore && (
+                <Button
+                  variant='outlined'
+                  fullWidth
                   size='small'
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  sx={{ border: '1px solid #E0E0E0' }}
+                  onClick={() => navigate('/feed', { state: { myPostsOnly: tab === 'posts' } })}
+                  sx={{
+                    mt: 1, mb: 1,
+                    borderColor: tab === 'posts' ? '#6BCB77' : '#A084E8',
+                    color: tab === 'posts' ? '#388E3C' : '#6B4FC8',
+                    '&:hover': { bgcolor: tab === 'posts' ? '#F1F8E9' : '#F3E8FF' },
+                  }}
                 >
-                  <NavigateBeforeIcon />
-                </IconButton>
-                <Typography variant='body2' sx={{ fontWeight: 600, minWidth: 48, textAlign: 'center' }}>
-                  {currentPage} / {totalPages}
-                </Typography>
-                <IconButton
-                  size='small'
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  sx={{ border: '1px solid #E0E0E0' }}
-                >
-                  <NavigateNextIcon />
-                </IconButton>
-              </Box>
-            )}
-          </>
-        ))}
+                  모두 보기 ({allPosts.length}개) →
+                </Button>
+              )}
+            </>
+          )
+        )}
 
         <Divider sx={{ my: 3 }} />
         <Button variant='outlined' fullWidth color='error' startIcon={<LogoutIcon />} onClick={handleSignOut} sx={{ mb: 1.5 }}>

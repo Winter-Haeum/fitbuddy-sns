@@ -15,7 +15,7 @@ export function formatTime(seconds) {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export function getStatus(running, resting, restRunning, saved, seconds, currentRestSeconds) {
+function getStatus(running, resting, restRunning, saved, seconds, currentRestSeconds) {
   if (saved) return 'completed';
   if (resting && restRunning) return 'resting';
   if (resting && !restRunning && currentRestSeconds > 0) return 'rest_paused';

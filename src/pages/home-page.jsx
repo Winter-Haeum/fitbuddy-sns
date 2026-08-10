@@ -135,7 +135,7 @@ export default function HomePage() {
     const v = isNaN(parsed) ? goalMinutes : Math.max(10, Math.min(300, parsed));
     setGoalEditValue(String(v));
     if (v === goalMinutes) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalToday();
     await supabase.from('fitbuddy_daily_logs').upsert(
       { user_id: user.id, log_date: today, daily_goal_minutes: v },
       { onConflict: 'user_id,log_date' }
@@ -144,7 +144,7 @@ export default function HomePage() {
   }
 
   async function awardGoalXP() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalToday();
     const { data: charData } = await supabase
       .from('fitbuddy_characters').select('experience, level').eq('user_id', user.id).maybeSingle();
     if (!charData) return;

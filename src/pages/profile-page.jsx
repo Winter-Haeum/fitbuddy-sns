@@ -36,6 +36,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
+import { getDaysLeft as getChallengesDaysLeft } from '../utils/date-utils';
 
 const POSTS_PER_PAGE = 3;
 
@@ -53,6 +54,7 @@ export default function ProfilePage() {
 
   const [posts, setPosts] = useState([]);
   const [savedPosts, setSavedPosts] = useState([]);
+  const [joinedChallenges, setJoinedChallenges] = useState([]);
   const [stats, setStats] = useState({ totalWorkouts: 0, thisWeek: 0, todayCount: 0, streak: 0 });
   const [character, setCharacter] = useState(null);
 
@@ -86,9 +88,34 @@ export default function ProfilePage() {
     fetchMyPosts();
     fetchSavedPosts();
     fetchStats();
+    fetchJoinedChallenges();
     supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setCharacter(data));
   }, [user]);
+
+  async function fetchJoinedChallenges() {
+    try {
+      // Step 1: 내가 참여한 challenge_id 목록
+      const { data: joined, error: joinErr } = await supabase
+        .from('fitbuddy_challenge_users')
+        .select('challenge_id')
+        .eq('user_id', user.id);
+      if (joinErr) { console.error('참여 챌린지 조회 오류:', joinErr.message); setJoinedChallenges([]); return; }
+      const ids = (joined || []).map((d) => d.challenge_id).filter(Boolean);
+      if (!ids.length) { setJoinedChallenges([]); return; }
+
+      // Step 2: 챌린지 상세 정보
+      const { data: challenges } = await supabase
+        .from('fitbuddy_challenges')
+        .select('*')
+        .in('id', ids)
+        .order('created_at', { ascending: false });
+      setJoinedChallenges(challenges || []);
+    } catch (err) {
+      console.error('참여 챌린지 조회 오류:', err);
+      setJoinedChallenges([]);
+    }
+  }
 
   async function fetchMyPosts() {
     try {
@@ -381,6 +408,8 @@ export default function ProfilePage() {
   const allPosts = tab === 'posts' ? posts : savedPosts;
   const totalPages = Math.max(1, Math.ceil(allPosts.length / POSTS_PER_PAGE));
   const pagedPosts = allPosts.slice((currentPage - 1) * POSTS_PER_PAGE, currentPage * POSTS_PER_PAGE);
+  const activeJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) > 0);
+  const endedJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) === 0);
 
   return (
     <Layout>
@@ -529,10 +558,156 @@ export default function ProfilePage() {
           >
             저장한 글 ({savedPosts.length})
           </Button>
+          <Button
+            variant={tab === 'challenges' ? 'contained' : 'outlined'}
+            onClick={() => setTab('challenges')}
+            sx={{ flex: 1, ...(tab === 'challenges' && { bgcolor: '#FF7043', '&:hover': { bgcolor: '#E55C2F' } }) }}
+          >
+            챌린지 ({joinedChallenges.length})
+          </Button>
         </Box>
 
-        {/* 게시글 카드 리스트 */}
-        {allPosts.length === 0 ? (
+        {/* 참여 챌린지 탭 */}
+        {tab === 'challenges' && (
+          <Box>
+            {joinedChallenges.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🎯</Typography>
+                <Typography color='text.secondary'>참여 중인 챌린지가 없습니다</Typography>
+                <Button
+                  variant='outlined' size='small' onClick={() => navigate('/challenges')}
+                  sx={{ mt: 1.5, borderColor: '#A084E8', color: '#6B4FC8' }}
+                >
+                  챌린지 둘러보기
+                </Button>
+              </Box>
+            ) : (
+              <>
+                {/* 진행 중 챌린지 */}
+                {activeJoinedChallenges.length > 0 && (
+                  <>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 0.8 }}>
+                      <Box sx={{ width: 3, height: 14, bgcolor: '#A084E8', borderRadius: 2 }} />
+                      <Typography variant='caption' sx={{ fontWeight: 700, color: '#6B4FC8' }}>
+                        진행 중 ({activeJoinedChallenges.length})
+                      </Typography>
+                    </Box>
+                    {activeJoinedChallenges.map((c) => {
+                      const dl = getChallengesDaysLeft(c.end_date);
+                      const isUrgent = dl <= 3;
+                      return (
+                        <Card
+                          key={c.id}
+                          onClick={() => navigate('/challenges')}
+                          sx={{
+                            mb: 1.5, cursor: 'pointer',
+                            border: `1.5px solid ${isUrgent ? '#FFCDD2' : '#EDE7F6'}`,
+                            bgcolor: isUrgent ? '#FFFAFA' : 'white',
+                            transition: 'transform 0.12s ease, box-shadow 0.15s',
+                            '&:hover': { boxShadow: '0 2px 10px rgba(160,132,232,0.15)', transform: 'translateY(-1px)' },
+                            '&:active': { transform: 'scale(0.98)' },
+                          }}
+                        >
+                          <CardContent sx={{ py: 1.5, px: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                              {/* 왼쪽 아이콘 영역 */}
+                              <Box sx={{
+                                width: 44, height: 44, borderRadius: 2, flexShrink: 0,
+                                bgcolor: isUrgent ? '#FFEBEE' : '#EDE7F6',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                <Typography sx={{ fontSize: '1.3rem' }}>🏆</Typography>
+                              </Box>
+                              {/* 내용 */}
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography
+                                  variant='body2'
+                                  sx={{ fontWeight: 700, mb: 0.3, lineHeight: 1.3 }}
+                                  noWrap
+                                >
+                                  {c.title}
+                                </Typography>
+                                {c.goal && (
+                                  <Typography variant='caption' color='text.secondary' noWrap sx={{ display: 'block' }}>
+                                    🎯 {c.goal}
+                                  </Typography>
+                                )}
+                                {c.challenge_type === 'period' && (
+                                  <Typography variant='caption' sx={{ color: '#A084E8', fontSize: '0.7rem' }}>
+                                    {c.start_date} ~ {c.end_date}
+                                  </Typography>
+                                )}
+                              </Box>
+                              {/* D-day */}
+                              <Box sx={{ textAlign: 'center', flexShrink: 0 }}>
+                                <Chip
+                                  label={dl === 0 ? 'D-day' : `D-${dl}`}
+                                  size='small'
+                                  sx={{
+                                    bgcolor: isUrgent ? '#EF5350' : '#7C4DFF',
+                                    color: 'white',
+                                    fontWeight: 700,
+                                    fontSize: '0.75rem',
+                                    height: 22,
+                                  }}
+                                />
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* 종료된 챌린지 */}
+                {endedJoinedChallenges.length > 0 && (
+                  <>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 0.8, mt: activeJoinedChallenges.length > 0 ? 2 : 0 }}>
+                      <Box sx={{ width: 3, height: 14, bgcolor: '#BDBDBD', borderRadius: 2 }} />
+                      <Typography variant='caption' sx={{ fontWeight: 700, color: '#9E9E9E' }}>
+                        종료됨 ({endedJoinedChallenges.length})
+                      </Typography>
+                    </Box>
+                    {endedJoinedChallenges.map((c) => (
+                      <Card key={c.id} sx={{ mb: 1.5, border: '1px solid #EEEEEE', opacity: 0.65 }}>
+                        <CardContent sx={{ py: 1.5, px: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{
+                              width: 44, height: 44, borderRadius: 2, flexShrink: 0,
+                              bgcolor: '#F5F5F5',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Typography sx={{ fontSize: '1.3rem' }}>✅</Typography>
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant='body2' sx={{ fontWeight: 600, color: '#757575' }} noWrap>
+                                {c.title}
+                              </Typography>
+                              {c.goal && (
+                                <Typography variant='caption' sx={{ color: '#BDBDBD' }} noWrap>
+                                  🎯 {c.goal}
+                                </Typography>
+                              )}
+                            </Box>
+                            <Chip
+                              label='종료'
+                              size='small'
+                              sx={{ bgcolor: '#F5F5F5', color: '#9E9E9E', fontSize: '0.72rem', height: 22 }}
+                            />
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* 게시글 카드 리스트 — 챌린지 탭일 때는 렌더링 안 함 */}
+        {tab !== 'challenges' && (allPosts.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography color='text.secondary'>
               {tab === 'posts' ? '아직 작성한 게시글이 없습니다.' : '저장한 게시글이 없습니다.'}
@@ -629,7 +804,7 @@ export default function ProfilePage() {
               </Box>
             )}
           </>
-        )}
+        ))}
 
         <Divider sx={{ my: 3 }} />
         <Button variant='outlined' fullWidth color='error' startIcon={<LogoutIcon />} onClick={handleSignOut} sx={{ mb: 1.5 }}>

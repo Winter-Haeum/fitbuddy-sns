@@ -289,7 +289,7 @@ export default function ProfilePage() {
       await fetchProfile(user.id);
       setEditOpen(false);
       setSnack({ open: true, msg: '프로필이 저장되었습니다!', severity: 'success' });
-    } catch (err) {
+    } catch {
       setSaveError('저장 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
@@ -399,7 +399,7 @@ export default function ProfilePage() {
       );
       setPostEditOpen(false);
       setSnack({ open: true, msg: '게시글이 수정되었습니다.', severity: 'success' });
-    } catch (err) {
+    } catch {
       setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' });
     }
   }
@@ -415,7 +415,7 @@ export default function ProfilePage() {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setPostDeleteOpen(false);
       setSnack({ open: true, msg: '게시글이 삭제되었습니다.', severity: 'success' });
-    } catch (err) {
+    } catch {
       setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' });
     }
   }
@@ -428,7 +428,7 @@ export default function ProfilePage() {
         .delete().eq('user_id', user.id).eq('post_id', postMenuTarget.id);
       setSavedPosts((prev) => prev.filter((p) => p.id !== postMenuTarget.id));
       setSnack({ open: true, msg: '저장이 취소되었습니다.', severity: 'success' });
-    } catch (err) {
+    } catch {
       setSnack({ open: true, msg: '저장 취소에 실패했습니다.', severity: 'error' });
     }
   }

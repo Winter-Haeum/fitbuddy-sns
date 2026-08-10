@@ -65,6 +65,8 @@ export default function ChallengesPage() {
   useEffect(() => {
     fetchChallenges();
     if (user) fetchMyJoined();
+  // fetchMyJoined must run on page load; useCallback refactor caused a new set-state-in-effect lint error.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   async function fetchChallenges() {

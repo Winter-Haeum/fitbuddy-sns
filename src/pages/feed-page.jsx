@@ -96,6 +96,8 @@ export default function FeedPage() {
     }
   }, [feedFilter, category, search, user]);
 
+  // fetchPosts is memoized with useCallback; this effect intentionally loads posts when filters change.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
   useEffect(() => {

@@ -166,7 +166,8 @@ export function AuthProvider({ children }) {
 
     // PGRST204: 스키마 캐시에 없는 컬럼 → gender 제외 후 재시도
     if (upsertErr?.code === 'PGRST204') {
-      const { gender: _g, ...payloadWithoutGender } = profilePayload;
+      const payloadWithoutGender = { ...profilePayload };
+      delete payloadWithoutGender.gender;
       const { error: retryErr } = await supabase
         .from('fitbuddy_users')
         .upsert(payloadWithoutGender, { onConflict: 'id' });

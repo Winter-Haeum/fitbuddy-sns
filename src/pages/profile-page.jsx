@@ -88,7 +88,6 @@ export default function ProfilePage() {
     fetchMyPosts();
     fetchSavedPosts();
     fetchStats();
-    fetchJoinedChallenges();
     supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setCharacter(data));
   }, [user]);
@@ -560,7 +559,7 @@ export default function ProfilePage() {
           </Button>
           <Button
             variant={tab === 'challenges' ? 'contained' : 'outlined'}
-            onClick={() => setTab('challenges')}
+            onClick={() => { setTab('challenges'); fetchJoinedChallenges(); }}
             sx={{ flex: 1, ...(tab === 'challenges' && { bgcolor: '#FF7043', '&:hover': { bgcolor: '#E55C2F' } }) }}
           >
             챌린지 ({joinedChallenges.length})

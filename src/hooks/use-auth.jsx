@@ -19,15 +19,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      console.warn('AUTH TIMEOUT - 강제 로딩 종료');
       safeSetLoadingFalse();
     }, 5000);
 
     let subscription = null;
     try {
       const result = supabase.auth.onAuthStateChange((_event, session) => {
-        console.log('[AUTH] onAuthStateChange event:', _event, '| user:', session?.user?.id ?? 'none');
-
         if (_event === 'INITIAL_SESSION' && session?.user) {
           const autoLogin = localStorage.getItem('fitbuddy_autoLogin') === '1';
           const sessionActive = sessionStorage.getItem('fitbuddy_session') === '1';
@@ -71,13 +68,10 @@ export function AuthProvider({ children }) {
         .eq('id', userId)
         .maybeSingle();
 
-      console.log('[fetchProfile] userId:', userId);
-      console.log('[fetchProfile] data:', data);
       if (error) console.error('[fetchProfile] error:', error);
 
       if (data) {
         if (data.is_deleted === true) {
-          console.log('[fetchProfile] is_deleted=true 감지 | isSigningUpRef:', isSigningUpRef.current);
           if (isSigningUpRef.current) {
             // 회원가입 진행 중: signOut 스킵 — signUp의 upsert가 is_deleted를 false로 리셋함
             return;
@@ -93,7 +87,6 @@ export function AuthProvider({ children }) {
         if (sessionUser) setUser(sessionUser);
         setProfile(data);
       } else {
-        console.warn('[fetchProfile] 프로필 없음, 자동 생성 시작...', error?.code);
         const { data: authResp } = await supabase.auth.getUser();
         const authUser = authResp?.user;
         const email = authUser?.email || '';
@@ -173,7 +166,6 @@ export function AuthProvider({ children }) {
 
     // PGRST204: 스키마 캐시에 없는 컬럼 → gender 제외 후 재시도
     if (upsertErr?.code === 'PGRST204') {
-      console.warn('[signUp] 스키마 캐시 오류, gender 제외 후 재시도:', upsertErr.message);
       const { gender: _g, ...payloadWithoutGender } = profilePayload;
       const { error: retryErr } = await supabase
         .from('fitbuddy_users')
@@ -183,8 +175,6 @@ export function AuthProvider({ children }) {
 
     if (upsertErr) {
       console.error('[signUp] 프로필 upsert 실패:', upsertErr.message, '| code:', upsertErr.code, '| hint:', upsertErr.hint);
-    } else {
-      console.log('[signUp] 프로필 upsert 성공 (is_deleted=false 반영)');
     }
 
     const { error: charErr } = await supabase
@@ -204,7 +194,6 @@ export function AuthProvider({ children }) {
   }
 
   async function signUp(email, password, displayName, extraData = {}) {
-    console.log('[signUp] 시작 - isSigningUpRef → true');
     isSigningUpRef.current = true;
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -214,8 +203,6 @@ export function AuthProvider({ children }) {
       });
       if (error) throw error;
 
-      console.log('[signUp] auth.signUp 완료 | user:', data.user?.id, '| session:', !!data.session);
-
       if (data.user && data.session) {
         // 새 가입 — 프로필 생성 후 즉시 로그아웃 (로그인 페이지에서 수동 로그인)
         await applyProfileUpsert(data.user, email, displayName, extraData);
@@ -224,28 +211,23 @@ export function AuthProvider({ children }) {
       }
 
       // 세션 없음: 기존 이메일 — 비밀번호로 확인 후 탈퇴 계정 복구
-      console.log('[signUp] 세션 없음 — 기존 계정 확인 시도');
       const { data: recoverData, error: recoverError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (recoverError || !recoverData?.user) {
-        console.warn('[signUp] 기존 계정 확인 실패:', recoverError?.message);
         return data;
       }
 
       // JWT clock skew 대응
       await new Promise(r => setTimeout(r, 400));
 
-      const { data: existingProfile, error: profileCheckErr } = await supabase
+      const { data: existingProfile } = await supabase
         .from('fitbuddy_users')
         .select('is_deleted')
         .eq('id', recoverData.user.id)
         .maybeSingle();
 
-      console.log('[signUp] 기존 계정 프로필:', existingProfile, '| error:', profileCheckErr?.message);
-
       if (existingProfile?.is_deleted === true) {
         // 탈퇴 계정 → 복구 후 로그아웃
-        console.log('[signUp] 탈퇴 계정 재가입 처리');
         await applyProfileUpsert(recoverData.user, email, displayName, extraData);
         await supabase.auth.signOut();
         return recoverData;
@@ -263,7 +245,6 @@ export function AuthProvider({ children }) {
       return recoverData;
     } finally {
       isSigningUpRef.current = false;
-      console.log('[signUp] 완료 - isSigningUpRef → false');
     }
   }
 
@@ -274,8 +255,6 @@ export function AuthProvider({ children }) {
     // 현재 브라우저 세션에서 로그인했음을 표시 (탭/새로고침 유지용, 브라우저 닫으면 초기화)
     sessionStorage.setItem('fitbuddy_session', '1');
 
-    console.log('[signIn] 로그인 성공 | user id:', data.user.id);
-
     // JWT clock skew 대응: iat가 서버보다 미래로 인식되는 PGRST303 방어
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -285,11 +264,9 @@ export function AuthProvider({ children }) {
       .eq('id', data.user.id)
       .maybeSingle();
 
-    console.log('[signIn] PROFILE DATA:', profileData);
     if (profileError) console.error('[signIn] PROFILE FETCH ERROR:', profileError.message, '| code:', profileError.code, '| hint:', profileError.hint);
 
     if (profileData?.is_deleted === true) {
-      console.warn('[signIn] is_deleted=true → 로그인 차단');
       await supabase.auth.signOut();
       const deletedErr = new Error('가입되지 않은 이메일입니다.');
       deletedErr.code = 'ACCOUNT_DELETED';

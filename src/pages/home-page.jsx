@@ -32,6 +32,7 @@ import { supabase } from '../utils/supabase';
 import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import { getLevelFromXP } from '../utils/xp-utils';
+import { MOODS } from '../constants/workout';
 
 const confettiFall = keyframes({
   '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
@@ -72,13 +73,6 @@ function getTodayRoutine() {
   const dayOfYear = Math.floor((now - start) / 86400000);
   return ROUTINES[dayOfYear % ROUTINES.length];
 }
-
-const MOODS = [
-  { key: 'tired', emoji: '😴', label: '피곤', text: '피곤한 하루예요.' },
-  { key: 'normal', emoji: '😐', label: '보통', text: '평범한 컨디션이에요.' },
-  { key: 'good', emoji: '😊', label: '좋음', text: '오늘 컨디션이 좋아요.' },
-  { key: 'great', emoji: '💪', label: '활기참', text: '에너지가 넘치는 날이에요.' },
-];
 
 export default function HomePage() {
   const navigate = useNavigate();

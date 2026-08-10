@@ -29,6 +29,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../utils/supabase';
+import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import { getLevelFromXP } from '../utils/xp-utils';
 
@@ -109,28 +110,19 @@ export default function HomePage() {
   }
 
   async function saveMood(moodKey) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalToday();
     const payload = { user_id: user.id, log_date: today, mood_status: moodKey };
-    console.log('SAVE START:', payload);
     try {
       const { error } = await supabase
         .from('fitbuddy_daily_logs')
         .upsert(payload, { onConflict: 'user_id,log_date' });
-      console.log('INSERT ERROR:', error);
       if (error) {
-        console.error('SUPABASE ERROR:', error);
-        alert('컨디션 저장 실패: ' + error.message);
         setSnack({ open: true, msg: '저장에 실패했습니다: ' + error.message, severity: 'error' });
         return;
       }
-      console.log('컨디션 저장 성공');
-      console.log('SAVE FINALLY');
       setTodayLog((prev) => ({ ...(prev || {}), mood_status: moodKey }));
       setSnack({ open: true, msg: '오늘의 컨디션이 저장되었습니다!', severity: 'success' });
-    } catch (err) {
-      console.error('예상 못한 오류:', err);
-      alert('오류: ' + err.message);
-      console.log('SAVE FINALLY');
+    } catch {
       setSnack({ open: true, msg: '저장 중 오류가 발생했습니다.', severity: 'error' });
     }
   }

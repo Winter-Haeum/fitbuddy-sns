@@ -25,6 +25,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import { getLocalToday } from '../utils/date-utils';
 
 const WORKOUT_TYPES = ['홈트', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산', '기타'];
 const INTENSITIES = [
@@ -129,7 +130,6 @@ export default function PostCreatePage() {
     };
     setLoading(true);
     setError('');
-    console.log('SAVE START:', postPayload);
 
     try {
       let workoutId = null;
@@ -141,16 +141,14 @@ export default function PostCreatePage() {
           duration_minutes: Number(duration),
           intensity,
           calories_burned: calories,
-          workout_date: new Date().toISOString().split('T')[0],
+          workout_date: getLocalToday(),
           workout_status: 'completed',
         };
-        console.log('WORKOUT SAVE START:', workoutPayload);
         const { data: workoutData, error: workoutErr } = await supabase
           .from('fitbuddy_workouts')
           .insert(workoutPayload)
           .select('id')
           .single();
-        console.log('INSERT ERROR (workout):', workoutErr);
         if (workoutErr) {
           console.error('SUPABASE ERROR (workout):', workoutErr);
         } else if (workoutData) {
@@ -162,21 +160,16 @@ export default function PostCreatePage() {
       const { error: postErr } = await supabase
         .from('fitbuddy_posts')
         .insert(finalPayload);
-      console.log('INSERT ERROR (post):', postErr);
       if (postErr) {
         console.error('SUPABASE ERROR:', postErr);
-        alert('게시글 저장 실패: ' + postErr.message);
         setError('게시글 저장에 실패했습니다: ' + postErr.message);
         return;
       }
-      console.log('게시글 저장 성공');
       navigate('/feed');
     } catch (err) {
       console.error('예상 못한 오류:', err);
-      alert('오류: ' + err.message);
       setError('게시글 작성에 실패했습니다.');
     } finally {
-      console.log('SAVE FINALLY');
       setLoading(false);
     }
   }

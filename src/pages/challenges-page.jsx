@@ -28,6 +28,7 @@ import Snackbar from '@mui/material/Snackbar';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import { getDaysLeft } from '../utils/date-utils';
 
 const CHALLENGE_TABS = ['기간 챌린지', '오늘 모임'];
 
@@ -147,27 +148,21 @@ export default function ChallengesPage() {
         creator_id: user.id,
         challenge_type: form.type,
       };
-      console.log('SAVE START:', payload);
       const { error: insertErr } = await supabase
         .from('fitbuddy_challenges')
         .insert(payload);
-      console.log('INSERT ERROR:', insertErr);
       if (insertErr) {
         console.error('SUPABASE ERROR:', insertErr);
-        alert('챌린지 생성 실패: ' + insertErr.message);
         setError('챌린지 생성에 실패했습니다: ' + insertErr.message);
         return;
       }
-      console.log('챌린지 저장 성공');
       setOpen(false);
       setForm({ title: '', description: '', goal: '', days: 7, type: 'period' });
       fetchChallenges();
     } catch (err) {
       console.error('예상 못한 오류:', err);
-      alert('오류: ' + err.message);
       setError('챌린지 생성 중 오류가 발생했습니다.');
     } finally {
-      console.log('SAVE FINALLY');
       setLoading(false);
     }
   }
@@ -197,11 +192,11 @@ export default function ChallengesPage() {
         .update({ title: editForm.title, description: editForm.description, goal: editForm.goal })
         .eq('id', menuChallenge.id)
         .eq('creator_id', user.id);
-      if (error) { alert('수정 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '챌린지가 수정되었습니다.', severity: 'success' });
       setEditOpen(false);
       fetchChallenges();
-    } catch (err) { alert('오류: ' + err.message); }
+    } catch { setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' }); }
     finally { setActionLoading(false); }
   }
 
@@ -211,20 +206,13 @@ export default function ChallengesPage() {
     try {
       await supabase.from('fitbuddy_challenge_users').delete().eq('challenge_id', menuChallenge.id);
       const { error } = await supabase.from('fitbuddy_challenges').delete().eq('id', menuChallenge.id).eq('creator_id', user.id);
-      if (error) { alert('삭제 실패: ' + error.message); return; }
+      if (error) { setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '챌린지가 삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
       setChallenges((prev) => prev.filter((c) => c.id !== menuChallenge.id));
       setMenuChallenge(null);
-    } catch (err) { alert('오류: ' + err.message); }
+    } catch { setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' }); }
     finally { setActionLoading(false); }
-  }
-
-  function getDaysLeft(endDate) {
-    const end = new Date(endDate);
-    const now = new Date();
-    const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-    return Math.max(0, diff);
   }
 
   const filteredChallenges = challenges.filter((c) => {

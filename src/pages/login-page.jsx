@@ -111,7 +111,7 @@ export default function LoginPage() {
           mb: 2,
           bgcolor: 'white',
           border: '1.5px solid #C8E6C9',
-          boxShadow: '0 4px 18px rgba(107, 203, 119, 0.18)',
+          boxShadow: 'none',
           borderRadius: 3,
         }}
       >
@@ -128,7 +128,7 @@ export default function LoginPage() {
           maxWidth: 400,
           width: '100%',
           borderRadius: 3,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
           border: '1px solid #E8F5E9',
         }}
       >
@@ -210,11 +210,11 @@ export default function LoginPage() {
                 fontWeight: 700,
                 bgcolor: '#6BCB77',
                 borderRadius: 2,
-                boxShadow: '0 4px 14px rgba(107, 203, 119, 0.45)',
+                boxShadow: 'none',
                 textTransform: 'none',
                 '&:hover': {
                   bgcolor: '#5ABB67',
-                  boxShadow: '0 6px 18px rgba(107, 203, 119, 0.55)',
+                  boxShadow: '0 6px 18px rgba(107, 203, 119, 0.45)',
                 },
                 '&:disabled': { bgcolor: '#A5D6A7', boxShadow: 'none' },
               }}

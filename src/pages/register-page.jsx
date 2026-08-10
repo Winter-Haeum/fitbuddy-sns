@@ -152,8 +152,8 @@ export default function RegisterPage() {
     fontWeight: 700,
     fontSize: '1rem',
     textTransform: 'none',
-    boxShadow: '0 4px 14px rgba(107, 203, 119, 0.4)',
-    '&:hover': { bgcolor: '#5ABB67', boxShadow: '0 6px 18px rgba(107, 203, 119, 0.5)' },
+    boxShadow: 'none',
+    '&:hover': { bgcolor: '#5ABB67', boxShadow: '0 6px 18px rgba(107, 203, 119, 0.45)' },
     '&:disabled': { bgcolor: '#A5D6A7', boxShadow: 'none' },
   };
 
@@ -203,7 +203,7 @@ export default function RegisterPage() {
           maxWidth: 440,
           width: '100%',
           borderRadius: 3,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
           border: '1px solid #E8F5E9',
         }}
       >

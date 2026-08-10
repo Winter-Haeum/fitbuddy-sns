@@ -36,6 +36,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
+import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft } from '../utils/date-utils';
 
 const POSTS_PER_PAGE = 3;
@@ -56,6 +57,13 @@ export default function ProfilePage() {
   const [savedPosts, setSavedPosts] = useState([]);
   const [joinedChallenges, setJoinedChallenges] = useState([]);
   const [stats, setStats] = useState({ totalWorkouts: 0, thisWeek: 0, todayCount: 0, streak: 0 });
+  const [workoutDetails, setWorkoutDetails] = useState({
+    totalTime: 0, totalCalories: 0, topWorkout: '',
+    weekTime: 0, weekCalories: 0,
+    todayTime: 0, todayCalories: 0,
+    bestStreak: 0,
+  });
+  const [statsModal, setStatsModal] = useState(null); // null | 'total' | 'week' | 'today' | 'streak'
   const [character, setCharacter] = useState(null);
 
   const [tab, setTab] = useState('posts');
@@ -142,7 +150,7 @@ export default function ProfilePage() {
     try {
       const { data } = await supabase
         .from('fitbuddy_workouts')
-        .select('workout_date')
+        .select('workout_date, duration_minutes, calories_burned, workout_type')
         .eq('user_id', user.id)
         .order('workout_date', { ascending: false });
       const all = data || [];
@@ -163,11 +171,39 @@ export default function ProfilePage() {
         } else break;
       }
 
+      // 최고 연속 운동일
+      const sortedDates = [...uniqueDates].sort();
+      let bestStreak = streak > 0 ? 1 : 0;
+      let curStreak = 1;
+      for (let i = 1; i < sortedDates.length; i++) {
+        const diff = (new Date(sortedDates[i]) - new Date(sortedDates[i - 1])) / 86400000;
+        if (diff === 1) { curStreak++; bestStreak = Math.max(bestStreak, curStreak); }
+        else curStreak = 1;
+      }
+
+      const weekData = all.filter((w) => w.workout_date >= weekAgoStr);
+      const todayData = all.filter((w) => w.workout_date === today);
+
+      // 가장 많이 한 운동 종류
+      const typeCounts = {};
+      all.forEach((w) => { if (w.workout_type) typeCounts[w.workout_type] = (typeCounts[w.workout_type] || 0) + 1; });
+      const topWorkout = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
       setStats({
         totalWorkouts: all.length,
         thisWeek: uniqueDates.filter((d) => d >= weekAgoStr).length,
         todayCount: all.filter((w) => w.workout_date === today).length,
         streak,
+      });
+      setWorkoutDetails({
+        totalTime: all.reduce((s, w) => s + (w.duration_minutes || 0), 0),
+        totalCalories: all.reduce((s, w) => s + (w.calories_burned || 0), 0),
+        topWorkout,
+        weekTime: weekData.reduce((s, w) => s + (w.duration_minutes || 0), 0),
+        weekCalories: weekData.reduce((s, w) => s + (w.calories_burned || 0), 0),
+        todayTime: todayData.reduce((s, w) => s + (w.duration_minutes || 0), 0),
+        todayCalories: todayData.reduce((s, w) => s + (w.calories_burned || 0), 0),
+        bestStreak,
       });
     } catch (err) { console.error(err); }
   }
@@ -522,21 +558,21 @@ export default function ProfilePage() {
 
           {/* 운동 통계 4개 */}
           {[
-            { icon: <FitnessCenterIcon />, value: stats.totalWorkouts, unit: '회', label: '총 운동', color: '#E8F5E9', iconColor: '#6BCB77' },
-            { icon: <CalendarTodayIcon />, value: stats.thisWeek, unit: '회', label: '이번 주', color: '#E3F2FD', iconColor: '#5DA9E9' },
-            { icon: <TodayIcon />, value: stats.todayCount, unit: '회', label: '오늘', color: '#F3E8FF', iconColor: '#A084E8' },
-            { icon: <WhatshotIcon />, value: stats.streak, unit: '일', label: '연속 운동', color: '#FFF3E0', iconColor: '#FF7043' },
+            { icon: <FitnessCenterIcon />, value: stats.totalWorkouts, unit: '총 운동', bgcolor: '#E8F5E9', color: '#6BCB77', modalKey: 'total' },
+            { icon: <CalendarTodayIcon />, value: stats.thisWeek, unit: '이번 주', bgcolor: '#E3F2FD', color: '#5DA9E9', modalKey: 'week' },
+            { icon: <TodayIcon />, value: stats.todayCount, unit: '오늘', bgcolor: '#F3E8FF', color: '#A084E8', modalKey: 'today' },
+            { icon: <WhatshotIcon />, value: stats.streak, unit: '연속 운동', bgcolor: '#FFF3E0', color: '#FF7043', modalKey: 'streak' },
           ].map((item) => (
-            <Grid size={{ xs: 3 }} key={item.label}>
-              <Card sx={{ textAlign: 'center', bgcolor: item.color }}>
-                <CardContent sx={{ py: 1.5, px: 0.5 }}>
-                  <Box sx={{ color: item.iconColor }}>{item.icon}</Box>
-                  <Typography variant='h4' sx={{ fontWeight: 700, color: item.iconColor, fontSize: '1.1rem' }}>
-                    {item.value}
-                  </Typography>
-                  <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.65rem' }}>{item.label}</Typography>
-                </CardContent>
-              </Card>
+            <Grid size={{ xs: 3 }} key={item.unit}>
+              <StatsCard
+                icon={item.icon}
+                value={item.value}
+                unit={item.unit}
+                bgcolor={item.bgcolor}
+                color={item.color}
+                compact
+                onClick={() => setStatsModal(item.modalKey)}
+              />
             </Grid>
           ))}
         </Grid>
@@ -984,6 +1020,75 @@ export default function ProfilePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 통계 상세 모달 4개 */}
+      {[
+        {
+          key: 'total', title: '총 운동 기록 💪',
+          rows: [
+            { label: '총 운동 횟수', value: `${stats.totalWorkouts}회` },
+            { label: '총 운동 시간', value: `${workoutDetails.totalTime}분` },
+            { label: '총 소모 칼로리', value: `${workoutDetails.totalCalories.toLocaleString()}kcal` },
+            { label: '가장 많이 한 운동', value: workoutDetails.topWorkout || '기록 없음' },
+          ],
+        },
+        {
+          key: 'week', title: '이번 주 운동 📅',
+          rows: [
+            { label: '이번 주 운동 일수', value: `${stats.thisWeek}일` },
+            { label: '이번 주 운동 시간', value: `${workoutDetails.weekTime}분` },
+            { label: '이번 주 소모 칼로리', value: `${workoutDetails.weekCalories.toLocaleString()}kcal` },
+          ],
+        },
+        {
+          key: 'today', title: '오늘 운동 🏃',
+          rows: [
+            { label: '오늘 운동 횟수', value: `${stats.todayCount}회` },
+            { label: '오늘 운동 시간', value: `${workoutDetails.todayTime}분` },
+            { label: '오늘 소모 칼로리', value: `${workoutDetails.todayCalories.toLocaleString()}kcal` },
+          ],
+        },
+        {
+          key: 'streak', title: '연속 운동 🔥',
+          rows: [
+            { label: '현재 연속 운동일', value: `${stats.streak}일` },
+            { label: '최고 연속 운동일', value: `${workoutDetails.bestStreak}일` },
+            {
+              label: '응원 메시지',
+              value: stats.streak === 0 ? '오늘부터 다시 시작해봐요! 💪'
+                : stats.streak < 3 ? '좋은 시작이에요! 계속 유지해봐요 🌱'
+                : stats.streak < 7 ? `${stats.streak}일 연속! 멈추지 마세요 🔥`
+                : `대단해요! ${stats.streak}일째 운동 중! 🏆`,
+            },
+          ],
+        },
+      ].map(({ key, title, rows }) => (
+        <Dialog
+          key={key}
+          open={statsModal === key}
+          onClose={() => setStatsModal(null)}
+          fullWidth
+          maxWidth='xs'
+        >
+          <DialogTitle sx={{ pb: 1, fontWeight: 700 }}>{title}</DialogTitle>
+          <DialogContent sx={{ py: 1.5 }}>
+            {rows.map((row) => (
+              <Box
+                key={row.label}
+                sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.2, borderBottom: '1px solid #F5F5F5' }}
+              >
+                <Typography variant='body2' color='text.secondary'>{row.label}</Typography>
+                <Typography variant='body2' sx={{ fontWeight: 700 }}>{row.value}</Typography>
+              </Box>
+            ))}
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, pb: 2 }}>
+            <Button fullWidth variant='contained' onClick={() => setStatsModal(null)} sx={{ bgcolor: '#6BCB77', '&:hover': { bgcolor: '#4DBB68' } }}>
+              닫기
+            </Button>
+          </DialogActions>
+        </Dialog>
+      ))}
 
       <Snackbar
         open={snack.open}

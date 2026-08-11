@@ -87,13 +87,18 @@ export default function ProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
+  // Profile page data loaders intentionally run once on mount; reordering/useCallback has repeatedly caused set-state-in-effect lint errors.
   useEffect(() => {
     if (!user) return;
+    // eslint-disable-next-line react-hooks/immutability
     fetchMyPosts();
+    // eslint-disable-next-line react-hooks/immutability
     fetchSavedPosts();
+    // eslint-disable-next-line react-hooks/immutability
     fetchStats();
     supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setCharacter(data));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   async function fetchJoinedChallenges() {

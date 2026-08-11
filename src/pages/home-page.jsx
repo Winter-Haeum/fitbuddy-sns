@@ -178,7 +178,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user || !todayWorkout || !todayLog || todayLog.goal_achieved) return;
+    // Keep the XP reward gate stable; adding deps can re-run awardGoalXP before goal_achieved is persisted.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (todayWorkout.duration >= goalMinutes) awardGoalXP();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayWorkout, todayLog]);
 
   useEffect(() => {

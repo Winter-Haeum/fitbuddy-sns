@@ -88,11 +88,15 @@ export default function RecordsPage() {
   useEffect(() => {
     if (!user) return;
     fetchAll();
+  // Initial records load intentionally keeps the existing fetch sequence; useCallback refactor caused set-state-in-effect errors.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
     fetchWorkouts(rangeFilter);
+  // rangeFilter changes intentionally refetch workouts; useCallback refactor caused set-state-in-effect errors.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeFilter, user]);
 
   async function fetchAll() {

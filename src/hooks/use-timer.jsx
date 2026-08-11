@@ -6,6 +6,8 @@ import { WORKOUT_TYPES, INTENSITIES } from '../constants/workout';
 
 export { WORKOUT_TYPES, INTENSITIES };
 
+// formatTime is shared by timer UI components; keeping it here avoids timer import churn for now.
+// eslint-disable-next-line react-refresh/only-export-components
 export function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -202,6 +204,8 @@ export function TimerProvider({ children }) {
   );
 }
 
+// useTimer stays with TimerProvider/TimerContext to keep the timer state flow stable.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTimer() {
   return useContext(TimerContext);
 }

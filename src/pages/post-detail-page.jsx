@@ -46,6 +46,8 @@ export default function PostDetailPage() {
     fetchComments();
     if (user) checkLiked();
     incrementViews();
+  // Keep this detail-page load sequence stable; adding deps can re-run incrementViews and duplicate view counts.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
   async function fetchPost() {

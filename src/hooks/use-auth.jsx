@@ -58,6 +58,8 @@ export function AuthProvider({ children }) {
       clearTimeout(timeout);
       if (subscription) subscription.unsubscribe();
     };
+  // Auth subscription is intentionally registered once; fetchProfile runs inside Supabase auth event callbacks.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchProfile(userId, timeout, sessionUser) {
@@ -292,6 +294,8 @@ export function AuthProvider({ children }) {
   );
 }
 
+// AuthProvider and useAuth are intentionally kept together to avoid broad auth import churn.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext);
 }

@@ -21,6 +21,7 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Fab from '@mui/material/Fab';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
@@ -585,21 +586,14 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 게시글 작성 FAB */}
-        <Button
-          variant='contained'
-          startIcon={<AddIcon />}
+        {/* 게시글 작성 FAB - 피드 페이지와 동일한 스타일로 통일 */}
+        <Fab
+          color='primary'
           onClick={() => navigate('/create')}
-          sx={{
-            position: 'fixed', bottom: 80, right: 16,
-            borderRadius: 30, bgcolor: '#A084E8', color: 'white',
-            '&:hover': { bgcolor: '#8B6FD4' },
-            boxShadow: '0 4px 15px rgba(160,132,232,0.4)',
-            zIndex: 100,
-          }}
+          sx={{ position: 'fixed', bottom: 80, right: 16, zIndex: 100 }}
         >
-          게시글 작성
-        </Button>
+          <AddIcon />
+        </Fab>
       </Box>
 
       {/* 오늘 운동 요약 상세 모달 */}

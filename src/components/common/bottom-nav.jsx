@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
 import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded';
@@ -91,29 +90,11 @@ export default function BottomNav() {
         onChange={(_, newValue) => navigate(NAV_ITEMS[newValue].path)}
         sx={{ bgcolor: 'background.paper' }}
       >
-        {NAV_ITEMS.map((item, index) => (
+        {NAV_ITEMS.map((item) => (
           <BottomNavigationAction
             key={item.path}
             label={item.label}
-            icon={
-              <Box sx={{ position: 'relative', display: 'inline-flex', pt: '10px' }}>
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    opacity: currentValue === index ? 1 : 0,
-                    transition: 'opacity 0.2s ease',
-                  }}
-                />
-                {item.icon}
-              </Box>
-            }
+            icon={item.icon}
             sx={{
               '&.Mui-selected': { color: 'primary.main' },
               minWidth: 0,

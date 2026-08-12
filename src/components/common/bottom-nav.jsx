@@ -21,6 +21,18 @@ const NAV_ITEMS = [
 const SCROLL_HIDE_THRESHOLD = 8;
 const SCROLL_TOP_OFFSET = 16;
 
+// window.scrollY가 0으로 고정되는 브라우저/레이아웃 조합을 대비해
+// 실제 문서 스크롤 위치를 여러 경로로 폴백 조회한다.
+function getScrollY() {
+  return (
+    document.scrollingElement?.scrollTop ??
+    window.scrollY ??
+    document.documentElement.scrollTop ??
+    document.body.scrollTop ??
+    0
+  );
+}
+
 export default function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,8 +44,12 @@ export default function BottomNav() {
   );
 
   useEffect(() => {
+    // 마운트 시점의 실제 스크롤 위치로 기준값을 맞춰,
+    // 이미 스크롤된 상태로 페이지가 열려도 첫 스크롤에서 오작동하지 않게 한다.
+    lastScrollY.current = getScrollY();
+
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      const currentScrollY = getScrollY();
 
       if (currentScrollY <= SCROLL_TOP_OFFSET) {
         setHidden(false);
@@ -80,21 +96,22 @@ export default function BottomNav() {
             key={item.path}
             label={item.label}
             icon={
-              <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <Box sx={{ position: 'relative', display: 'inline-flex', pt: '10px' }}>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: 'primary.main',
+                    opacity: currentValue === index ? 1 : 0,
+                    transition: 'opacity 0.2s ease',
+                  }}
+                />
                 {item.icon}
-                {currentValue === index && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -2,
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      bgcolor: 'primary.main',
-                    }}
-                  />
-                )}
               </Box>
             }
             sx={{

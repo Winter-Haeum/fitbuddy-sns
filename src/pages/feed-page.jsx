@@ -217,7 +217,7 @@ export default function FeedPage() {
           onChange={(e) => setSearch(e.target.value)}
           size='small'
           sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-          InputProps={{ startAdornment: <InputAdornment position='start'><SearchIcon /></InputAdornment> }}
+          slotProps={{ input: { startAdornment: <InputAdornment position='start'><SearchIcon /></InputAdornment> } }}
         />
 
         {/* 카테고리 필터 */}

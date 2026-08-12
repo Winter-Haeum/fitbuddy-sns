@@ -777,9 +777,9 @@ export default function RecordsPage() {
           onClick={() => navigate('/timer')}
           sx={{
             position: 'fixed', bottom: 80, right: 16,
-            bgcolor: '#5FCB77', color: 'white',
-            '&:hover': { bgcolor: '#4DBB68' },
-            boxShadow: '0 4px 16px rgba(95,203,119,0.4)',
+            bgcolor: '#A084E8', color: 'white',
+            '&:hover': { bgcolor: '#8B6FD4' },
+            boxShadow: '0 4px 16px rgba(160,132,232,0.4)',
           }}
         >
           <DirectionsRunIcon />

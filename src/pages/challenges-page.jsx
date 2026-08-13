@@ -13,6 +13,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Fab from '@mui/material/Fab';
@@ -21,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import GroupIcon from '@mui/icons-material/Group';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import SearchIcon from '@mui/icons-material/Search';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -29,8 +31,16 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import { getDaysLeft } from '../utils/date-utils';
+import FadeInBox from '../components/ui/fade-in-box';
+import FilterChipGroup from '../components/ui/filter-chip-group';
 
 const CHALLENGE_TABS = ['기간 챌린지', '오늘 모임'];
+
+const STATUS_FILTER_OPTIONS = [
+  { key: 'all', label: '전체' },
+  { key: 'active', label: '진행중' },
+  { key: 'ended', label: '종료' },
+];
 
 const SAMPLE_PERIOD = [
   { id: 'sp1', title: '30일 매일 운동 챌린지', description: '하루 30분 이상 꾸준히 운동하는 습관을 만들어봐요!', goal: '매일 30분 이상 운동', daysLeft: 30, count: 128 },
@@ -47,6 +57,8 @@ export default function ChallengesPage() {
   const { user } = useAuth();
   const [challengeTab, setChallengeTab] = useState(0);
   const [challenges, setChallenges] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [myJoined, setMyJoined] = useState(new Set());
   const [participants, setParticipants] = useState({});
   const [open, setOpen] = useState(false);
@@ -217,9 +229,25 @@ export default function ChallengesPage() {
     finally { setActionLoading(false); }
   }
 
-  const filteredChallenges = challenges.filter((c) => {
+  const tabChallenges = challenges.filter((c) => {
     if (challengeTab === 0) return !c.challenge_type || c.challenge_type === 'period';
     return c.challenge_type === 'today';
+  });
+
+  const filteredChallenges = tabChallenges.filter((c) => {
+    // getDaysLeft는 0 이상만 반환하므로, 종료 여부는 0 도달로 판단(기존 '종료된 챌린지' 버튼 비활성 기준과 동일)
+    const daysLeft = getDaysLeft(c.end_date);
+    const statusMatch =
+      statusFilter === 'all' ? true : statusFilter === 'active' ? daysLeft > 0 : daysLeft === 0;
+
+    const q = searchQuery.trim().toLowerCase();
+    const searchMatch =
+      !q ||
+      c.title?.toLowerCase().includes(q) ||
+      c.description?.toLowerCase().includes(q) ||
+      c.goal?.toLowerCase().includes(q);
+
+    return statusMatch && searchMatch;
   });
 
   return (
@@ -257,8 +285,35 @@ export default function ChallengesPage() {
           ))}
         </Box>
 
+        {/* 검색창 */}
+        <TextField
+          fullWidth
+          size='small'
+          placeholder='챌린지 검색...'
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position='start'>
+                  <SearchIcon sx={{ color: 'text.secondary', fontSize: 18 }} />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+
+        {/* 상태 필터 */}
+        <FilterChipGroup
+          options={STATUS_FILTER_OPTIONS}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          sx={{ mb: 2 }}
+        />
+
         {/* 챌린지 목록 */}
-        {filteredChallenges.length === 0 ? (
+        {tabChallenges.length === 0 ? (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <Typography variant='body2' sx={{ fontWeight: 600, color: '#9E9E9E' }}>
@@ -302,8 +357,13 @@ export default function ChallengesPage() {
               </Typography>
             </Box>
           </Box>
+        ) : filteredChallenges.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <Typography sx={{ fontSize: '2.2rem', mb: 1 }}>🔍</Typography>
+            <Typography color='text.secondary'>검색/필터 조건에 맞는 챌린지가 없습니다</Typography>
+          </Box>
         ) : (
-          filteredChallenges.map((challenge) => {
+          filteredChallenges.map((challenge, idx) => {
             const daysLeft = getDaysLeft(challenge.end_date);
             const joined = myJoined.has(challenge.id);
             const count = participants[challenge.id] || 0;
@@ -311,80 +371,81 @@ export default function ChallengesPage() {
             const progressVal = totalDays > 0 ? Math.max(0, Math.min(100, ((totalDays - daysLeft) / totalDays) * 100)) : 100;
 
             return (
-              <Card
-                key={challenge.id}
-                sx={{
-                  mb: 2.5,
-                  border: joined ? '2px solid #A084E8' : '1px solid #e0e0e0',
-                  boxShadow: joined ? '0 2px 12px rgba(160,132,232,0.18)' : '0 1px 4px rgba(0,0,0,0.05)',
-                }}
-              >
-                <CardContent sx={{ px: 2.5 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                    <Typography variant='h3' sx={{ fontWeight: 600, flex: 1 }}>🏆 {challenge.title}</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {joined && <Chip label='참여중 ✓' size='small' sx={{ bgcolor: '#A084E8', color: 'white' }} />}
-                      {challenge.creator_id === user?.id && (
-                        <IconButton size='small' onClick={(e) => openMenu(e, challenge)} sx={{ p: 0.3 }}>
-                          <MoreVertIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-                      )}
+              <FadeInBox key={challenge.id} delay={Math.min(idx, 4) * 60}>
+                <Card
+                  sx={{
+                    mb: 2.5,
+                    border: joined ? '2px solid #A084E8' : '1px solid #e0e0e0',
+                    boxShadow: joined ? '0 2px 12px rgba(160,132,232,0.18)' : '0 1px 4px rgba(0,0,0,0.05)',
+                  }}
+                >
+                  <CardContent sx={{ px: 2.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Typography variant='h3' sx={{ fontWeight: 600, flex: 1 }}>🏆 {challenge.title}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {joined && <Chip label='참여중 ✓' size='small' sx={{ bgcolor: '#A084E8', color: 'white' }} />}
+                        {challenge.creator_id === user?.id && (
+                          <IconButton size='small' onClick={(e) => openMenu(e, challenge)} sx={{ p: 0.3 }}>
+                            <MoreVertIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        )}
+                      </Box>
                     </Box>
-                  </Box>
 
-                  {challenge.description && (
-                    <Typography variant='body2' color='text.secondary' sx={{ mb: 1.5 }}>
-                      {challenge.description}
-                    </Typography>
-                  )}
-
-                  {challenge.goal && (
-                    <Chip label={`🎯 ${challenge.goal}`} size='small' variant='outlined' color='secondary' sx={{ mb: 1.5 }} />
-                  )}
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <GroupIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant='caption' color='text.secondary'>{count}명 참여</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <CalendarTodayIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant='caption' color={daysLeft <= 3 ? 'error.main' : 'text.secondary'}>
-                        {daysLeft > 0 ? `${daysLeft}일 남음` : '종료'}
+                    {challenge.description && (
+                      <Typography variant='body2' color='text.secondary' sx={{ mb: 1.5 }}>
+                        {challenge.description}
                       </Typography>
+                    )}
+
+                    {challenge.goal && (
+                      <Chip label={`🎯 ${challenge.goal}`} size='small' variant='outlined' color='secondary' sx={{ mb: 1.5 }} />
+                    )}
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <GroupIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant='caption' color='text.secondary'>{count}명 참여</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CalendarTodayIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant='caption' color={daysLeft <= 3 ? 'error.main' : 'text.secondary'}>
+                          {daysLeft > 0 ? `${daysLeft}일 남음` : '종료'}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
 
-                  {count > 0 && (
-                    <AvatarGroup max={5} sx={{ mb: 1.5, justifyContent: 'flex-start' }}>
-                      {Array.from({ length: Math.min(count, 5) }).map((_, i) => (
-                        <Avatar key={i} sx={{ width: 28, height: 28, bgcolor: ['#6BCB77', '#5DA9E9', '#A084E8', '#FFE082', '#FF7043'][i % 5] }}>
-                          {String.fromCharCode(65 + i)}
-                        </Avatar>
-                      ))}
-                    </AvatarGroup>
-                  )}
+                    {count > 0 && (
+                      <AvatarGroup max={5} sx={{ mb: 1.5, justifyContent: 'flex-start' }}>
+                        {Array.from({ length: Math.min(count, 5) }).map((_, i) => (
+                          <Avatar key={i} sx={{ width: 28, height: 28, bgcolor: ['#6BCB77', '#5DA9E9', '#A084E8', '#FFE082', '#FF7043'][i % 5] }}>
+                            {String.fromCharCode(65 + i)}
+                          </Avatar>
+                        ))}
+                      </AvatarGroup>
+                    )}
 
-                  {challenge.challenge_type !== 'today' && (
-                    <LinearProgress
-                      variant='determinate'
-                      value={progressVal}
-                      sx={{ mb: 1.5, height: 6, borderRadius: 3, bgcolor: '#EDE7F6', '& .MuiLinearProgress-bar': { bgcolor: '#A084E8' } }}
-                    />
-                  )}
+                    {challenge.challenge_type !== 'today' && (
+                      <LinearProgress
+                        variant='determinate'
+                        value={progressVal}
+                        sx={{ mb: 1.5, height: 6, borderRadius: 3, bgcolor: '#EDE7F6', '& .MuiLinearProgress-bar': { bgcolor: '#A084E8' } }}
+                      />
+                    )}
 
-                  <Button
-                    variant={joined ? 'outlined' : 'contained'}
-                    fullWidth
-                    size='small'
-                    onClick={() => toggleJoin(challenge.id)}
-                    disabled={daysLeft === 0}
-                    sx={!joined ? { bgcolor: '#A084E8', '&:hover': { bgcolor: '#8B6FD4' } } : { borderColor: '#A084E8', color: '#A084E8' }}
-                  >
-                    {daysLeft === 0 ? '종료된 챌린지' : joined ? '챌린지 탈퇴' : '챌린지 참여하기'}
-                  </Button>
-                </CardContent>
-              </Card>
+                    <Button
+                      variant={joined ? 'outlined' : 'contained'}
+                      fullWidth
+                      size='small'
+                      onClick={() => toggleJoin(challenge.id)}
+                      disabled={daysLeft === 0}
+                      sx={!joined ? { bgcolor: '#A084E8', '&:hover': { bgcolor: '#8B6FD4' } } : { borderColor: '#A084E8', color: '#A084E8' }}
+                    >
+                      {daysLeft === 0 ? '종료된 챌린지' : joined ? '챌린지 탈퇴' : '챌린지 참여하기'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </FadeInBox>
             );
           })
         )}

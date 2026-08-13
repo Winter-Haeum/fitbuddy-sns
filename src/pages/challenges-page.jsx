@@ -42,17 +42,6 @@ const STATUS_FILTER_OPTIONS = [
   { key: 'ended', label: '종료' },
 ];
 
-const SAMPLE_PERIOD = [
-  { id: 'sp1', title: '30일 매일 운동 챌린지', description: '하루 30분 이상 꾸준히 운동하는 습관을 만들어봐요!', goal: '매일 30분 이상 운동', daysLeft: 30, count: 128 },
-  { id: 'sp2', title: '아침 기상 스트레칭', description: '기상 후 10분 스트레칭으로 상쾌한 하루를 시작해요.', goal: '아침 10분 스트레칭', daysLeft: 14, count: 72 },
-  { id: 'sp3', title: '주 3회 헬스장 가기', description: '이번 달 꾸준히 헬스장에 다니는 습관을 만들어봐요.', goal: '주 3회 헬스장 방문', daysLeft: 21, count: 43 },
-];
-const SAMPLE_TODAY = [
-  { id: 'st1', title: '오늘 저녁 같이 뛰어요 🏃', description: '퇴근 후 공원에서 30분 가볍게 달려봐요. 누구나 환영!', goal: '30분 러닝', count: 12 },
-  { id: 'st2', title: '오늘의 홈트 챌린지 💪', description: '집에서 20분 전신 홈트! 초보자도 OK, 같이 해봐요.', goal: '20분 홈트 완료', count: 34 },
-  { id: 'st3', title: '오후 요가 함께해요 🧘', description: '오후 6시 온라인 요가 세션. 화상으로 같이 스트레칭해요.', goal: '30분 요가 완료', count: 8 },
-];
-
 export default function ChallengesPage() {
   const { user } = useAuth();
   const [challengeTab, setChallengeTab] = useState(0);
@@ -314,53 +303,12 @@ export default function ChallengesPage() {
 
         {/* 챌린지 목록 */}
         {tabChallenges.length === 0 ? (
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Typography variant='body2' sx={{ fontWeight: 600, color: '#9E9E9E' }}>
-                {challengeTab === 0 ? '🎯 예시 챌린지' : '🤝 예시 모임'}
-              </Typography>
-              <Chip label='예시' size='small' sx={{ bgcolor: '#F5F5F5', color: '#9E9E9E', fontSize: '0.68rem', height: 20 }} />
-            </Box>
-            {(challengeTab === 0 ? SAMPLE_PERIOD : SAMPLE_TODAY).map((s) => (
-              <Card key={s.id} sx={{ mb: 2, border: '1px solid #EEEEEE', boxShadow: 'none', opacity: 0.82 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                    <Typography variant='h3' sx={{ fontWeight: 600, flex: 1 }}>🏆 {s.title}</Typography>
-                  </Box>
-                  <Typography variant='body2' color='text.secondary' sx={{ mb: 1.5 }}>{s.description}</Typography>
-                  {s.goal && <Chip label={`🎯 ${s.goal}`} size='small' variant='outlined' color='secondary' sx={{ mb: 1.5 }} />}
-                  <Box sx={{ display: 'flex', gap: 2, mb: challengeTab === 0 ? 1.5 : 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <GroupIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant='caption' color='text.secondary'>{s.count}명 참여</Typography>
-                    </Box>
-                    {challengeTab === 0 && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <CalendarTodayIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        <Typography variant='caption' color='text.secondary'>{s.daysLeft}일 남음</Typography>
-                      </Box>
-                    )}
-                  </Box>
-                  {challengeTab === 0 && (
-                    <LinearProgress
-                      variant='determinate'
-                      value={0}
-                      sx={{ height: 6, borderRadius: 3, bgcolor: '#EDE7F6', '& .MuiLinearProgress-bar': { bgcolor: '#A084E8' } }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-            <Box sx={{ textAlign: 'center', py: 2, borderTop: '1px dashed #E0E0E0', mt: 1 }}>
-              <Typography variant='body2' color='text.secondary'>
-                + 버튼을 눌러 첫 번째 챌린지를 만들어보세요!
-              </Typography>
-            </Box>
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <Typography color='text.secondary'>아직 챌린지가 없습니다.</Typography>
           </Box>
         ) : filteredChallenges.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Typography sx={{ fontSize: '2.2rem', mb: 1 }}>🔍</Typography>
-            <Typography color='text.secondary'>검색/필터 조건에 맞는 챌린지가 없습니다</Typography>
+            <Typography color='text.secondary'>검색/필터 조건에 맞는 챌린지가 없습니다.</Typography>
           </Box>
         ) : (
           filteredChallenges.map((challenge, idx) => {

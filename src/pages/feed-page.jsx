@@ -40,7 +40,8 @@ const CATEGORIES = ['전체', '운동', '식단', '자유'];
 export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('전체');
@@ -179,11 +180,9 @@ export default function FeedPage() {
     if (!menuPost) return;
     setActionLoading(true);
     try {
-      const { error } = await supabase
-        .from('fitbuddy_posts')
-        .delete()
-        .eq('id', menuPost.id)
-        .eq('user_id', user.id);
+      let query = supabase.from('fitbuddy_posts').delete().eq('id', menuPost.id);
+      if (!isAdmin) query = query.eq('user_id', user.id);
+      const { error } = await query;
       if (error) { setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '게시글이 삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
@@ -270,7 +269,7 @@ export default function FeedPage() {
                     </Typography>
                   </Box>
                   <Chip label={typeLabel[post.post_type] || post.post_type} size='small' color='primary' variant='outlined' />
-                  {post.user_id === user?.id && (
+                  {(post.user_id === user?.id || isAdmin) && (
                     <IconButton size='small' onClick={(e) => openMenu(e, post)} sx={{ p: 0.3 }}>
                       <MoreVertIcon sx={{ fontSize: 18 }} />
                     </IconButton>
@@ -330,8 +329,12 @@ export default function FeedPage() {
 
       {/* 컨텍스트 메뉴 */}
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
-        <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
-        <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+        {menuPost?.user_id === user?.id && (
+          <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
+        )}
+        {(menuPost?.user_id === user?.id || isAdmin) && (
+          <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+        )}
       </Menu>
 
       {/* 게시글 수정 다이얼로그 */}

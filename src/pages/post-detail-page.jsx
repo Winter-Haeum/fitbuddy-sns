@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -38,6 +38,7 @@ export default function PostDetailPage() {
   const [comment, setComment] = useState('');
   const [liked, setLiked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const viewedPostIdRef = useRef(null);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -45,10 +46,20 @@ export default function PostDetailPage() {
     fetchPost();
     fetchComments();
     if (user) checkLiked();
-    incrementViews();
-  // Keep this detail-page load sequence stable; adding deps can re-run incrementViews and duplicate view counts.
+  // fetchPost/fetchComments/checkLiked intentionally re-run when user resolves after loading;
+  // view-count increment is handled separately below with its own once-per-post guard.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
+
+  useEffect(() => {
+    if (!post || viewedPostIdRef.current === post.id) return;
+    viewedPostIdRef.current = post.id;
+    if (user && post.user_id === user.id) return;
+    incrementViews();
+  // Guarded by viewedPostIdRef so a single visit increments at most once per post id,
+  // and the author's own view is excluded.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post, user]);
 
   async function fetchPost() {
     const { data } = await supabase

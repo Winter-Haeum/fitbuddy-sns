@@ -43,7 +43,8 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 export default function ChallengesPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const [challengeTab, setChallengeTab] = useState(0);
   const [challenges, setChallenges] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,7 +209,9 @@ export default function ChallengesPage() {
     setActionLoading(true);
     try {
       await supabase.from('fitbuddy_challenge_users').delete().eq('challenge_id', menuChallenge.id);
-      const { error } = await supabase.from('fitbuddy_challenges').delete().eq('id', menuChallenge.id).eq('creator_id', user.id);
+      let query = supabase.from('fitbuddy_challenges').delete().eq('id', menuChallenge.id);
+      if (!isAdmin) query = query.eq('creator_id', user.id);
+      const { error } = await query;
       if (error) { setSnack({ open: true, msg: '삭제에 실패했습니다.', severity: 'error' }); return; }
       setSnack({ open: true, msg: '챌린지가 삭제되었습니다.', severity: 'info' });
       setDeleteOpen(false);
@@ -332,7 +335,7 @@ export default function ChallengesPage() {
                       <Typography variant='h3' sx={{ fontWeight: 600, flex: 1 }}>🏆 {challenge.title}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         {joined && <Chip label='참여중 ✓' size='small' sx={{ bgcolor: '#A084E8', color: 'white' }} />}
-                        {challenge.creator_id === user?.id && (
+                        {(challenge.creator_id === user?.id || isAdmin) && (
                           <IconButton size='small' onClick={(e) => openMenu(e, challenge)} sx={{ p: 0.3 }}>
                             <MoreVertIcon sx={{ fontSize: 18 }} />
                           </IconButton>
@@ -461,8 +464,12 @@ export default function ChallengesPage() {
 
       {/* 컨텍스트 메뉴 */}
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
-        <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
-        <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+        {menuChallenge?.creator_id === user?.id && (
+          <MenuItem onClick={startEdit}>✏️ 수정하기</MenuItem>
+        )}
+        {(menuChallenge?.creator_id === user?.id || isAdmin) && (
+          <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
+        )}
       </Menu>
 
       {/* 챌린지 수정 다이얼로그 */}

@@ -34,8 +34,15 @@ import Alert from '@mui/material/Alert';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import FilterChipGroup from '../components/ui/filter-chip-group';
 
 const CATEGORIES = ['전체', '운동', '식단', '자유'];
+
+const FEED_FILTER_OPTIONS = [
+  { key: 'all', label: '전체 피드' },
+  { key: 'mine', label: '내 게시글' },
+  { key: 'saved', label: '저장한 글' },
+];
 
 export default function FeedPage() {
   const navigate = useNavigate();
@@ -49,7 +56,7 @@ export default function FeedPage() {
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
 
-  const [feedFilter] = useState(() => location.state?.myPostsOnly ? 'mine' : 'all');
+  const [feedFilter, setFeedFilter] = useState(() => location.state?.myPostsOnly ? 'mine' : 'all');
 
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuPost, setMenuPost] = useState(null);
@@ -217,6 +224,14 @@ export default function FeedPage() {
           size='small'
           sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
           slotProps={{ input: { startAdornment: <InputAdornment position='start'><SearchIcon /></InputAdornment> } }}
+        />
+
+        {/* 피드 필터 - 전체 / 내 게시글 / 저장한 글 */}
+        <FilterChipGroup
+          options={FEED_FILTER_OPTIONS}
+          value={feedFilter}
+          onChange={setFeedFilter}
+          sx={{ mb: 2 }}
         />
 
         {/* 카테고리 필터 */}

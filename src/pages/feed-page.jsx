@@ -27,7 +27,6 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Snackbar from '@mui/material/Snackbar';
@@ -66,8 +65,6 @@ export default function FeedPage() {
 
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuPost, setMenuPost] = useState(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ title: '', caption: '' });
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
@@ -176,33 +173,13 @@ export default function FeedPage() {
 
   function startEdit() {
     closeMenu();
-    setEditForm({ title: menuPost.title || '', caption: menuPost.caption || '' });
-    setEditOpen(true);
+    if (!menuPost) return;
+    navigate('/create', { state: { mode: 'edit', postId: menuPost.id } });
   }
 
   function startDelete() {
     closeMenu();
     setDeleteOpen(true);
-  }
-
-  async function handleEditPost() {
-    if (!menuPost) return;
-    setActionLoading(true);
-    try {
-      const { error } = await supabase
-        .from('fitbuddy_posts')
-        .update({ title: editForm.title, caption: editForm.caption })
-        .eq('id', menuPost.id)
-        .eq('user_id', user.id);
-      if (error) { setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' }); return; }
-      setSnack({ open: true, msg: '게시글이 수정되었습니다.', severity: 'success' });
-      setEditOpen(false);
-      fetchPosts();
-    } catch {
-      setSnack({ open: true, msg: '오류가 발생했습니다.', severity: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
   }
 
   async function handleDeletePost() {
@@ -417,21 +394,6 @@ export default function FeedPage() {
           <MenuItem onClick={startDelete} sx={{ color: 'error.main' }}>🗑️ 삭제하기</MenuItem>
         )}
       </Menu>
-
-      {/* 게시글 수정 다이얼로그 */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth='sm'>
-        <DialogTitle>게시글 수정</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <TextField label='제목' value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} fullWidth size='small' />
-          <TextField label='내용' value={editForm.caption} onChange={(e) => setEditForm({ ...editForm, caption: e.target.value })} fullWidth multiline rows={4} />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setEditOpen(false)}>취소</Button>
-          <Button variant='contained' onClick={handleEditPost} disabled={actionLoading} sx={{ bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}>
-            {actionLoading ? '저장 중...' : '저장'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* 삭제 확인 다이얼로그 */}
       <Dialog open={deleteOpen} onClose={() => !actionLoading && setDeleteOpen(false)} maxWidth='xs' fullWidth>

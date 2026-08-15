@@ -46,6 +46,7 @@ export default function PostDetailPage() {
   const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     fetchPost();
     fetchComments();
     if (user) checkLiked();

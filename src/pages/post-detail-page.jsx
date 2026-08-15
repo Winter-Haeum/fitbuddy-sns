@@ -20,6 +20,7 @@ import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import ShareIcon from '@mui/icons-material/Share';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
 import TimerIcon from '@mui/icons-material/Timer';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -134,6 +135,7 @@ export default function PostDetailPage() {
   }
 
   const canDeletePost = user && (user.id === post?.user_id || isAdmin);
+  const canEditPost = user && user.id === post?.user_id;
 
   if (loading) return (
     <Layout>
@@ -162,8 +164,16 @@ export default function PostDetailPage() {
           {isAdmin && (
             <Chip label='관리자' size='small' color='error' sx={{ ml: 1 }} />
           )}
+          {canEditPost && (
+            <IconButton
+              onClick={() => navigate('/create', { state: { mode: 'edit', postId: post.id } })}
+              sx={{ ml: 'auto', color: 'text.secondary' }}
+            >
+              <EditIcon />
+            </IconButton>
+          )}
           {canDeletePost && (
-            <IconButton onClick={deletePost} sx={{ ml: 'auto', color: 'error.main' }}>
+            <IconButton onClick={deletePost} sx={{ ml: canEditPost ? 0 : 'auto', color: 'error.main' }}>
               <DeleteIcon />
             </IconButton>
           )}

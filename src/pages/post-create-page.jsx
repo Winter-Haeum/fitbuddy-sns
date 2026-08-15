@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -55,7 +55,11 @@ const UNSPLASH_CATEGORIES = ['전체', '헬스', '러닝', '요가', '홈트'];
 
 export default function PostCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+
+  const isEditMode = location.state?.mode === 'edit';
+  const postId = location.state?.postId;
 
   const [postType, setPostType] = useState('workout');
   const [title, setTitle] = useState('');
@@ -67,12 +71,64 @@ export default function PostCreatePage() {
   const [intensity, setIntensity] = useState('medium');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const [existingWorkoutId, setExistingWorkoutId] = useState(null);
 
   // 이미지 관련 상태
   const [imageTab, setImageTab] = useState(0); // 0: Unsplash, 1: URL 직접입력
   const [selectedImage, setSelectedImage] = useState(null); // { url, source, id, author, author_url }
   const [unsplashCategory, setUnsplashCategory] = useState('전체');
   const [customUrl, setCustomUrl] = useState('');
+
+  useEffect(() => {
+    if (!isEditMode || !postId) return;
+    let cancelled = false;
+
+    async function loadPost() {
+      setPrefillLoading(true);
+      const { data: postData } = await supabase
+        .from('fitbuddy_posts')
+        .select('*')
+        .eq('id', postId)
+        .maybeSingle();
+      if (cancelled || !postData) { setPrefillLoading(false); return; }
+
+      setPostType(postData.post_type || 'workout');
+      setTitle(postData.title || '');
+      setCaption(postData.caption || '');
+      setHashtags(postData.hashtags || []);
+      setExistingWorkoutId(postData.workout_id || null);
+
+      if (postData.image_url) {
+        setSelectedImage({
+          url: postData.image_url,
+          source: postData.image_source || 'upload',
+          id: postData.unsplash_image_id || '',
+          author: postData.unsplash_author || '',
+          author_url: postData.unsplash_author_url || '',
+        });
+        setImageTab(postData.image_source === 'unsplash' ? 0 : 1);
+      }
+
+      if (postData.workout_id) {
+        const { data: workoutData } = await supabase
+          .from('fitbuddy_workouts')
+          .select('workout_type, duration_minutes, intensity')
+          .eq('id', postData.workout_id)
+          .maybeSingle();
+        if (!cancelled && workoutData) {
+          setWorkoutType(workoutData.workout_type || '');
+          setDuration(workoutData.duration_minutes ? String(workoutData.duration_minutes) : '');
+          setIntensity(workoutData.intensity || 'medium');
+        }
+      }
+
+      if (!cancelled) setPrefillLoading(false);
+    }
+
+    loadPost();
+    return () => { cancelled = true; };
+  }, [isEditMode, postId]);
 
   const calories = duration && intensity
     ? Math.round(Number(duration) * CALORIES_PER_MINUTE[intensity])
@@ -143,19 +199,47 @@ export default function PostCreatePage() {
           workout_date: getLocalToday(),
           workout_status: 'completed',
         };
-        const { data: workoutData, error: workoutErr } = await supabase
-          .from('fitbuddy_workouts')
-          .insert(workoutPayload)
-          .select('id')
-          .single();
-        if (workoutErr) {
-          console.error('SUPABASE ERROR (workout):', workoutErr);
-        } else if (workoutData) {
-          workoutId = workoutData.id;
+
+        if (isEditMode && existingWorkoutId) {
+          const { error: workoutErr } = await supabase
+            .from('fitbuddy_workouts')
+            .update(workoutPayload)
+            .eq('id', existingWorkoutId);
+          if (workoutErr) {
+            console.error('SUPABASE ERROR (workout update):', workoutErr);
+          }
+          workoutId = existingWorkoutId;
+        } else {
+          const { data: workoutData, error: workoutErr } = await supabase
+            .from('fitbuddy_workouts')
+            .insert(workoutPayload)
+            .select('id')
+            .single();
+          if (workoutErr) {
+            console.error('SUPABASE ERROR (workout):', workoutErr);
+          } else if (workoutData) {
+            workoutId = workoutData.id;
+          }
         }
       }
 
       const finalPayload = { ...postPayload, workout_id: workoutId };
+
+      if (isEditMode) {
+        const { error: postErr } = await supabase
+          .from('fitbuddy_posts')
+          .update(finalPayload)
+          .eq('id', postId)
+          .eq('user_id', user.id);
+        if (postErr) {
+          console.error('SUPABASE ERROR:', postErr);
+          setError('게시글 수정에 실패했습니다: ' + postErr.message);
+          return;
+        }
+        navigate('/feed');
+        return;
+      }
+
       const { error: postErr } = await supabase
         .from('fitbuddy_posts')
         .insert(finalPayload);
@@ -167,7 +251,7 @@ export default function PostCreatePage() {
       navigate('/feed');
     } catch (err) {
       console.error('예상 못한 오류:', err);
-      setError('게시글 작성에 실패했습니다.');
+      setError(isEditMode ? '게시글 수정에 실패했습니다.' : '게시글 작성에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -179,15 +263,19 @@ export default function PostCreatePage() {
         {/* 헤더 */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <IconButton onClick={() => navigate(-1)}><ArrowBackIcon /></IconButton>
-          <Typography variant='h3' sx={{ fontWeight: 600, ml: 1 }}>게시글 작성</Typography>
+          <Typography variant='h3' sx={{ fontWeight: 600, ml: 1 }}>
+            {isEditMode ? '게시글 수정' : '게시글 작성'}
+          </Typography>
           <Button
             variant='contained'
             size='small'
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || prefillLoading}
             sx={{ ml: 'auto', bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}
           >
-            {loading ? '등록 중...' : '등록'}
+            {isEditMode
+              ? (loading ? '저장 중...' : '저장')
+              : (loading ? '등록 중...' : '등록')}
           </Button>
         </Box>
 

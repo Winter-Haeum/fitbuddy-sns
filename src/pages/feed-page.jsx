@@ -36,6 +36,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FilterChipGroup from '../components/ui/filter-chip-group';
+import LikersDialog from '../components/ui/likers-dialog';
 
 const CATEGORIES = ['전체', '운동', '식단', '자유'];
 
@@ -56,6 +57,7 @@ export default function FeedPage() {
   const [search, setSearch] = useState('');
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
+  const [likersPostId, setLikersPostId] = useState(null);
 
   const [feedFilter, setFeedFilter] = useState(() => location.state?.myPostsOnly ? 'mine' : 'all');
 
@@ -326,7 +328,13 @@ export default function FeedPage() {
                     ? <FavoriteIcon sx={{ color: 'red', fontSize: 20 }} />
                     : <FavoriteBorderIcon sx={{ fontSize: 20 }} />}
                 </IconButton>
-                <Typography variant='caption' sx={{ mr: 1 }}>{post.likes_count || 0}</Typography>
+                <Typography
+                  variant='caption'
+                  onClick={() => setLikersPostId(post.id)}
+                  sx={{ mr: 1, cursor: 'pointer' }}
+                >
+                  {post.likes_count || 0}
+                </Typography>
                 <IconButton size='small' onClick={() => navigate(`/post/${post.id}`)}>
                   <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
                 </IconButton>
@@ -397,6 +405,12 @@ export default function FeedPage() {
       >
         <AddIcon />
       </Fab>
+
+      <LikersDialog
+        open={!!likersPostId}
+        onClose={() => setLikersPostId(null)}
+        postId={likersPostId}
+      />
     </Layout>
   );
 }

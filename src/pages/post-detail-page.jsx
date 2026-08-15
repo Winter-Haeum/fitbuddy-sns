@@ -47,6 +47,9 @@ export default function PostDetailPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, [id]);
+
+  useEffect(() => {
     fetchPost();
     fetchComments();
     if (user) checkLiked();

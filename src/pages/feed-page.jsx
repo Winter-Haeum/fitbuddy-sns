@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -37,6 +37,7 @@ import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FilterChipGroup from '../components/ui/filter-chip-group';
 import LikersDialog from '../components/ui/likers-dialog';
+import FadeInBox from '../components/ui/fade-in-box';
 
 const CATEGORIES = ['전체', '운동', '식단', '자유'];
 
@@ -58,6 +59,8 @@ export default function FeedPage() {
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
   const [likersPostId, setLikersPostId] = useState(null);
+  const [displayCount, setDisplayCount] = useState(5);
+  const sentinelRef = useRef(null);
 
   const [feedFilter, setFeedFilter] = useState(() => location.state?.myPostsOnly ? 'mine' : 'all');
 
@@ -110,6 +113,22 @@ export default function FeedPage() {
   // fetchPosts is memoized with useCallback; this effect intentionally loads posts when filters change.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  // 탭/카테고리/검색어가 바뀌면 화면에 보여줄 개수를 처음부터 다시 센다.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setDisplayCount(5); }, [feedFilter, category, search]);
+
+  // 무한 스크롤: sentinel이 보이면 표시 개수를 5개씩 늘린다.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setDisplayCount((prev) => prev + 5); },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [posts]);
 
   useEffect(() => {
     if (!user) return;
@@ -206,6 +225,8 @@ export default function FeedPage() {
   }
 
   const typeLabel = { workout: '운동', diet: '식단', free: '자유' };
+  const displayedPosts = posts.slice(0, displayCount);
+  const allLoaded = posts.length > 0 && displayedPosts.length >= posts.length;
 
   return (
     <Layout>
@@ -266,90 +287,124 @@ export default function FeedPage() {
           ))
         ) : posts.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography sx={{ fontSize: '3rem' }}>🏋️</Typography>
-            <Typography color='text.secondary'>아직 게시글이 없습니다</Typography>
-            <Typography variant='body2' color='text.secondary'>첫 번째 운동 기록을 공유해보세요!</Typography>
+            <Typography color='text.secondary'>
+              {search.trim()
+                ? '검색 결과가 없습니다'
+                : category !== '전체'
+                ? '해당 카테고리의 게시글이 없습니다'
+                : feedFilter === 'saved'
+                ? '저장한 글이 없습니다'
+                : feedFilter === 'mine'
+                ? '작성한 게시글이 없습니다'
+                : '아직 게시글이 없습니다'}
+            </Typography>
+            {!search.trim() && category === '전체' && feedFilter === 'all' && (
+              <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                첫 번째 운동 기록을 공유해보세요!
+              </Typography>
+            )}
           </Box>
         ) : (
-          posts.map((post) => (
-            <Card key={post.id} sx={{ mb: 2, cursor: 'pointer' }}>
-              <CardContent sx={{ pb: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    {post.fitbuddy_users?.display_name?.[0] || 'F'}
-                  </Avatar>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant='h4' sx={{ fontWeight: 600 }}>
-                      {post.fitbuddy_users?.display_name || '사용자'}
-                    </Typography>
-                    <Typography variant='caption' color='text.secondary'>
-                      {new Date(post.created_at).toLocaleDateString('ko-KR')}
-                    </Typography>
-                  </Box>
-                  <Chip label={typeLabel[post.post_type] || post.post_type} size='small' color='primary' variant='outlined' />
-                  {(post.user_id === user?.id || isAdmin) && (
-                    <IconButton size='small' onClick={(e) => openMenu(e, post)} sx={{ p: 0.3 }}>
-                      <MoreVertIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  )}
-                </Box>
-
-                {post.title && (
-                  <Typography variant='h4' sx={{ fontWeight: 600, mb: 1 }}>{post.title}</Typography>
-                )}
-              </CardContent>
-
-              {post.image_url && (
-                <CardMedia
-                  component='img'
-                  image={post.image_url}
-                  alt={post.title}
-                  sx={{ maxHeight: 300, objectFit: 'cover', cursor: 'pointer' }}
-                  onClick={() => navigate(`/post/${post.id}`)}
-                />
-              )}
-
-              <CardContent sx={{ pt: 1, pb: 0 }} onClick={() => navigate(`/post/${post.id}`)}>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
-                  {post.caption?.length > 80 ? post.caption.slice(0, 80) + '...' : post.caption}
-                </Typography>
-                {post.hashtags?.length > 0 && (
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {post.hashtags.map((tag) => (
-                      <Typography key={tag} variant='caption' sx={{ color: 'secondary.main' }}>#{tag}</Typography>
-                    ))}
-                  </Box>
-                )}
-              </CardContent>
-
-              <CardActions sx={{ px: 2, py: 1 }}>
-                <IconButton size='small' onClick={() => toggleLike(post.id)}>
-                  {likedIds.has(post.id)
-                    ? <FavoriteIcon sx={{ color: 'red', fontSize: 20 }} />
-                    : <FavoriteBorderIcon sx={{ fontSize: 20 }} />}
-                </IconButton>
-                <Typography
-                  variant='caption'
-                  onClick={() => setLikersPostId(post.id)}
-                  sx={{ mr: 1, cursor: 'pointer' }}
+          <>
+            {displayedPosts.map((post, idx) => (
+              <FadeInBox key={post.id} delay={Math.min(idx, 4) * 60}>
+                <Card
+                  sx={{
+                    mb: 2,
+                    cursor: 'pointer',
+                    transition: 'box-shadow 0.15s ease, transform 0.1s ease',
+                    '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)', transform: 'translateY(-1px)' },
+                  }}
                 >
-                  {post.likes_count || 0}
-                </Typography>
-                <IconButton size='small' onClick={() => navigate(`/post/${post.id}`)}>
-                  <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-                <Typography variant='caption' sx={{ mr: 1 }}>{post.comments_count || 0}</Typography>
-                <VisibilityIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                <Typography variant='caption' sx={{ ml: 0.5 }}>{post.views_count || 0}</Typography>
-                <Box sx={{ flex: 1 }} />
-                <IconButton size='small' onClick={() => toggleSave(post.id)}>
-                  {savedIds.has(post.id)
-                    ? <BookmarkIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-                    : <BookmarkBorderIcon sx={{ fontSize: 20 }} />}
-                </IconButton>
-              </CardActions>
-            </Card>
-          ))
+                  <CardContent sx={{ pb: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                        {post.fitbuddy_users?.display_name?.[0] || 'F'}
+                      </Avatar>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant='h4' sx={{ fontWeight: 600 }}>
+                          {post.fitbuddy_users?.display_name || '사용자'}
+                        </Typography>
+                        <Typography variant='caption' color='text.secondary'>
+                          {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                        </Typography>
+                      </Box>
+                      <Chip label={typeLabel[post.post_type] || post.post_type} size='small' color='primary' variant='outlined' />
+                      {(post.user_id === user?.id || isAdmin) && (
+                        <IconButton size='small' onClick={(e) => openMenu(e, post)} sx={{ p: 0.3 }}>
+                          <MoreVertIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      )}
+                    </Box>
+
+                    {post.title && (
+                      <Typography variant='h4' sx={{ fontWeight: 600, mb: 1 }}>{post.title}</Typography>
+                    )}
+                  </CardContent>
+
+                  {post.image_url && (
+                    <CardMedia
+                      component='img'
+                      image={post.image_url}
+                      alt={post.title}
+                      sx={{ maxHeight: 300, objectFit: 'cover', cursor: 'pointer' }}
+                      onClick={() => navigate(`/post/${post.id}`)}
+                    />
+                  )}
+
+                  <CardContent sx={{ pt: 1, pb: 0 }} onClick={() => navigate(`/post/${post.id}`)}>
+                    <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                      {post.caption?.length > 80 ? post.caption.slice(0, 80) + '...' : post.caption}
+                    </Typography>
+                    {post.hashtags?.length > 0 && (
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {post.hashtags.map((tag) => (
+                          <Typography key={tag} variant='caption' sx={{ color: 'secondary.main' }}>#{tag}</Typography>
+                        ))}
+                      </Box>
+                    )}
+                  </CardContent>
+
+                  <CardActions sx={{ px: 2, py: 1 }}>
+                    <IconButton size='small' onClick={() => toggleLike(post.id)}>
+                      {likedIds.has(post.id)
+                        ? <FavoriteIcon sx={{ color: 'red', fontSize: 20 }} />
+                        : <FavoriteBorderIcon sx={{ fontSize: 20 }} />}
+                    </IconButton>
+                    <Typography
+                      variant='caption'
+                      onClick={() => setLikersPostId(post.id)}
+                      sx={{ mr: 1, cursor: 'pointer' }}
+                    >
+                      {post.likes_count || 0}
+                    </Typography>
+                    <IconButton size='small' onClick={() => navigate(`/post/${post.id}`)}>
+                      <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
+                    <Typography variant='caption' sx={{ mr: 1 }}>{post.comments_count || 0}</Typography>
+                    <VisibilityIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                    <Typography variant='caption' sx={{ ml: 0.5 }}>{post.views_count || 0}</Typography>
+                    <Box sx={{ flex: 1 }} />
+                    <IconButton size='small' onClick={() => toggleSave(post.id)}>
+                      {savedIds.has(post.id)
+                        ? <BookmarkIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+                        : <BookmarkBorderIcon sx={{ fontSize: 20 }} />}
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              </FadeInBox>
+            ))}
+            {!allLoaded && (
+              <Box ref={sentinelRef} sx={{ py: 2, textAlign: 'center' }}>
+                <Typography variant='caption' color='text.secondary'>불러오는 중...</Typography>
+              </Box>
+            )}
+            {allLoaded && (
+              <Box sx={{ py: 2, textAlign: 'center' }}>
+                <Typography variant='caption' color='text.secondary'>모든 게시글을 불러왔습니다</Typography>
+              </Box>
+            )}
+          </>
         )}
       </Box>
 

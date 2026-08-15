@@ -18,6 +18,7 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -330,6 +331,8 @@ export default function FeedPage() {
                   <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
                 </IconButton>
                 <Typography variant='caption' sx={{ mr: 1 }}>{post.comments_count || 0}</Typography>
+                <VisibilityIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                <Typography variant='caption' sx={{ ml: 0.5 }}>{post.views_count || 0}</Typography>
                 <Box sx={{ flex: 1 }} />
                 <IconButton size='small' onClick={() => toggleSave(post.id)}>
                   {savedIds.has(post.id)

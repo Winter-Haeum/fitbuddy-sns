@@ -28,6 +28,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
+import LikersDialog from '../components/ui/likers-dialog';
 
 export default function PostDetailPage() {
   const { id } = useParams();
@@ -38,6 +39,7 @@ export default function PostDetailPage() {
   const [comment, setComment] = useState('');
   const [liked, setLiked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [likersOpen, setLikersOpen] = useState(false);
   const viewedPostIdRef = useRef(null);
 
   const isAdmin = profile?.role === 'admin';
@@ -275,7 +277,13 @@ export default function PostDetailPage() {
               <IconButton onClick={toggleLike}>
                 {liked ? <FavoriteIcon sx={{ color: 'red' }} /> : <FavoriteBorderIcon />}
               </IconButton>
-              <Typography variant='body2'>{post.likes_count || 0}</Typography>
+              <Typography
+                variant='body2'
+                onClick={() => setLikersOpen(true)}
+                sx={{ cursor: 'pointer' }}
+              >
+                {post.likes_count || 0}
+              </Typography>
               <IconButton><ChatBubbleOutlineIcon /></IconButton>
               <Typography variant='body2'>{post.comments_count || 0}</Typography>
               <Box sx={{ flex: 1 }} />
@@ -347,6 +355,8 @@ export default function PostDetailPage() {
           );
         })}
       </Box>
+
+      <LikersDialog open={likersOpen} onClose={() => setLikersOpen(false)} postId={id} />
     </Layout>
   );
 }

@@ -20,7 +20,6 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import HotelIcon from '@mui/icons-material/Hotel';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import IconButton from '@mui/material/IconButton';
 import { useAuth } from '../hooks/use-auth';
 import { useTimer, WORKOUT_TYPES, INTENSITIES, formatTime } from '../hooks/use-timer';
@@ -81,11 +80,8 @@ export default function TimerPage() {
     currentRestSeconds, totalRestSeconds,
     saved, saving, snack, setSnack,
     status,
-    steps, isStepSupported, permissionState, requestPermission,
     handleStartPause, handleRest, handleReset, handleSave,
   } = useTimer();
-
-  const isRunning = status === 'running';
 
   // 홈에서 추천 루틴으로 진입 시 idle 상태일 때만 워크아웃 타입 설정
   useEffect(() => {
@@ -307,54 +303,6 @@ export default function TimerPage() {
             </Box>
           </CardContent>
         </Card>
-
-        {/* 만보기 카드 — 가속도계 지원 기기에서만 표시 */}
-        {isStepSupported && (
-          <Card sx={{ mb: 2, border: '1px solid #E3F2FD', bgcolor: steps > 0 ? '#F0F8FF' : 'white' }}>
-            <CardContent sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{
-                width: 44, height: 44, borderRadius: 2,
-                bgcolor: '#E3F2FD',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <DirectionsWalkIcon sx={{ color: '#5DA9E9', fontSize: 26 }} />
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant='caption' color='text.secondary' sx={{ fontWeight: 600 }}>
-                  만보기
-                  {permissionState === 'not-required' && (
-                    <Typography component='span' variant='caption' sx={{ ml: 0.8, color: '#4CAF50' }}>● 측정 중</Typography>
-                  )}
-                  {permissionState === 'granted' && (
-                    <Typography component='span' variant='caption' sx={{ ml: 0.8, color: '#4CAF50' }}>● 측정 중</Typography>
-                  )}
-                </Typography>
-                <Typography variant='h4' sx={{ fontWeight: 700, color: '#1565C0' }}>
-                  {steps.toLocaleString()} <Typography component='span' variant='body2' color='text.secondary'>걸음</Typography>
-                </Typography>
-                {permissionState === 'unknown' || permissionState === 'denied' ? (
-                  <Typography variant='caption' color='text.secondary'>
-                    {permissionState === 'denied' ? '권한이 거부됐습니다' : '허용 후 측정됩니다'}
-                  </Typography>
-                ) : (
-                  <Typography variant='caption' color='text.secondary'>
-                    {isRunning ? '운동 중 측정 중...' : '운동 시작 시 측정됩니다'}
-                  </Typography>
-                )}
-              </Box>
-              {(permissionState === 'unknown') && (
-                <Button
-                  size='small'
-                  variant='outlined'
-                  onClick={requestPermission}
-                  sx={{ borderColor: '#5DA9E9', color: '#5DA9E9', flexShrink: 0 }}
-                >
-                  허용
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* 완료 저장 버튼 */}
         {seconds > 0 && (

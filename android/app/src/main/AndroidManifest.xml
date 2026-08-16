@@ -45,4 +45,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- "오늘의 걸음" 기능 전용. 걸음 읽기만 요청하며 WRITE_STEPS 등 다른 건강 데이터 권한은 요청하지 않는다. -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+
+    <!--
+      TODO(privacy policy): Health Connect 공식 문서는 아래 두 구성 요소를 요구한다.
+        - PermissionsRationaleActivity (Android 13 이하, androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE)
+        - ViewPermissionUsageActivity activity-alias (Android 14+, android.intent.action.VIEW_PERMISSION_USAGE
+          + android.intent.category.HEALTH_PERMISSIONS + android.permission.START_VIEW_PERMISSION_USAGE)
+      두 화면 모두 "Google Play Console에 등록한 것과 동일한 실제 개인정보 처리방침"을 보여줘야 하는데,
+      현재 FitBuddy 저장소/배포에는 개인정보 처리방침 페이지·URL이 존재하지 않아 추가하지 않았다.
+      (Play 스토어에 등록하지 않는 사이드로드/테스트 설치 자체는 이 구성 없이도 동작하는 것으로 보이지만,
+      Health Connect 앱 설정의 "왜 이 권한이 필요한지" 화면과 향후 Play 스토어 등록에는 필요하다.)
+      실제 개인정보 처리방침 페이지가 준비되면 이 두 구성 요소를 추가해야 한다.
+    -->
 </manifest>

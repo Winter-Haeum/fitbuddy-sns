@@ -99,6 +99,11 @@ export default function HomePage() {
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
   const quote = QUOTES[new Date().getDay() % QUOTES.length];
 
+  // 1회차 목표 달성 후 추가 운동(2회차) 진행 상태 — DB에 저장하지 않는 프론트 전용 상태.
+  // 새로고침하면 초기화되며, todayWorkout.duration은 그대로 유지되므로 1회차 달성 기록은 보존된다.
+  const [extraGoalMode, setExtraGoalMode] = useState(false);
+  const [extraGoalBaseDuration, setExtraGoalBaseDuration] = useState(0);
+
   // 날짜 변경 감지 — 자정 넘으면 오늘 데이터 초기화
   const [currentDate, setCurrentDate] = useState(getLocalToday);
   useEffect(() => {
@@ -110,6 +115,8 @@ export default function HomePage() {
         setTodayWorkoutList([]);
         setTodayLog(null);
         setGoalEditValue('60');
+        setExtraGoalMode(false);
+        setExtraGoalBaseDuration(0);
       }
     }, 30000); // 30초마다 날짜 체크
     return () => clearInterval(timer);
@@ -237,13 +244,26 @@ export default function HomePage() {
   }, [user, location.key, currentDate]);
 
   const goalMinutes = todayLog?.daily_goal_minutes || 60;
-  const progress = todayWorkout ? Math.min((todayWorkout.duration / goalMinutes) * 100, 100) : 0;
+  // extraGoalMode: 1회차 달성 후 추가 운동은 추가된 시간만 2회차 진행률에 반영(기존 1회차 시간은 그대로 유지)
+  const effectiveDuration = extraGoalMode
+    ? Math.max(0, (todayWorkout?.duration || 0) - extraGoalBaseDuration)
+    : (todayWorkout?.duration || 0);
+  const progress = todayWorkout ? Math.min((effectiveDuration / goalMinutes) * 100, 100) : 0;
 
   function getActivityState() {
     if (!todayWorkout || todayWorkout.duration === 0) return { label: '휴식중', emoji: '💤', color: '#9E9E9E' };
+    if (extraGoalMode && progress >= 100) return { label: '2회차 달성!', emoji: '🎉', color: '#FFB300' };
+    if (extraGoalMode) return { label: '추가 운동중', emoji: '🔥', color: '#FF7043' };
     if (progress >= 100) return { label: '달성완료', emoji: '🏆', color: '#FFB300' };
     if (todayWorkout.duration >= 30) return { label: '활력중', emoji: '💪', color: '#A084E8' };
     return { label: '운동중', emoji: '🏃', color: '#5DA9E9' };
+  }
+
+  function handleStartExtraGoal(e) {
+    e.stopPropagation();
+    setExtraGoalMode(true);
+    setExtraGoalBaseDuration(todayWorkout?.duration || 0);
+    setSnack({ open: true, msg: '추가 운동 시작! 새 목표를 향해 달려봐요 🔥', severity: 'info' });
   }
 
   const activityState = getActivityState();
@@ -344,11 +364,15 @@ export default function HomePage() {
                 <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: '0.65rem' }} />
               </Box>
               <Chip
-                label={todayLog?.goal_achieved ? '🏆 달성!' : progress >= 100 ? '🎯 완료' : `${Math.round(progress)}%`}
+                label={
+                  extraGoalMode
+                    ? (progress >= 100 ? '🎉 2회차 달성!' : `2회차 ${Math.round(progress)}%`)
+                    : (todayLog?.goal_achieved ? '🏆 달성!' : progress >= 100 ? '🎯 완료' : `${Math.round(progress)}%`)
+                }
                 size='small'
                 sx={{
-                  bgcolor: todayLog?.goal_achieved ? '#FFB300' : progress >= 100 ? '#FFB30044' : `${activityState.color}22`,
-                  color: todayLog?.goal_achieved ? 'white' : progress >= 100 ? '#FF8F00' : activityState.color,
+                  bgcolor: extraGoalMode ? '#FF704322' : (todayLog?.goal_achieved ? '#FFB300' : progress >= 100 ? '#FFB30044' : `${activityState.color}22`),
+                  color: extraGoalMode ? '#FF7043' : (todayLog?.goal_achieved ? 'white' : progress >= 100 ? '#FF8F00' : activityState.color),
                   fontWeight: 700,
                 }}
               />
@@ -397,9 +421,35 @@ export default function HomePage() {
               </Box>
             </Box>
 
+            {/* 달성 후 추가 운동 버튼 — 카드 클릭과 분리 */}
+            {todayLog?.goal_achieved && !extraGoalMode && (
+              <Box
+                onClick={handleStartExtraGoal}
+                sx={{
+                  mt: 1, mb: 0.5, py: 0.8, px: 1.5,
+                  bgcolor: '#FF704314', borderRadius: 2,
+                  border: '1px dashed #FF7043',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.8,
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: '#FF704322' },
+                  '&:active': { transform: 'scale(0.98)' },
+                  transition: 'all 0.15s',
+                }}
+              >
+                <Typography sx={{ fontSize: '1rem' }}>🔥</Typography>
+                <Typography variant='body2' sx={{ fontWeight: 700, color: '#FF7043', fontSize: '0.85rem' }}>
+                  추가 운동 시작
+                </Typography>
+              </Box>
+            )}
+
             {/* 시간 라벨 */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant='caption' color='text.secondary'>{todayWorkout?.duration || 0}분</Typography>
+              <Typography variant='caption' color='text.secondary'>
+                {extraGoalMode
+                  ? `+${effectiveDuration}분 (총 ${todayWorkout?.duration || 0}분)`
+                  : `${todayWorkout?.duration || 0}분`}
+              </Typography>
               {goalEditMode ? (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}
                   onClick={(e) => e.stopPropagation()}

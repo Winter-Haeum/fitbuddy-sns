@@ -61,6 +61,40 @@ const theme = createTheme({
         root: { borderRadius: 8 },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: '20px',
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: {
+          padding: '20px 24px 10px',
+          fontWeight: 700,
+          fontSize: '1.1rem',
+        },
+      },
+    },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          padding: '12px 24px 16px',
+        },
+        dividers: {
+          padding: '16px 24px',
+        },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          padding: '8px 24px 20px',
+          gap: '8px',
+        },
+      },
+    },
   },
 });
 

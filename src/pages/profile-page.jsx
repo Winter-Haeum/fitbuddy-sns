@@ -35,7 +35,14 @@ import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import StatsCard from '../components/ui/stats-card';
-import { getDaysLeft as getChallengesDaysLeft } from '../utils/date-utils';
+import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
+
+// getLocalToday()와 동일한 로컬 날짜 포맷 방식을, 오늘이 아닌 임의의(과거) Date에도
+// 적용하기 위한 파일 내부 전용 헬퍼. toISOString()은 UTC로 변환되어 한국 시간 자정~오전 9시
+// 사이에는 하루가 어긋나므로 사용하지 않는다.
+function formatLocalDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 const POSTS_PREVIEW = 5;
 
@@ -154,17 +161,17 @@ export default function ProfilePage() {
         .eq('user_id', user.id)
         .order('workout_date', { ascending: false });
       const all = data || [];
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalToday();
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekAgoStr = weekAgo.toISOString().split('T')[0];
+      const weekAgoStr = formatLocalDate(weekAgo);
       const uniqueDates = [...new Set(all.map((w) => w.workout_date))];
       const dateSet = new Set(uniqueDates);
 
       let streak = 0;
       const checkDate = new Date();
       while (true) {
-        const dateStr = checkDate.toISOString().split('T')[0];
+        const dateStr = formatLocalDate(checkDate);
         if (dateSet.has(dateStr)) {
           streak++;
           checkDate.setDate(checkDate.getDate() - 1);

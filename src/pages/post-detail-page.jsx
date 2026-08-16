@@ -13,11 +13,17 @@ import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 import ShareIcon from '@mui/icons-material/Share';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -39,8 +45,13 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState([]);
   const [comment, setComment] = useState('');
   const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [likersOpen, setLikersOpen] = useState(false);
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [deletePostOpen, setDeletePostOpen] = useState(false);
+  const [deleteCommentTarget, setDeleteCommentTarget] = useState(null);
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const viewedPostIdRef = useRef(null);
 
   const isAdmin = profile?.role === 'admin';
@@ -52,8 +63,8 @@ export default function PostDetailPage() {
   useEffect(() => {
     fetchPost();
     fetchComments();
-    if (user) checkLiked();
-  // fetchPost/fetchComments/checkLiked intentionally re-run when user resolves after loading;
+    if (user) { checkLiked(); checkSaved(); }
+  // fetchPost/fetchComments/checkLiked/checkSaved intentionally re-run when user resolves after loading;
   // view-count increment is handled separately below with its own once-per-post guard.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
@@ -123,28 +134,84 @@ export default function PostDetailPage() {
     setLiked(!liked);
   }
 
+  async function checkSaved() {
+    const { data } = await supabase
+      .from('fitbuddy_saved_posts')
+      .select('id')
+      .eq('post_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    setSaved(!!data);
+  }
+
+  // 피드(feed-page.jsx)의 toggleSave와 동일한 fitbuddy_saved_posts 쿼리 패턴을 재사용.
+  async function toggleSave() {
+    if (!user) return;
+    if (saved) {
+      await supabase.from('fitbuddy_saved_posts').delete().eq('post_id', id).eq('user_id', user.id);
+    } else {
+      await supabase.from('fitbuddy_saved_posts').insert({ post_id: id, user_id: user.id });
+    }
+    setSaved(!saved);
+  }
+
+  async function handleShare() {
+    const shareData = {
+      title: post?.title || 'FitBuddy',
+      text: post?.caption ? post.caption.slice(0, 100) : undefined,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // 사용자가 공유 시트를 취소한 경우(AbortError)는 정상 흐름이므로 조용히 무시한다.
+        if (err?.name !== 'AbortError') console.error('[handleShare] error:', err);
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setSnack({ open: true, msg: '링크를 복사했습니다.', severity: 'success' });
+    } catch (err) {
+      console.error('[handleShare] clipboard error:', err);
+    }
+  }
+
   async function submitComment() {
-    if (!comment.trim() || !user) return;
-    await supabase.from('fitbuddy_comments').insert({ post_id: id, user_id: user.id, content: comment.trim() });
-    setComment('');
-    fetchComments();
+    if (!comment.trim() || !user || commentLoading) return;
+    setCommentLoading(true);
+    try {
+      await supabase.from('fitbuddy_comments').insert({ post_id: id, user_id: user.id, content: comment.trim() });
+      setComment('');
+      fetchComments();
+    } finally {
+      setCommentLoading(false);
+    }
   }
 
   async function deletePost() {
-    if (!user || !window.confirm('게시글을 삭제하시겠습니까?')) return;
     let query = supabase.from('fitbuddy_posts').delete().eq('id', id);
     if (!isAdmin) query = query.eq('user_id', user.id);
     const { error } = await query;
-    if (error) { alert('삭제 실패: ' + error.message); return; }
+    if (error) {
+      setSnack({ open: true, msg: '삭제 실패: ' + error.message, severity: 'error' });
+      setDeletePostOpen(false);
+      return;
+    }
     navigate('/feed');
   }
 
   async function deleteComment(commentId) {
-    if (!user || !window.confirm('댓글을 삭제하시겠습니까?')) return;
     let query = supabase.from('fitbuddy_comments').delete().eq('id', commentId);
     if (!isAdmin) query = query.eq('user_id', user.id);
     const { error } = await query;
-    if (error) { alert('삭제 실패: ' + error.message); return; }
+    if (error) {
+      setSnack({ open: true, msg: '삭제 실패: ' + error.message, severity: 'error' });
+      setDeleteCommentTarget(null);
+      return;
+    }
+    setDeleteCommentTarget(null);
     fetchComments();
   }
 
@@ -187,7 +254,7 @@ export default function PostDetailPage() {
             </IconButton>
           )}
           {canDeletePost && (
-            <IconButton onClick={deletePost} sx={{ ml: canEditPost ? 0 : 'auto', color: 'error.main' }}>
+            <IconButton onClick={() => setDeletePostOpen(true)} sx={{ ml: canEditPost ? 0 : 'auto', color: 'error.main' }}>
               <DeleteIcon />
             </IconButton>
           )}
@@ -315,8 +382,10 @@ export default function PostDetailPage() {
                 <VisibilityIcon sx={{ fontSize: 16 }} />
                 <Typography variant='caption'>{post.views_count || 0}</Typography>
               </Box>
-              <IconButton><BookmarkBorderIcon /></IconButton>
-              <IconButton><ShareIcon /></IconButton>
+              <IconButton onClick={toggleSave}>
+                {saved ? <BookmarkIcon sx={{ color: 'primary.main' }} /> : <BookmarkBorderIcon />}
+              </IconButton>
+              <IconButton onClick={handleShare}><ShareIcon /></IconButton>
             </Box>
           </CardContent>
         </Card>
@@ -336,7 +405,7 @@ export default function PostDetailPage() {
               maxRows={3}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
             />
-            <IconButton onClick={submitComment} color='primary' sx={{ alignSelf: 'flex-end' }}>
+            <IconButton onClick={submitComment} color='primary' disabled={commentLoading} sx={{ alignSelf: 'flex-end' }}>
               <SendIcon />
             </IconButton>
           </Box>
@@ -364,7 +433,7 @@ export default function PostDetailPage() {
                     {canDeleteComment && (
                       <IconButton
                         size='small'
-                        onClick={() => deleteComment(c.id)}
+                        onClick={() => setDeleteCommentTarget(c.id)}
                         sx={{ ml: 'auto', color: 'error.light', p: 0.3 }}
                       >
                         <DeleteIcon sx={{ fontSize: 14 }} />
@@ -381,6 +450,42 @@ export default function PostDetailPage() {
       </Box>
 
       <LikersDialog open={likersOpen} onClose={() => setLikersOpen(false)} postId={id} />
+
+      {/* 게시글 삭제 확인 다이얼로그 */}
+      <Dialog open={deletePostOpen} onClose={() => setDeletePostOpen(false)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🗑️</Typography>
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>게시글을 삭제하시겠습니까?</Typography>
+          <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>이 작업은 되돌릴 수 없습니다.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setDeletePostOpen(false)}>취소</Button>
+          <Button variant='contained' fullWidth color='error' onClick={deletePost}>삭제</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 댓글 삭제 확인 다이얼로그 */}
+      <Dialog open={!!deleteCommentTarget} onClose={() => setDeleteCommentTarget(null)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🗑️</Typography>
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>댓글을 삭제하시겠습니까?</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setDeleteCommentTarget(null)}>취소</Button>
+          <Button variant='contained' fullWidth color='error' onClick={() => deleteComment(deleteCommentTarget)}>삭제</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={2500}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity={snack.severity} onClose={() => setSnack({ ...snack, open: false })} sx={{ width: '100%' }}>
+          {snack.msg}
+        </Alert>
+      </Snackbar>
     </Layout>
   );
 }

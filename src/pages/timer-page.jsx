@@ -24,7 +24,6 @@ import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import IconButton from '@mui/material/IconButton';
 import { useAuth } from '../hooks/use-auth';
 import { useTimer, WORKOUT_TYPES, INTENSITIES, formatTime } from '../hooks/use-timer';
-import { useStepCounter } from '../hooks/use-step-counter';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 
@@ -82,24 +81,11 @@ export default function TimerPage() {
     currentRestSeconds, totalRestSeconds,
     saved, saving, snack, setSnack,
     status,
+    steps, isStepSupported, permissionState, requestPermission,
     handleStartPause, handleRest, handleReset, handleSave,
   } = useTimer();
 
-  // 만보기
   const isRunning = status === 'running';
-  const {
-    steps,
-    isSupported: isStepSupported,
-    permissionState,
-    requestPermission,
-    resetSteps,
-  } = useStepCounter(isRunning);
-
-  // 초기화 시 걸음 수도 리셋
-  const wrappedReset = () => {
-    handleReset();
-    resetSteps();
-  };
 
   // 홈에서 추천 루틴으로 진입 시 idle 상태일 때만 워크아웃 타입 설정
   useEffect(() => {
@@ -313,7 +299,7 @@ export default function TimerPage() {
                 variant='outlined'
                 size='large'
                 startIcon={<RestartAltIcon />}
-                onClick={wrappedReset}
+                onClick={handleReset}
                 disabled={seconds === 0 && !saved}
               >
                 초기화
@@ -379,7 +365,7 @@ export default function TimerPage() {
             startIcon={<StopIcon />}
             onClick={() => handleSave(() => {
               setTimeout(() => navigate('/records', { state: { initialTab: 0, saved: true } }), 2000);
-            }, steps)}
+            })}
             disabled={saved || saving}
             sx={{
               py: 1.8,

@@ -29,8 +29,16 @@ import CloseIcon from '@mui/icons-material/Close';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import { getLevelFromXP } from '../utils/xp-utils';
+import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
+
+// getLocalToday()와 동일한 로컬 날짜 포맷 방식을, 오늘이 아닌 임의의(과거) Date에도
+// 적용하기 위한 파일 내부 전용 헬퍼. toISOString()은 UTC로 변환되어 한국 시간 자정~오전 9시
+// 사이에는 하루가 어긋나므로 사용하지 않는다.
+function formatLocalDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 const MOODS = [
   { key: 'tired', emoji: '😴', label: '피곤', text: '피곤한 하루예요.' },
@@ -83,7 +91,7 @@ export default function RecordsPage() {
   // 운동 일기 상세 모달
   const [diaryDetailLog, setDiaryDetailLog] = useState(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalToday();
 
   useEffect(() => {
     if (!user) return;
@@ -113,11 +121,11 @@ export default function RecordsPage() {
       if (range === 'week') {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - 6);
-        query = query.gte('workout_date', cutoff.toISOString().split('T')[0]);
+        query = query.gte('workout_date', formatLocalDate(cutoff));
       } else if (range === 'month') {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - 29);
-        query = query.gte('workout_date', cutoff.toISOString().split('T')[0]);
+        query = query.gte('workout_date', formatLocalDate(cutoff));
       }
       const { data } = await query;
       setWeekWorkouts(data || []);

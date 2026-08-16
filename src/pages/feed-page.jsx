@@ -39,6 +39,7 @@ import LikersDialog from '../components/ui/likers-dialog';
 import FadeInBox from '../components/ui/fade-in-box';
 
 const CATEGORIES = ['전체', '운동', '식단', '자유'];
+const PAGE_SIZE = 10;
 
 const FEED_FILTER_OPTIONS = [
   { key: 'all', label: '전체 피드' },
@@ -53,12 +54,13 @@ export default function FeedPage() {
   const isAdmin = profile?.role === 'admin';
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [category, setCategory] = useState('전체');
   const [search, setSearch] = useState('');
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
   const [likersPostId, setLikersPostId] = useState(null);
-  const [displayCount, setDisplayCount] = useState(5);
   const sentinelRef = useRef(null);
 
   const [feedFilter, setFeedFilter] = useState(() => {
@@ -72,63 +74,82 @@ export default function FeedPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
-  const fetchPosts = useCallback(async () => {
+  // 현재 필터/카테고리/검색어 기준으로 [from, to] 구간의 게시글만 서버에서 조회한다.
+  const fetchPage = useCallback(async (from, to) => {
+    if (feedFilter === 'saved') {
+      const { data } = await supabase
+        .from('fitbuddy_saved_posts')
+        .select('fitbuddy_posts(*, fitbuddy_users(display_name, avatar_url, username))')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      return (data || []).map((d) => d.fitbuddy_posts).filter(Boolean);
+    }
+
+    let query = supabase
+      .from('fitbuddy_posts')
+      .select('*, fitbuddy_users(display_name, avatar_url, username)')
+      .order('created_at', { ascending: false });
+
+    if (feedFilter === 'mine' && user) {
+      query = query.eq('user_id', user.id);
+    }
+    if (category !== '전체') {
+      const typeMap = { '운동': 'workout', '식단': 'diet', '자유': 'free' };
+      query = query.eq('post_type', typeMap[category]);
+    }
+    if (search) {
+      query = query.ilike('caption', `%${search}%`);
+    }
+
+    const { data } = await query.range(from, to);
+    return data || [];
+  }, [feedFilter, category, search, user]);
+
+  // 필터/카테고리/검색어가 바뀌면 첫 페이지부터 다시 조회한다(기존 목록 전체 교체).
+  const loadFirstPage = useCallback(async () => {
     setLoading(true);
     try {
-      if (feedFilter === 'saved') {
-        const { data } = await supabase
-          .from('fitbuddy_saved_posts')
-          .select('fitbuddy_posts(*, fitbuddy_users(display_name, avatar_url, username))')
-          .eq('user_id', user?.id)
-          .order('created_at', { ascending: false })
-          .limit(30);
-        setPosts((data || []).map((d) => d.fitbuddy_posts).filter(Boolean));
-        return;
-      }
-
-      let query = supabase
-        .from('fitbuddy_posts')
-        .select('*, fitbuddy_users(display_name, avatar_url, username)')
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      if (feedFilter === 'mine' && user) {
-        query = query.eq('user_id', user.id);
-      }
-      if (category !== '전체') {
-        const typeMap = { '운동': 'workout', '식단': 'diet', '자유': 'free' };
-        query = query.eq('post_type', typeMap[category]);
-      }
-      if (search) {
-        query = query.ilike('caption', `%${search}%`);
-      }
-
-      const { data } = await query;
-      setPosts(data || []);
+      const rows = await fetchPage(0, PAGE_SIZE - 1);
+      setPosts(rows);
+      setHasMore(rows.length === PAGE_SIZE);
     } finally {
       setLoading(false);
     }
-  }, [feedFilter, category, search, user]);
+  }, [fetchPage]);
 
-  // fetchPosts is memoized with useCallback; this effect intentionally loads posts when filters change.
+  // loadFirstPage is memoized with useCallback; this effect intentionally reloads when filters change.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { fetchPosts(); }, [fetchPosts]);
+  useEffect(() => { loadFirstPage(); }, [loadFirstPage]);
 
-  // 탭/카테고리/검색어가 바뀌면 화면에 보여줄 개수를 처음부터 다시 센다.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setDisplayCount(5); }, [feedFilter, category, search]);
+  // 다음 페이지를 서버에서 조회해 기존 목록 뒤에 이어 붙인다. 이미 로드된 id는 중복 추가하지 않는다.
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const from = posts.length;
+      const rows = await fetchPage(from, from + PAGE_SIZE - 1);
+      setPosts((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        return [...prev, ...rows.filter((p) => !existingIds.has(p.id))];
+      });
+      setHasMore(rows.length === PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, hasMore, posts, fetchPage]);
 
-  // 무한 스크롤: sentinel이 보이면 표시 개수를 5개씩 늘린다.
+  // 무한 스크롤: sentinel이 보이면 서버에서 다음 페이지를 조회한다.
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setDisplayCount((prev) => prev + 5); },
+      ([entry]) => { if (entry.isIntersecting) loadMore(); },
       { threshold: 0.1 }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [posts]);
+  }, [loadMore]);
 
   useEffect(() => {
     if (!user) return;
@@ -205,8 +226,6 @@ export default function FeedPage() {
   }
 
   const typeLabel = { workout: '운동', diet: '식단', free: '자유' };
-  const displayedPosts = posts.slice(0, displayCount);
-  const allLoaded = posts.length > 0 && displayedPosts.length >= posts.length;
 
   return (
     <Layout>
@@ -286,7 +305,7 @@ export default function FeedPage() {
           </Box>
         ) : (
           <>
-            {displayedPosts.map((post, idx) => (
+            {posts.map((post, idx) => (
               <FadeInBox key={post.id} delay={Math.min(idx, 4) * 60}>
                 <Card
                   sx={{
@@ -374,12 +393,12 @@ export default function FeedPage() {
                 </Card>
               </FadeInBox>
             ))}
-            {!allLoaded && (
+            {hasMore && (
               <Box ref={sentinelRef} sx={{ py: 2, textAlign: 'center' }}>
                 <Typography variant='caption' color='text.secondary'>불러오는 중...</Typography>
               </Box>
             )}
-            {allLoaded && (
+            {!hasMore && posts.length > 0 && (
               <Box sx={{ py: 2, textAlign: 'center' }}>
                 <Typography variant='caption' color='text.secondary'>모든 게시글을 불러왔습니다</Typography>
               </Box>

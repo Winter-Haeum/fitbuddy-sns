@@ -10,8 +10,6 @@ import { TimerProvider } from './hooks/use-timer.jsx';
 import ErrorBoundary from './components/common/error-boundary.jsx';
 import './index.css';
 
-console.log('APP INIT START');
-
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>

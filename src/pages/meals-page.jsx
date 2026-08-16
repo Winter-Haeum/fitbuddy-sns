@@ -22,6 +22,7 @@ import RestaurantIcon from '@mui/icons-material/Restaurant';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
+import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 
 const MEAL_TYPES = [
@@ -37,6 +38,15 @@ const SAMPLE_FOOD_IMAGES = [
   'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400',
 ];
+
+// created_at(UTC timestamptz)을 기기 로컬 날짜(YYYY-MM-DD)로 변환해 오늘 여부를 판단한다.
+// 문자열 startsWith 비교는 UTC로 반환되는 created_at과 로컬 날짜 형식이 어긋나므로 사용하지 않는다.
+function isLocalToday(isoString, todayLocal) {
+  if (!isoString) return false;
+  const d = new Date(isoString);
+  const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return localDateStr === todayLocal;
+}
 
 export default function MealsPage() {
   const { user } = useAuth();
@@ -87,8 +97,9 @@ export default function MealsPage() {
     }
   }
 
+  const todayLocal = getLocalToday();
   const todayCalories = meals
-    .filter((m) => m.user_id === user?.id && m.created_at?.startsWith(new Date().toISOString().split('T')[0]))
+    .filter((m) => m.user_id === user?.id && isLocalToday(m.created_at, todayLocal))
     .reduce((sum, m) => sum + (m.calories || 0), 0);
 
   return (

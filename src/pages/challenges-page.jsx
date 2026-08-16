@@ -30,7 +30,7 @@ import Snackbar from '@mui/material/Snackbar';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
-import { getDaysLeft } from '../utils/date-utils';
+import { getDaysLeft, getLocalToday } from '../utils/date-utils';
 import FadeInBox from '../components/ui/fade-in-box';
 import FilterChipGroup from '../components/ui/filter-chip-group';
 
@@ -42,15 +42,25 @@ const STATUS_FILTER_OPTIONS = [
   { key: 'ended', label: '종료' },
 ];
 
+// getLocalToday()와 동일한 로컬 날짜 포맷 방식을, 오늘이 아닌 임의의(미래) Date에도
+// 적용하기 위한 파일 내부 전용 헬퍼. toISOString()은 UTC로 변환되어 한국 시간 자정~오전 9시
+// 사이에는 하루가 어긋나므로 사용하지 않는다.
+function formatLocalDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export default function ChallengesPage() {
   const { user, profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
   const [challengeTab, setChallengeTab] = useState(0);
   const [challenges, setChallenges] = useState([]);
+  const [challengesLoading, setChallengesLoading] = useState(true);
+  const [challengesError, setChallengesError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [myJoined, setMyJoined] = useState(new Set());
   const [participants, setParticipants] = useState({});
+  const [joiningIds, setJoiningIds] = useState(new Set());
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', goal: '', days: 7, type: 'period' });
   const [loading, setLoading] = useState(false);
@@ -72,11 +82,14 @@ export default function ChallengesPage() {
   }, [user]);
 
   async function fetchChallenges() {
+    setChallengesLoading(true);
+    setChallengesError(false);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('fitbuddy_challenges')
         .select('id, title, description, goal, start_date, end_date, creator_id, challenge_type')
         .order('created_at', { ascending: false });
+      if (error) throw error;
 
       // 제목·설명이 비어있거나 너무 짧은 테스트 데이터 제외
       const validData = (data || []).filter(
@@ -99,6 +112,9 @@ export default function ChallengesPage() {
       }
     } catch (err) {
       console.error('챌린지 로드 오류:', err);
+      setChallengesError(true);
+    } finally {
+      setChallengesLoading(false);
     }
   }
 
@@ -116,18 +132,31 @@ export default function ChallengesPage() {
 
   async function toggleJoin(challengeId) {
     if (!user) return;
+    if (joiningIds.has(challengeId)) return;
+    setJoiningIds((prev) => new Set(prev).add(challengeId));
     try {
       if (myJoined.has(challengeId)) {
-        await supabase.from('fitbuddy_challenge_users').delete().eq('challenge_id', challengeId).eq('user_id', user.id);
+        const { error } = await supabase.from('fitbuddy_challenge_users').delete().eq('challenge_id', challengeId).eq('user_id', user.id);
+        if (error) throw error;
         setMyJoined((prev) => { const s = new Set(prev); s.delete(challengeId); return s; });
         setParticipants((prev) => ({ ...prev, [challengeId]: (prev[challengeId] || 1) - 1 }));
+        setSnack({ open: true, msg: '챌린지 참여를 취소했습니다.', severity: 'info' });
       } else {
-        await supabase.from('fitbuddy_challenge_users').insert({ challenge_id: challengeId, user_id: user.id, progress: 0 });
+        const { error } = await supabase.from('fitbuddy_challenge_users').insert({ challenge_id: challengeId, user_id: user.id, progress: 0 });
+        if (error) throw error;
         setMyJoined((prev) => new Set(prev).add(challengeId));
         setParticipants((prev) => ({ ...prev, [challengeId]: (prev[challengeId] || 0) + 1 }));
+        setSnack({ open: true, msg: '챌린지에 참여했습니다.', severity: 'success' });
       }
     } catch (err) {
       console.error('챌린지 참여 오류:', err);
+      setSnack({
+        open: true,
+        msg: myJoined.has(challengeId) ? '참여 취소에 실패했습니다.' : '챌린지 참여에 실패했습니다.',
+        severity: 'error',
+      });
+    } finally {
+      setJoiningIds((prev) => { const s = new Set(prev); s.delete(challengeId); return s; });
     }
   }
 
@@ -136,19 +165,21 @@ export default function ChallengesPage() {
     setLoading(true);
     setError('');
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const endDate = new Date();
+      const todayStr = getLocalToday();
+      let endDateStr;
       if (form.type === 'today') {
-        endDate.setHours(23, 59, 59);
+        endDateStr = todayStr;
       } else {
+        const endDate = new Date();
         endDate.setDate(endDate.getDate() + Number(form.days));
+        endDateStr = formatLocalDate(endDate);
       }
       const payload = {
         title: form.title,
         description: form.description,
         goal: form.goal,
         start_date: todayStr,
-        end_date: endDate.toISOString().split('T')[0],
+        end_date: endDateStr,
         creator_id: user.id,
         challenge_type: form.type,
       };
@@ -221,9 +252,11 @@ export default function ChallengesPage() {
     finally { setActionLoading(false); }
   }
 
+  const todayLocal = getLocalToday();
   const tabChallenges = challenges.filter((c) => {
     if (challengeTab === 0) return !c.challenge_type || c.challenge_type === 'period';
-    return c.challenge_type === 'today';
+    // 오늘 모임은 challenge_type뿐 아니라 실제 로컬 오늘 날짜의 모임만 노출한다.
+    return c.challenge_type === 'today' && c.start_date === todayLocal;
   });
 
   const filteredChallenges = tabChallenges.filter((c) => {
@@ -305,13 +338,25 @@ export default function ChallengesPage() {
         />
 
         {/* 챌린지 목록 */}
-        {tabChallenges.length === 0 ? (
+        {challengesLoading ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Typography color='text.secondary'>아직 챌린지가 없습니다.</Typography>
+            <Typography color='text.secondary'>불러오는 중...</Typography>
+          </Box>
+        ) : challengesError ? (
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <Typography color='text.secondary'>챌린지를 불러오지 못했습니다.</Typography>
+          </Box>
+        ) : tabChallenges.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <Typography color='text.secondary'>
+              {challengeTab === 1 ? '오늘 예정된 모임이 없습니다.' : '아직 챌린지가 없습니다.'}
+            </Typography>
           </Box>
         ) : filteredChallenges.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Typography color='text.secondary'>검색/필터 조건에 맞는 챌린지가 없습니다.</Typography>
+            <Typography color='text.secondary'>
+              {challengeTab === 1 ? '조건에 맞는 오늘 모임이 없습니다.' : '검색/필터 조건에 맞는 챌린지가 없습니다.'}
+            </Typography>
           </Box>
         ) : (
           filteredChallenges.map((challenge, idx) => {
@@ -389,7 +434,7 @@ export default function ChallengesPage() {
                       fullWidth
                       size='small'
                       onClick={() => toggleJoin(challenge.id)}
-                      disabled={daysLeft === 0}
+                      disabled={daysLeft === 0 || joiningIds.has(challenge.id)}
                       sx={!joined ? { bgcolor: '#A084E8', '&:hover': { bgcolor: '#8B6FD4' } } : { borderColor: '#A084E8', color: '#A084E8' }}
                     >
                       {daysLeft === 0 ? '종료된 챌린지' : joined ? '챌린지 탈퇴' : '챌린지 참여하기'}

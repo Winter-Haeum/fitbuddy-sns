@@ -11,9 +11,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // 새 버전은 백그라운드에서 조용히 다운로드되고 다음 방문/새로고침 시 적용된다.
-      // 게시글 작성 등 입력 중인 화면을 강제로 리로드하지 않는 가장 단순하고 안전한 방식.
-      registerType: 'autoUpdate',
+      // autoUpdate는 새 SW가 감지되면 열려있는 탭을 자동으로 reload할 수 있어
+      // 게시글/댓글/프로필 작성 중인 입력이 날아갈 위험이 있다. prompt는 새 SW를 설치만 해두고
+      // 별도 알림 UI 없이는 리로드를 트리거하지 않으므로, 실제로는 다음 방문/새로고침 시에만
+      // 새 버전이 적용된다(이번 PR에서는 업데이트 알림 UI를 추가하지 않는다).
+      registerType: 'prompt',
       manifest: {
         name: 'FitBuddy',
         short_name: 'FitBuddy',

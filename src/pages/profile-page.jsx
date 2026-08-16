@@ -49,6 +49,7 @@ const TYPE_BG = { workout: '#E8F5E9', diet: '#FFF8E1', free: '#F3E5F5' };
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, signOut, fetchProfile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const avatarInputRef = useRef(null);
 
   const [posts, setPosts] = useState([]);
@@ -81,8 +82,6 @@ export default function ProfilePage() {
   const [postMenuAnchor, setPostMenuAnchor] = useState(null);
   const [postMenuTarget, setPostMenuTarget] = useState(null);
   const [postDeleteOpen, setPostDeleteOpen] = useState(false);
-  const [postEditOpen, setPostEditOpen] = useState(false);
-  const [postEditForm, setPostEditForm] = useState({ title: '', content: '' });
 
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
@@ -386,27 +385,8 @@ export default function ProfilePage() {
 
   function handleEditPost() {
     setPostMenuAnchor(null);
-    setPostEditForm({ title: postMenuTarget.title || '', content: postMenuTarget.content || '' });
-    setPostEditOpen(true);
-  }
-
-  async function savePostEdit() {
     if (!postMenuTarget) return;
-    try {
-      const { error } = await supabase
-        .from('fitbuddy_posts')
-        .update({ title: postEditForm.title, content: postEditForm.content })
-        .eq('id', postMenuTarget.id)
-        .eq('user_id', user.id);
-      if (error) throw error;
-      setPosts((prev) =>
-        prev.map((p) => p.id === postMenuTarget.id ? { ...p, title: postEditForm.title, content: postEditForm.content } : p)
-      );
-      setPostEditOpen(false);
-      setSnack({ open: true, msg: '게시글이 수정되었습니다.', severity: 'success' });
-    } catch {
-      setSnack({ open: true, msg: '수정에 실패했습니다.', severity: 'error' });
-    }
+    navigate('/create', { state: { mode: 'edit', postId: postMenuTarget.id } });
   }
 
   async function handleDeletePost() {
@@ -476,9 +456,14 @@ export default function ProfilePage() {
               </Box>
 
               <Box sx={{ flex: 1 }}>
-                <Typography variant='h2' sx={{ fontWeight: 700, color: '#1B5E20', mb: 1.2 }}>
-                  {profile?.display_name || '사용자'}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
+                  <Typography variant='h2' sx={{ fontWeight: 700, color: '#1B5E20' }}>
+                    {profile?.display_name || '사용자'}
+                  </Typography>
+                  {isAdmin && (
+                    <Chip label='관리자' size='small' color='error' />
+                  )}
+                </Box>
                 {profile?.bio && (
                   <Typography variant='body2' color='text.secondary'>
                     {profile.bio}
@@ -796,7 +781,7 @@ export default function ProfilePage() {
                         display: '-webkit-box', WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}>
-                        {post.content}
+                        {post.caption}
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
                         <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem' }}>
@@ -805,7 +790,7 @@ export default function ProfilePage() {
                         <Box sx={{ flex: 1 }} />
                         <FavoriteIcon sx={{ fontSize: 12, color: '#bbb' }} />
                         <Typography variant='caption' sx={{ fontSize: '0.7rem', color: '#999' }}>
-                          {post.like_count || 0}
+                          {post.likes_count || 0}
                         </Typography>
                       </Box>
                     </Box>
@@ -819,7 +804,7 @@ export default function ProfilePage() {
                   variant='outlined'
                   fullWidth
                   size='small'
-                  onClick={() => navigate('/feed', { state: { myPostsOnly: tab === 'posts' } })}
+                  onClick={() => navigate('/feed', { state: { feedFilter: tab === 'posts' ? 'mine' : 'saved' } })}
                   sx={{
                     mt: 1, mb: 1,
                     borderColor: tab === 'posts' ? '#6BCB77' : '#A084E8',
@@ -856,19 +841,6 @@ export default function ProfilePage() {
           <MenuItem onClick={handleUnsavePost}>저장 취소</MenuItem>
         )}
       </Menu>
-
-      {/* 게시글 수정 다이얼로그 */}
-      <Dialog open={postEditOpen} onClose={() => setPostEditOpen(false)} fullWidth maxWidth='sm'>
-        <DialogTitle>게시글 수정</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <TextField label='제목' value={postEditForm.title} onChange={(e) => setPostEditForm({ ...postEditForm, title: e.target.value })} fullWidth />
-          <TextField label='내용' value={postEditForm.content} onChange={(e) => setPostEditForm({ ...postEditForm, content: e.target.value })} fullWidth multiline rows={4} />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setPostEditOpen(false)}>취소</Button>
-          <Button variant='contained' onClick={savePostEdit} sx={{ bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' } }}>저장</Button>
-        </DialogActions>
-      </Dialog>
 
       {/* 게시글 삭제 확인 다이얼로그 */}
       <Dialog open={postDeleteOpen} onClose={() => setPostDeleteOpen(false)} maxWidth='xs' fullWidth>

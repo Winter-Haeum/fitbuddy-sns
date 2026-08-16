@@ -475,7 +475,9 @@ export default function RecordsPage() {
                   const totalMin = workouts.reduce((s, w) => s + (w.duration_minutes || 0), 0);
                   const totalCal = workouts.reduce((s, w) => s + (w.calories_burned || 0), 0);
                   const dateObj = new Date(date);
-                  const dayLabel = date === today ? '오늘' : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+                  const dayLabel = date === today
+                    ? '오늘'
+                    : `${dateObj.getMonth() + 1}/${dateObj.getDate()}(${['일', '월', '화', '수', '목', '금', '토'][dateObj.getDay()]})`;
                   return (
                     <Card key={date} sx={{ mb: 2.5 }}>
                       <CardContent sx={{ px: 2.5 }}>

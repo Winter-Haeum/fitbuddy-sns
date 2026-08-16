@@ -61,7 +61,10 @@ export default function FeedPage() {
   const [displayCount, setDisplayCount] = useState(5);
   const sentinelRef = useRef(null);
 
-  const [feedFilter, setFeedFilter] = useState(() => location.state?.myPostsOnly ? 'mine' : 'all');
+  const [feedFilter, setFeedFilter] = useState(() => {
+    if (location.state?.feedFilter) return location.state.feedFilter;
+    return location.state?.myPostsOnly ? 'mine' : 'all';
+  });
 
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuPost, setMenuPost] = useState(null);

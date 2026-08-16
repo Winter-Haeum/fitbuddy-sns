@@ -236,7 +236,7 @@ export default function PostCreatePage() {
           setError('게시글 수정에 실패했습니다: ' + postErr.message);
           return;
         }
-        navigate('/feed');
+        navigate(`/post/${postId}`);
         return;
       }
 

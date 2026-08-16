@@ -79,7 +79,17 @@ export default function PostDetailPage() {
   }
 
   async function incrementViews() {
-    await supabase.rpc('fitbuddy_increment_views', { p_post_id: Number(id) });
+    const { data, error } = await supabase.rpc('fitbuddy_increment_views', { p_post_id: Number(id) });
+    if (error) {
+      console.error('[incrementViews] error:', error);
+      return;
+    }
+    // RETURNS TABLE(incremented, views_count) → PostgREST가 배열로 반환하므로 첫 행만 사용.
+    // incremented=false(이미 조회함/작성자 본인/비로그인)도 정상 결과이며, DB가 반환한 views_count를 그대로 반영한다(로컬 +1 계산 금지).
+    const result = Array.isArray(data) ? data[0] : data;
+    if (result && typeof result.views_count === 'number') {
+      setPost((prev) => (prev ? { ...prev, views_count: result.views_count } : prev));
+    }
   }
 
   async function fetchComments() {

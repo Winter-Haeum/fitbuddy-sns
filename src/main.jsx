@@ -1,10 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import App from './App.jsx';
-import theme from './theme.js';
+import { FontScaleProvider } from './hooks/use-font-scale.jsx';
 import { AuthProvider } from './hooks/use-auth.jsx';
 import { TimerProvider } from './hooks/use-timer.jsx';
 import ErrorBoundary from './components/common/error-boundary.jsx';
@@ -13,8 +11,7 @@ import './index.css';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <FontScaleProvider>
         <AuthProvider>
           <TimerProvider>
             <ErrorBoundary>
@@ -22,7 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             </ErrorBoundary>
           </TimerProvider>
         </AuthProvider>
-      </ThemeProvider>
+      </FontScaleProvider>
     </BrowserRouter>
   </React.StrictMode>,
 );

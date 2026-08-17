@@ -32,6 +32,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
+import { useFontScale } from '../hooks/use-font-scale';
+import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import StatsCard from '../components/ui/stats-card';
@@ -56,6 +58,7 @@ const TYPE_BG = { workout: '#E8F5E9', diet: '#FFF8E1', free: '#F3E5F5' };
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, signOut, fetchProfile } = useAuth();
+  const { fontScale, setFontScale } = useFontScale();
   const isAdmin = profile?.role === 'admin';
   const avatarInputRef = useRef(null);
 
@@ -437,7 +440,7 @@ export default function ProfilePage() {
         {/* 프로필 헤더 */}
         <Card sx={{ mb: 2, bgcolor: '#EAF7EE', border: '1.5px solid #B2DFC0' }}>
           <CardContent sx={{ pb: '20px !important' }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
               {/* 프로필 이미지 + 카메라 아이콘 */}
               <Box sx={{ position: 'relative', flexShrink: 0 }}>
                 <Avatar
@@ -462,13 +465,19 @@ export default function ProfilePage() {
                 <input type='file' accept='image/*' ref={avatarInputRef} style={{ display: 'none' }} onChange={handleAvatarUpload} />
               </Box>
 
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
-                  <Typography variant='h2' sx={{ fontWeight: 700, color: '#1B5E20' }}>
+              {/* 이름/관리자 chip/자기소개 — flexBasis를 확보해 큰 글씨에서도 이름이 한 글자씩
+                  세로로 잘리지 않게 하고(min-content로 스퀴즈되는 것을 방지), 공간이 부족하면
+                  수정 버튼이 다음 줄로 자연스럽게 내려가도록 outer box를 flexWrap 처리했다. */}
+              <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.2 }}>
+                  <Typography
+                    variant='h2'
+                    sx={{ fontWeight: 700, color: '#1B5E20', wordBreak: 'keep-all', overflowWrap: 'break-word' }}
+                  >
                     {profile?.display_name || '사용자'}
                   </Typography>
                   {isAdmin && (
-                    <Chip label='관리자' size='small' color='error' />
+                    <Chip label='관리자' size='small' color='error' sx={{ flexShrink: 0 }} />
                   )}
                 </Box>
                 {profile?.bio && (
@@ -479,7 +488,7 @@ export default function ProfilePage() {
               </Box>
               <Button
                 variant='outlined' size='small' startIcon={<EditIcon />} onClick={openEdit}
-                sx={{ borderColor: '#6BCB77', color: '#388E3C', '&:hover': { borderColor: '#4DBB68', bgcolor: '#F1F8E9' } }}
+                sx={{ flexShrink: 0, whiteSpace: 'nowrap', borderColor: '#6BCB77', color: '#388E3C', '&:hover': { borderColor: '#4DBB68', bgcolor: '#F1F8E9' } }}
               >
                 수정
               </Button>
@@ -532,16 +541,18 @@ export default function ProfilePage() {
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <FitBuddyCharacter size={56} gender={profile?.gender || 'female'} />
-                <Box>
-                  <Typography variant='h4' sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Box sx={{ flex: '1 1 100px', minWidth: 0 }}>
+                  <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
                     <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
                   </Box>
                 </Box>
-                <Button variant='outlined' size='small' sx={{ ml: 'auto' }}>캐릭터 보기</Button>
+                {/* whiteSpace/flexShrink로 "캐릭터 보기" 텍스트가 세로로 쪼개지지 않도록 하고,
+                    공간이 부족하면(큰 글씨 등) 버튼 전체가 다음 줄로 넘어가게 한다. */}
+                <Button variant='outlined' size='small' sx={{ ml: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}>캐릭터 보기</Button>
               </CardContent>
             </Card>
           </Grid>
@@ -825,6 +836,42 @@ export default function ProfilePage() {
             </>
           )
         )}
+
+        {/* 설정 — 글자 크기(기기 저장, 계정 데이터 아님). 큰 설정 화면 대신 마이페이지 하단에
+            최소 구조로 배치했다. */}
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant='body2' sx={{ fontWeight: 700, mb: 1.2, color: '#333' }}>
+              ⚙️ 설정
+            </Typography>
+            <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.8 }}>
+              글자 크기
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+              {FONT_SCALE_LEVELS.map((level) => {
+                const selected = fontScale === level;
+                return (
+                  <Box
+                    key={level}
+                    onClick={() => setFontScale(level)}
+                    sx={{
+                      px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
+                      border: `2px solid ${selected ? '#6BCB77' : '#E0E0E0'}`,
+                      bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
+                      color: selected ? '#2E7D32' : '#757575',
+                      fontWeight: selected ? 700 : 400,
+                      fontSize: '0.85rem',
+                      userSelect: 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {FONT_SCALE_LABELS[level]}
+                  </Box>
+                );
+              })}
+            </Box>
+          </CardContent>
+        </Card>
 
         <Divider sx={{ my: 3 }} />
         <Button variant='outlined' fullWidth color='error' startIcon={<LogoutIcon />} onClick={handleSignOut} sx={{ mb: 1.5 }}>

@@ -15,7 +15,6 @@ import Divider from '@mui/material/Divider';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -29,8 +28,6 @@ import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import TimerIcon from '@mui/icons-material/Timer';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -76,6 +73,10 @@ const ROUTINES = [
   { name: '회복 스트레칭', icon: '🧘', duration: '20분', level: '초급', type: '스트레칭', durationNum: 20 },
 ];
 
+// 걸음 목표 입력 허용 범위. 0 이하/비정상적으로 큰 값은 저장하지 않는다.
+const MIN_STEP_GOAL = 1000;
+const MAX_STEP_GOAL = 100000;
+
 function getTodayRoutine() {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
@@ -86,7 +87,7 @@ function getTodayRoutine() {
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, fetchProfile } = useAuth();
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [todayWorkoutList, setTodayWorkoutList] = useState([]);
   const [workoutSummaryOpen, setWorkoutSummaryOpen] = useState(false);
@@ -94,10 +95,11 @@ export default function HomePage() {
   const [todayLog, setTodayLog] = useState(null);
   const [joinedCount, setJoinedCount] = useState(0);
   const [menuAnchor, setMenuAnchor] = useState(null);
-  const [reminderOn, setReminderOn] = useState(() => localStorage.getItem('workoutReminderEnabled') === '1');
   const [editingMood, setEditingMood] = useState(false);
   const [goalEditMode, setGoalEditMode] = useState(false);
   const [goalEditValue, setGoalEditValue] = useState('60');
+  const [stepGoalEditMode, setStepGoalEditMode] = useState(false);
+  const [stepGoalEditValue, setStepGoalEditValue] = useState('10000');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
   const quote = QUOTES[new Date().getDay() % QUOTES.length];
 
@@ -133,13 +135,6 @@ export default function HomePage() {
     navigate('/login');
   }
 
-  function toggleReminder() {
-    const next = !reminderOn;
-    setReminderOn(next);
-    localStorage.setItem('workoutReminderEnabled', next ? '1' : '0');
-    setSnack({ open: true, msg: next ? '운동 알림이 켜졌습니다 💪' : '운동 알림이 꺼졌습니다', severity: 'info' });
-  }
-
   async function saveMood(moodKey) {
     const today = getLocalToday();
     const payload = { user_id: user.id, log_date: today, mood_status: moodKey };
@@ -170,6 +165,24 @@ export default function HomePage() {
       { onConflict: 'user_id,log_date' }
     );
     setTodayLog((prev) => ({ ...(prev || { user_id: user.id, log_date: today }), daily_goal_minutes: v }));
+  }
+
+  // 걸음 목표는 운동 세션이 아니라 계정 preference 성격이 강해 fitbuddy_users에 저장한다.
+  // Health Connect가 돌려주는 실제 걸음 수(dailySteps.steps)는 절대 건드리지 않고, 목표
+  // 값만 바뀌므로 퍼센트/진행바는 stepGoal이 바뀌는 즉시 재계산되어 반영된다.
+  async function saveStepGoal() {
+    setStepGoalEditMode(false);
+    const parsed = parseInt(stepGoalEditValue, 10);
+    const v = isNaN(parsed) ? stepGoal : Math.max(MIN_STEP_GOAL, Math.min(MAX_STEP_GOAL, parsed));
+    setStepGoalEditValue(String(v));
+    if (v === stepGoal) return;
+    const { error } = await supabase.from('fitbuddy_users').update({ daily_step_goal: v }).eq('id', user.id);
+    if (error) {
+      console.error('[saveStepGoal] 저장 실패:', error.message);
+      setSnack({ open: true, msg: '걸음 목표 저장에 실패했습니다.', severity: 'error' });
+      return;
+    }
+    await fetchProfile(user.id);
   }
 
   async function awardGoalXP() {
@@ -272,7 +285,9 @@ export default function HomePage() {
 
   const activityState = getActivityState();
   const characterMood = progress === 0 ? 'idle' : progress >= 70 ? 'celebrating' : progress >= 30 ? 'running' : 'active';
-  const stepPercent = Math.round((dailySteps.steps / DAILY_STEP_GOAL) * 100);
+  // fitbuddy_users.daily_step_goal이 아직 없는 사용자(컬럼 미도입/미설정)는 기존 고정값으로 폴백.
+  const stepGoal = profile?.daily_step_goal || DAILY_STEP_GOAL;
+  const stepPercent = Math.round((dailySteps.steps / stepGoal) * 100);
   const stepProgressClamped = Math.min(stepPercent, 100);
 
   return (
@@ -301,9 +316,10 @@ export default function HomePage() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={toggleReminder} sx={{ color: reminderOn ? '#FFB300' : '#9E9E9E' }}>
-              {reminderOn ? <NotificationsIcon /> : <NotificationsOffIcon />}
-            </IconButton>
+            {/* 알림 종 아이콘은 실제 알림 기능(로컬/푸시 알림)이 전혀 없는 로컬 UI 토글일
+                뿐이었다(localStorage 값만 바꾸고 어떤 알림도 발생시키지 않음) — 있는 것처럼
+                오해를 주는 상태로 남겨두지 않기 위해 실제 알림 설정 기능이 만들어지기 전까지
+                제거한다. */}
             <Avatar
               src={profile?.avatar_url}
               sx={{ bgcolor: 'primary.main', cursor: 'pointer' }}
@@ -364,10 +380,10 @@ export default function HomePage() {
 
           <CardContent sx={{ pb: 1.5, position: 'relative', zIndex: 6 }}>
             {/* 헤더 */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Typography variant='h4' sx={{ fontWeight: 700 }}>오늘의 운동 목표</Typography>
-                <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: '0.65rem' }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.3, flexWrap: 'wrap', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+                <Typography variant='h4' sx={{ fontWeight: 700, wordBreak: 'keep-all' }}>오늘의 운동 목표</Typography>
+                <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }} />
               </Box>
               <Chip
                 label={
@@ -377,6 +393,7 @@ export default function HomePage() {
                 }
                 size='small'
                 sx={{
+                  flexShrink: 0,
                   bgcolor: extraGoalMode ? '#FF704322' : (todayLog?.goal_achieved ? '#FFB300' : progress >= 100 ? '#FFB30044' : `${activityState.color}22`),
                   color: extraGoalMode ? '#FF7043' : (todayLog?.goal_achieved ? 'white' : progress >= 100 ? '#FF8F00' : activityState.color),
                   fontWeight: 700,
@@ -546,9 +563,39 @@ export default function HomePage() {
                         borderRadius: 4, transition: 'width 0.5s ease',
                       }} />
                     </Box>
-                    <Typography variant='caption' color='text.secondary' sx={{ flexShrink: 0, fontSize: '0.72rem' }}>
-                      {dailySteps.steps.toLocaleString()}/{DAILY_STEP_GOAL.toLocaleString()}
-                    </Typography>
+                    {stepGoalEditMode ? (
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, flexShrink: 0 }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.72rem' }}>
+                          {dailySteps.steps.toLocaleString()}/
+                        </Typography>
+                        <input
+                          type='number'
+                          value={stepGoalEditValue}
+                          autoFocus
+                          onChange={(e) => setStepGoalEditValue(e.target.value)}
+                          onBlur={saveStepGoal}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.target.blur(); }
+                            if (e.key === 'Escape') { setStepGoalEditMode(false); setStepGoalEditValue(String(stepGoal)); }
+                          }}
+                          style={{
+                            width: '52px', fontSize: '0.72rem',
+                            border: 'none', borderBottom: '1.5px solid #5DA9E9',
+                            background: 'transparent', textAlign: 'center', outline: 'none',
+                          }}
+                        />
+                      </Box>
+                    ) : (
+                      <Box
+                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, cursor: 'pointer', flexShrink: 0 }}
+                        onClick={() => { setStepGoalEditValue(String(stepGoal)); setStepGoalEditMode(true); }}
+                      >
+                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.72rem' }}>
+                          {dailySteps.steps.toLocaleString()}/{stepGoal.toLocaleString()}
+                        </Typography>
+                        <EditIcon sx={{ fontSize: 10, color: '#ccc' }} />
+                      </Box>
+                    )}
                   </Box>
                   {!dailySteps.activityRecognitionGranted && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.4 }}>
@@ -642,12 +689,12 @@ export default function HomePage() {
               onClick={() => navigate('/timer', { state: { workoutType: r.type, duration: r.durationNum, level: r.level } })}
             >
               <CardContent sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography sx={{ fontSize: '2rem' }}>{r.icon}</Typography>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant='h4'>{r.name}</Typography>
+                <Typography sx={{ fontSize: '2rem', flexShrink: 0 }}>{r.icon}</Typography>
+                <Box sx={{ flex: '1 1 100px', minWidth: 0 }}>
+                  <Typography variant='h4' sx={{ wordBreak: 'keep-all' }}>{r.name}</Typography>
                   <Typography variant='body2' color='text.secondary'>{r.duration} · {r.level}</Typography>
                 </Box>
-                <Chip label='시작' size='small' color='primary' />
+                <Chip label='시작' size='small' color='primary' sx={{ flexShrink: 0 }} />
               </CardContent>
             </Card>
           );
@@ -690,12 +737,17 @@ export default function HomePage() {
           onClick={() => navigate('/records')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <Typography sx={{ fontSize: '1.8rem' }}>📓</Typography>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant='h4' sx={{ fontWeight: 600, color: '#1565C0' }}>기록관</Typography>
-              <Typography variant='body2' color='text.secondary'>운동 일기 · 컨디션 · 기록 확인</Typography>
+            <Typography sx={{ fontSize: '1.8rem', flexShrink: 0 }}>📓</Typography>
+            <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
+              <Typography variant='h4' sx={{ fontWeight: 600, color: '#1565C0', wordBreak: 'keep-all' }}>기록관</Typography>
+              {/* 큰 글씨에서도 설명이 카드를 무한정 늘리지 않도록 최대 2줄로 제한(글자 축소 아님) */}
+              <Typography variant='body2' color='text.secondary' sx={{
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>
+                운동 일기 · 컨디션 · 기록 확인
+              </Typography>
             </Box>
-            <Typography color='text.secondary'>›</Typography>
+            <Typography color='text.secondary' sx={{ flexShrink: 0 }}>›</Typography>
           </CardContent>
         </Card>
 
@@ -705,14 +757,18 @@ export default function HomePage() {
           onClick={() => navigate('/challenges')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <EmojiEventsIcon sx={{ fontSize: 32, color: '#A084E8' }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant='h4' sx={{ fontWeight: 600, color: '#6B4FC8' }}>
+            <EmojiEventsIcon sx={{ fontSize: 32, color: '#A084E8', flexShrink: 0 }} />
+            <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
+              <Typography variant='h4' sx={{ fontWeight: 600, color: '#6B4FC8', wordBreak: 'keep-all' }}>
                 {joinedCount > 0 ? `${joinedCount}개 챌린지 참여 중` : '챌린지 참여하기'}
               </Typography>
-              <Typography variant='body2' color='text.secondary'>운동 챌린지로 함께 성장해요 🎯</Typography>
+              <Typography variant='body2' color='text.secondary' sx={{
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>
+                운동 챌린지로 함께 성장해요 🎯
+              </Typography>
             </Box>
-            <Typography color='text.secondary'>›</Typography>
+            <Typography color='text.secondary' sx={{ flexShrink: 0 }}>›</Typography>
           </CardContent>
         </Card>
 

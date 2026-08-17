@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import LoginPage from './pages/login-page';
 import RegisterPage from './pages/register-page';
+import PrivacyPage from './pages/privacy-page';
 import HomePage from './pages/home-page';
 import FeedPage from './pages/feed-page';
 import PostDetailPage from './pages/post-detail-page';
@@ -48,6 +49,8 @@ export default function App() {
     <Routes>
       <Route path='/login' element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path='/register' element={<PublicRoute><RegisterPage /></PublicRoute>} />
+      {/* 로그인 여부와 무관하게 항상 접근 가능해야 하는 공개 페이지(Health Connect rationale이 여는 URL) */}
+      <Route path='/privacy' element={<PrivacyPage />} />
 
       <Route path='/' element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path='/feed' element={<ProtectedRoute><FeedPage /></ProtectedRoute>} />

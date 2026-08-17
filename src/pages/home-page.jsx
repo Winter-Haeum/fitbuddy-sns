@@ -21,6 +21,7 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Skeleton from '@mui/material/Skeleton';
 import Fab from '@mui/material/Fab';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -40,6 +41,7 @@ import Layout from '../components/common/layout';
 import { getLevelFromXP } from '../utils/xp-utils';
 import { MOODS } from '../constants/workout';
 import StatsCard from '../components/ui/stats-card';
+import { useDailySteps, DAILY_STEP_GOAL } from '../hooks/use-daily-steps';
 
 const confettiFall = keyframes({
   '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
@@ -98,6 +100,9 @@ export default function HomePage() {
   const [goalEditValue, setGoalEditValue] = useState('60');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
   const quote = QUOTES[new Date().getDay() % QUOTES.length];
+
+  // 오늘의 걸음: 운동 목표/진행률과는 완전히 별개의 데이터(Android Health Connect 기반).
+  const dailySteps = useDailySteps();
 
   // 1회차 목표 달성 후 추가 운동(2회차) 진행 상태 — DB에 저장하지 않는 프론트 전용 상태.
   // 새로고침하면 초기화되며, todayWorkout.duration은 그대로 유지되므로 1회차 달성 기록은 보존된다.
@@ -198,7 +203,7 @@ export default function HomePage() {
 
     supabase
       .from('fitbuddy_workouts')
-      .select('duration_minutes, calories_burned, steps, workout_type, intensity')
+      .select('duration_minutes, calories_burned, workout_type, intensity')
       .eq('user_id', user.id)
       .eq('workout_date', today)
       .then(({ data }) => {
@@ -207,9 +212,8 @@ export default function HomePage() {
             (acc, w) => ({
               duration: acc.duration + (w.duration_minutes || 0),
               calories: acc.calories + (w.calories_burned || 0),
-              steps: acc.steps + (w.steps || 0),
             }),
-            { duration: 0, calories: 0, steps: 0 }
+            { duration: 0, calories: 0 }
           );
           setTodayWorkout(totals);
           setTodayWorkoutList(data);
@@ -268,6 +272,8 @@ export default function HomePage() {
 
   const activityState = getActivityState();
   const characterMood = progress === 0 ? 'idle' : progress >= 70 ? 'celebrating' : progress >= 30 ? 'running' : 'active';
+  const stepPercent = Math.round((dailySteps.steps / DAILY_STEP_GOAL) * 100);
+  const stepProgressClamped = Math.min(stepPercent, 100);
 
   return (
     <Layout>
@@ -337,7 +343,7 @@ export default function HomePage() {
         </Card>
 
         {/* 2. 캐릭터 게이지 카드 */}
-        <Card sx={{ mb: 2, cursor: 'pointer', overflow: 'hidden', position: 'relative' }} onClick={() => navigate('/character')}>
+        <Card sx={{ mb: 1, cursor: 'pointer', overflow: 'hidden', position: 'relative' }} onClick={() => navigate('/character')}>
           {/* 폭죽 효과 (100% 달성 시) */}
           {progress >= 100 && (
             <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 5 }}>
@@ -486,6 +492,81 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
+        {/* 2.5 오늘의 걸음 — 운동 세션과 무관한 하루 전체 걸음 수. Android 앱(Health Connect)에서만 표시 */}
+        {dailySteps.isNative && (
+          <Card sx={{ mb: 2 }}>
+            <CardContent sx={{ py: 1.2, px: 2 }}>
+              {dailySteps.loading ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Skeleton variant='circular' width={18} height={18} />
+                  <Skeleton variant='text' width='55%' height={20} />
+                </Box>
+              ) : dailySteps.availability !== 'available' ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <DirectionsWalkIcon sx={{ fontSize: 18, color: '#9E9E9E' }} />
+                  <Typography variant='caption' color='text.secondary'>
+                    이 기기에서는 자동 걸음 측정을 사용할 수 없습니다.
+                  </Typography>
+                </Box>
+              ) : dailySteps.error ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>걸음 수를 불러오지 못했습니다.</Typography>
+                  <Button size='small' onClick={dailySteps.refresh} sx={{ minWidth: 0, py: 0.2, fontSize: '0.75rem' }}>
+                    재시도
+                  </Button>
+                </Box>
+              ) : !dailySteps.permissionGranted ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+                    <DirectionsWalkIcon sx={{ fontSize: 18, color: '#5DA9E9', flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant='body2' sx={{ fontWeight: 700, lineHeight: 1.3 }} noWrap>오늘의 걸음</Typography>
+                      <Typography variant='caption' color='text.secondary' sx={{ display: 'block', lineHeight: 1.3 }} noWrap>
+                        걸음 수 연결 필요
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Button size='small' variant='outlined' onClick={dailySteps.connect} sx={{ minWidth: 0, py: 0.2, px: 1.2, fontSize: '0.75rem', flexShrink: 0 }}>
+                    연결
+                  </Button>
+                </Box>
+              ) : (
+                <>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.6 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                      <DirectionsWalkIcon sx={{ fontSize: 18, color: '#5DA9E9' }} />
+                      <Typography variant='body2' sx={{ fontWeight: 700 }}>오늘의 걸음</Typography>
+                    </Box>
+                    <Typography variant='body2' sx={{ fontWeight: 700, color: '#5DA9E9' }}>{stepPercent}%</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ flex: 1, height: 8, bgcolor: '#E3F2FD', borderRadius: 4, overflow: 'hidden' }}>
+                      <Box sx={{
+                        width: `${stepProgressClamped}%`, height: '100%', bgcolor: '#5DA9E9',
+                        borderRadius: 4, transition: 'width 0.5s ease',
+                      }} />
+                    </Box>
+                    <Typography variant='caption' color='text.secondary' sx={{ flexShrink: 0, fontSize: '0.72rem' }}>
+                      {dailySteps.steps.toLocaleString()}/{DAILY_STEP_GOAL.toLocaleString()}
+                    </Typography>
+                  </Box>
+                  {!dailySteps.activityRecognitionGranted && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.4 }}>
+                      <Typography
+                        variant='caption'
+                        onClick={dailySteps.enableLiveSteps}
+                        sx={{ color: '#5DA9E9', fontWeight: 600, fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
+                      >
+                        실시간 걸음 보기 켜기
+                      </Typography>
+                    </Box>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* 3. 오늘의 컨디션 */}
         <Card sx={{ mb: 2, bgcolor: '#FAFAFA', border: '1px solid #E8EAF6' }}>
           <CardContent sx={{ py: 1.5 }}>
@@ -589,9 +670,8 @@ export default function HomePage() {
           {[
             { icon: <TimerIcon sx={{ color: '#6BCB77', fontSize: 24 }} />, value: todayWorkout?.duration || 0, unit: '분', bgcolor: '#E8F5E9', color: '#4CAF5A' },
             { icon: <LocalFireDepartmentIcon sx={{ color: '#FF7043', fontSize: 24 }} />, value: todayWorkout?.calories || 0, unit: 'kcal', bgcolor: '#FFF3E0', color: '#FF7043' },
-            { icon: <DirectionsWalkIcon sx={{ color: '#5DA9E9', fontSize: 24 }} />, value: (todayWorkout?.steps || 0).toLocaleString(), unit: '걸음', bgcolor: '#E3F2FD', color: '#5DA9E9' },
           ].map((item, i) => (
-            <Grid size={{ xs: 4 }} key={i}>
+            <Grid size={{ xs: 6 }} key={i}>
               <StatsCard
                 icon={item.icon}
                 value={item.value}
@@ -661,7 +741,6 @@ export default function HomePage() {
             {[
               { label: '운동 시간', value: `${todayWorkout?.duration || 0}분`, color: '#4CAF5A', bg: '#E8F5E9' },
               { label: '소모 칼로리', value: `${todayWorkout?.calories || 0}kcal`, color: '#FF7043', bg: '#FFF3E0' },
-              { label: '걸음 수', value: `${(todayWorkout?.steps || 0).toLocaleString()}`, color: '#5DA9E9', bg: '#E3F2FD' },
             ].map((s) => (
               <Box key={s.label} sx={{ flex: 1, textAlign: 'center', bgcolor: s.bg, borderRadius: 2, py: 1.2 }}>
                 <Typography sx={{ fontWeight: 700, color: s.color, fontSize: '1rem' }}>{s.value}</Typography>

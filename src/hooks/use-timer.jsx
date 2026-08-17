@@ -3,7 +3,6 @@ import { supabase } from '../utils/supabase';
 import { getLevelFromXP } from '../utils/xp-utils';
 import { getLocalToday } from '../utils/date-utils';
 import { useAuth } from './use-auth';
-import { useStepCounter } from './use-step-counter';
 import { WORKOUT_TYPES, INTENSITIES } from '../constants/workout';
 
 export { WORKOUT_TYPES, INTENSITIES };
@@ -50,18 +49,6 @@ export function TimerProvider({ children }) {
   const restRef = useRef(null);
 
   const status = getStatus(running, resting, restRunning, saved, seconds, currentRestSeconds);
-
-  // 걸음 수 측정을 TimerProvider(앱 전역, 페이지 이동에도 언마운트되지 않음)로 끌어올려
-  // TimerPage와 TimerMiniPlayer가 동일한 운동 세션의 steps를 공유하도록 한다.
-  // 이전에는 TimerPage 로컬에만 있어 다른 화면으로 이동하면 측정 자체가 끊기고,
-  // 미니플레이어에서 저장하면 steps가 0으로 저장되는 문제가 있었다.
-  const {
-    steps,
-    isSupported: isStepSupported,
-    permissionState,
-    requestPermission,
-    resetSteps,
-  } = useStepCounter(status === 'running');
 
   useEffect(() => {
     if (running) {
@@ -116,7 +103,6 @@ export function TimerProvider({ children }) {
     setCurrentRestSeconds(0);
     setTotalRestSeconds(0);
     setSaved(false);
-    resetSteps();
   }
 
   async function handleSave(onComplete) {
@@ -133,7 +119,10 @@ export function TimerProvider({ children }) {
       duration_minutes: minutes,
       intensity,
       calories_burned: cal,
-      steps: Math.round(steps),
+      // 운동 세션별 걸음 측정(DeviceMotionEvent)은 더 이상 사용하지 않는다("오늘의 걸음"은
+      // 이제 홈 화면에서 Android Health Connect 기반으로 별도 표시된다). steps 컬럼 자체는
+      // 기존 데이터 호환을 위해 남겨두되, 항상 0으로 저장한다.
+      steps: 0,
       workout_date: today,
       workout_seconds: seconds,
       rest_seconds: totalRestSeconds,
@@ -192,7 +181,6 @@ export function TimerProvider({ children }) {
         setCurrentRestSeconds(0);
         setTotalRestSeconds(0);
         setSaved(false);
-        resetSteps();
       }, 2500);
     } catch (err) {
       console.error('운동 저장 오류:', err);
@@ -213,7 +201,6 @@ export function TimerProvider({ children }) {
       currentRestSeconds, totalRestSeconds,
       saved, saving, snack, setSnack,
       status, isActive,
-      steps, isStepSupported, permissionState, requestPermission,
       handleStartPause, handleRest, handleReset, handleSave,
     }}>
       {children}

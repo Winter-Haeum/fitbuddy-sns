@@ -60,9 +60,8 @@ export default function RecordsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile } = useAuth();
-  const { scale } = useFontScale();
-  // 장식용 이모지(제목 옆 아이콘 등)에 쓰는 헬퍼 — home-page.jsx와 동일한 패턴.
-  const es = (baseRem) => `${(baseRem * scale.content).toFixed(3)}rem`;
+  // 장식용 이모지(제목 옆 아이콘 등)에 쓰는 헬퍼 — use-font-scale.jsx의 scaleRem 공용 사용.
+  const { scaleRem: es } = useFontScale();
   const [tab, setTab] = useState(location.state?.initialTab ?? 0);
   const [weekWorkouts, setWeekWorkouts] = useState([]);
   const [rangeFilter, setRangeFilter] = useState('week');

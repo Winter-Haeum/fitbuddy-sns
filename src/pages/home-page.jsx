@@ -89,11 +89,9 @@ export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile, signOut, fetchProfile } = useAuth();
-  const { scale } = useFontScale();
-  // 장식용 이모지/아이콘(제목이 아니라 보조 요소)에 쓰는 헬퍼 — theme.js의 typography처럼
-  // content scale을 곱해 글자 크기 설정과 함께 커지고 작아지되, 리터럴 rem 값이라 그동안
-  // 글자 크기 설정을 그대로 우회하고 있었다.
-  const es = (baseRem) => `${(baseRem * scale.content).toFixed(3)}rem`;
+  // 장식용 이모지/아이콘(제목이 아니라 보조 요소)에 쓰는 헬퍼 — use-font-scale.jsx의
+  // scaleRem을 공용으로 쓴다(페이지마다 계산식을 따로 두지 않기 위해).
+  const { scaleRem: es } = useFontScale();
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [todayWorkoutList, setTodayWorkoutList] = useState([]);
   const [workoutSummaryOpen, setWorkoutSummaryOpen] = useState(false);
@@ -748,7 +746,10 @@ export default function HomePage() {
           onClick={() => navigate('/records')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <Typography sx={{ fontSize: es(1.4), flexShrink: 0 }}>📓</Typography>
+            {/* 이모지 글리프는 같은 rem이어도 outline 아이콘(EmojiEventsIcon)보다 시각적으로
+                더 무거워 보여, 1.4rem에서도 옆 챌린지 카드 아이콘보다 커 보인다는 피드백을
+                반영해 한 단계 더 낮췄다(1.4→1.15). 아래 챌린지 카드 아이콘은 반대로 올렸다. */}
+            <Typography sx={{ fontSize: es(1.15), flexShrink: 0 }}>📓</Typography>
             <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
               <Typography variant='h4' sx={{ fontWeight: 600, color: '#1565C0', wordBreak: 'keep-all' }}>기록관</Typography>
               {/* 큰 글씨에서도 설명이 카드를 무한정 늘리지 않도록 최대 2줄로 제한(글자 축소 아님) */}
@@ -768,7 +769,7 @@ export default function HomePage() {
           onClick={() => navigate('/challenges')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <EmojiEventsIcon sx={{ fontSize: es(1.5), color: '#A084E8', flexShrink: 0 }} />
+            <EmojiEventsIcon sx={{ fontSize: es(1.7), color: '#A084E8', flexShrink: 0 }} />
             <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
               <Typography variant='h4' sx={{ fontWeight: 600, color: '#6B4FC8', wordBreak: 'keep-all' }}>
                 {joinedCount > 0 ? `${joinedCount}개 챌린지 참여 중` : '챌린지 참여하기'}

@@ -29,6 +29,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
+import { useFontScale } from '../hooks/use-font-scale';
 import Layout from '../components/common/layout';
 import { getDaysLeft, getLocalToday } from '../utils/date-utils';
 import FadeInBox from '../components/ui/fade-in-box';
@@ -51,6 +52,7 @@ function formatLocalDate(date) {
 
 export default function ChallengesPage() {
   const { user, profile } = useAuth();
+  const { scaleRem: es } = useFontScale();
   const isAdmin = profile?.role === 'admin';
   const [challengeTab, setChallengeTab] = useState(0);
   const [challenges, setChallenges] = useState([]);
@@ -278,7 +280,12 @@ export default function ChallengesPage() {
   return (
     <Layout>
       <Box sx={{ p: 2 }}>
-        <Typography variant='h2' sx={{ fontWeight: 700, mb: 2 }}>운동 챌린지 🎯</Typography>
+        {/* 제목 뒤 이모지가 h2와 같은 크기로 렌더링돼 제목보다 튀어 보였다 — records-page.jsx의
+            "기록관 📓"과 동일한 문제라 같은 방식(작은 span으로 분리)으로 정리했다. */}
+        <Typography variant='h2' sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 0.6 }}>
+          운동 챌린지
+          <Box component='span' sx={{ fontSize: es(1.3), lineHeight: 1 }}>🎯</Box>
+        </Typography>
 
         {/* 상단 배너 */}
         <Card sx={{ mb: 2, bgcolor: 'white', borderLeft: '4px solid #A084E8', boxShadow: '0 2px 10px rgba(160,132,232,0.12)' }}>
@@ -299,7 +306,7 @@ export default function ChallengesPage() {
               variant='text'
               onClick={() => setChallengeTab(i)}
               sx={{
-                fontSize: '0.875rem', fontWeight: challengeTab === i ? 700 : 400,
+                fontWeight: challengeTab === i ? 700 : 400,
                 color: challengeTab === i ? '#A084E8' : 'text.secondary',
                 borderBottom: challengeTab === i ? '2px solid #A084E8' : '2px solid transparent',
                 borderRadius: 0, pb: 0.5,

@@ -34,9 +34,12 @@ export function FontScaleProvider({ children }) {
   // FitBuddyCharacter의 size처럼 CSS가 아니라 숫자 prop으로 크기를 받는 컴포넌트를 페이지에서
   // 직접 스케일링할 때 theme.js와 동일한 배율을 쓰기 위해 원시 숫자 값도 함께 제공한다.
   const scale = useMemo(() => getScale(fontScale), [fontScale]);
+  // 아직 theme.typography 변형으로 옮기지 못한(장식 이모지 등) 개별 fontSize 리터럴을
+  // 페이지마다 제각각 계산하지 않도록 공통 헬퍼를 하나로 제공한다 — content scale 기준.
+  const scaleRem = useMemo(() => (baseRem) => `${(baseRem * scale.content).toFixed(3)}rem`, [scale]);
 
   return (
-    <FontScaleContext.Provider value={{ fontScale, setFontScale, scale }}>
+    <FontScaleContext.Provider value={{ fontScale, setFontScale, scale, scaleRem }}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {children}

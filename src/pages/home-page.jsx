@@ -550,6 +550,17 @@ export default function HomePage() {
                       {dailySteps.steps.toLocaleString()}/{DAILY_STEP_GOAL.toLocaleString()}
                     </Typography>
                   </Box>
+                  {!dailySteps.activityRecognitionGranted && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.4 }}>
+                      <Typography
+                        variant='caption'
+                        onClick={dailySteps.enableLiveSteps}
+                        sx={{ color: '#5DA9E9', fontWeight: 600, fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
+                      >
+                        실시간 걸음 보기 켜기
+                      </Typography>
+                    </Box>
+                  )}
                 </>
               )}
             </CardContent>

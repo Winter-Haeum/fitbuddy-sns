@@ -29,8 +29,10 @@ const isNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'an
  *   steps: number,
  *   availability: 'available'|'update_required'|'unavailable'|'step_tracking_unsupported'|null,
  *   permissionGranted: boolean,
+ *   activityRecognitionGranted: boolean,
  *   refresh: () => Promise<void>,
  *   connect: () => Promise<void>,
+ *   enableLiveSteps: () => Promise<void>,
  * }}
  */
 export function useDailySteps() {
@@ -40,6 +42,9 @@ export function useDailySteps() {
     steps: 0,
     availability: null,
     permissionGranted: false,
+    // Health Connect READ_STEPS와 별개로, 실시간 센서 보정에 필요한 ACTIVITY_RECOGNITION
+    // 권한 보유 여부. 이전 버전에서 이미 READ_STEPS만 허용해 둔 기존 사용자를 구분하는 데 쓴다.
+    activityRecognitionGranted: false,
   });
   const requestSeq = useRef(0);
   const liveActiveRef = useRef(false); // 중복 시작 방지용(네이티브도 idempotent이지만 JS 쪽도 이중 호출을 막는다)
@@ -75,7 +80,10 @@ export function useDailySteps() {
       if (seq !== requestSeq.current) return;
       if (status !== 'available') {
         stopLive();
-        setState({ loading: false, error: null, steps: 0, availability: status, permissionGranted: false });
+        setState({
+          loading: false, error: null, steps: 0, availability: status,
+          permissionGranted: false, activityRecognitionGranted: false,
+        });
         return;
       }
 
@@ -83,15 +91,25 @@ export function useDailySteps() {
       if (seq !== requestSeq.current) return;
       if (!granted) {
         stopLive();
-        setState({ loading: false, error: null, steps: 0, availability: status, permissionGranted: false });
+        setState({
+          loading: false, error: null, steps: 0, availability: status,
+          permissionGranted: false, activityRecognitionGranted: false,
+        });
         return;
       }
 
       const { steps } = await DailySteps.getTodaySteps();
       if (seq !== requestSeq.current) return;
-      setState({ loading: false, error: null, steps: steps || 0, availability: status, permissionGranted: true });
+      // 팝업 없이 현재 권한 상태만 조회한다(READ_STEPS만 허용해 둔 기존 사용자를 여기서 감지).
+      const { granted: arGranted } = await DailySteps.hasActivityRecognitionPermission();
+      if (seq !== requestSeq.current) return;
+      setState({
+        loading: false, error: null, steps: steps || 0, availability: status,
+        permissionGranted: true, activityRecognitionGranted: arGranted,
+      });
       // foreground에서 권한이 확인될 때마다(최초 진입 포함) live 보정을 (재)시작한다. 이미
-      // 시작돼 있으면 startLive 내부 가드로 아무 일도 일어나지 않는다.
+      // 시작돼 있거나 ACTIVITY_RECOGNITION이 없으면 내부 가드/네이티브 쪽에서 안전하게
+      // 무시된다.
       startLive();
     } catch (err) {
       if (seq !== requestSeq.current) return;
@@ -124,6 +142,20 @@ export function useDailySteps() {
     }
   }, [refresh]);
 
+  // 이미 Health Connect(READ_STEPS)는 연결됐지만 ACTIVITY_RECOGNITION은 아직 없는 기존
+  // 사용자용 진입점. 카드의 "실시간 걸음 보기 켜기" 링크를 탭했을 때만 호출되며, foreground
+  // 진입마다 자동으로 뜨는 팝업이 아니다(요청 자체가 사용자 동작에 묶여 있음).
+  const enableLiveSteps = useCallback(async () => {
+    if (!isNative) return;
+    try {
+      const { granted } = await DailySteps.requestActivityRecognitionPermission();
+      setState((prev) => (prev.permissionGranted ? { ...prev, activityRecognitionGranted: granted } : prev));
+      if (granted) startLive();
+    } catch (err) {
+      console.error('[useDailySteps] enableLiveSteps error:', err);
+    }
+  }, [startLive]);
+
   // 최초 마운트(앱 최초 실행 또는 홈 화면 재진입) 시 조회
   useEffect(() => {
     refresh();
@@ -154,5 +186,5 @@ export function useDailySteps() {
     };
   }, [refresh, stopLive]);
 
-  return { ...state, isNative, refresh, connect };
+  return { ...state, isNative, refresh, connect, enableLiveSteps };
 }

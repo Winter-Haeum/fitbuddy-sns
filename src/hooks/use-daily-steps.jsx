@@ -52,13 +52,16 @@ export function useDailySteps() {
   // foreground 실시간 보정 세션 시작. Health Connect 권한/신체 활동 인식 권한/걸음 센서 중
   // 하나라도 없으면 네이티브가 started:false로 안전하게 응답할 뿐이며, 이 경우에도 이미
   // refresh()로 반영된 Health Connect 값은 그대로 유지된다.
-  const startLive = useCallback(async () => {
+  const startLive = useCallback(async (fallbackSteps) => {
     if (!isNative || liveActiveRef.current) return;
     liveActiveRef.current = true;
     try {
       const result = await DailySteps.startLiveSteps();
       if (result?.started && typeof result.steps === 'number') {
         setState((prev) => (prev.permissionGranted ? { ...prev, steps: result.steps } : prev));
+      } else if (typeof fallbackSteps === 'number') {
+        // 라이브 세션을 시작하지 못한 경우(권한/센서 없음 등) Health Connect 원시 값으로 대체한다.
+        setState((prev) => (prev.permissionGranted ? { ...prev, steps: fallbackSteps } : prev));
       }
     } catch (err) {
       console.error('[useDailySteps] startLive error:', err);
@@ -103,14 +106,20 @@ export function useDailySteps() {
       // 팝업 없이 현재 권한 상태만 조회한다(READ_STEPS만 허용해 둔 기존 사용자를 여기서 감지).
       const { granted: arGranted } = await DailySteps.hasActivityRecognitionPermission();
       if (seq !== requestSeq.current) return;
-      setState({
-        loading: false, error: null, steps: steps || 0, availability: status,
+      setState((prev) => ({
+        loading: false, error: null, availability: status,
         permissionGranted: true, activityRecognitionGranted: arGranted,
-      });
+        // ACTIVITY_RECOGNITION이 있어 아래 startLive()가 곧바로 이어지는 경우, 네이티브가
+        // 이미 들고 있는 역행 방지 값(startLive의 응답)으로 대체되기 전까지는 직전 표시값을
+        // 그대로 유지한다. background에서 foreground로 복귀할 때 Health Connect가 아직
+        // 반영하지 못한(더 낮은) 원시 값으로 화면이 순간적으로도 역행하지 않도록 하기 위함이며,
+        // startLive가 세션을 시작하지 못하면 바로 아래에서 이 원시 값으로 fallback한다.
+        steps: arGranted ? prev.steps : (steps || 0),
+      }));
       // foreground에서 권한이 확인될 때마다(최초 진입 포함) live 보정을 (재)시작한다. 이미
-      // 시작돼 있거나 ACTIVITY_RECOGNITION이 없으면 내부 가드/네이티브 쪽에서 안전하게
-      // 무시된다.
-      startLive();
+      // 시작돼 있으면 내부 가드로 무시되고, ACTIVITY_RECOGNITION이 없어 시작하지 못하면
+      // 방금 읽은 원시 값으로 fallback한다.
+      startLive(steps || 0);
     } catch (err) {
       if (seq !== requestSeq.current) return;
       console.error('[useDailySteps] refresh error:', err);

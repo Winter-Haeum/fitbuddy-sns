@@ -256,13 +256,24 @@ class DailyStepsPlugin : Plugin(), SensorEventListener {
                 // 재시작 시 항상 먼저 완전히 정리한 뒤 새 세션을 연다 — 중복 리스너 등록/누적 방지.
                 stopLiveSession()
 
+                val today = todayLocalDateString()
+                // background로 내려갔다가 foreground로 복귀하는 경우, 직전 세션에서 이미
+                // 사용자에게 보여준 값(lastDisplayedTotal)이 방금 새로 읽은 Health Connect
+                // baseline보다 클 수 있다(HC가 그 걸음들을 아직 반영하지 못한 상태). 같은
+                // 로컬 날짜 안에서는 화면 숫자가 뒤로 감소하면 안 되므로 그 값을 새 기준점의
+                // 하한으로 carry-forward한다. 날짜가 바뀌었거나 이번이 최초 세션(프로세스
+                // 재시작 등으로 lastDisplayedTotal/sessionDateLocal이 초기값)이면 순수하게
+                // baseline에서 새로 시작한다.
+                val carriedDisplay = if (sessionDateLocal == today) lastDisplayedTotal else 0L
+                val newBase = maxOf(baseline, carriedDisplay)
+
                 activeSensor = sensor
                 usingStepDetector = sensor.type == Sensor.TYPE_STEP_DETECTOR
                 counterBaselineRaw = null
-                sessionHealthBase = baseline
+                sessionHealthBase = newBase
                 sessionLiveDelta = 0L
-                lastDisplayedTotal = baseline
-                sessionDateLocal = todayLocalDateString()
+                lastDisplayedTotal = newBase
+                sessionDateLocal = today
                 liveSessionActive = true
 
                 sensorManager.registerListener(this@DailyStepsPlugin, sensor, SensorManager.SENSOR_DELAY_UI)

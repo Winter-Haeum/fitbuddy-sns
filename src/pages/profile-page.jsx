@@ -29,7 +29,6 @@ import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TodayIcon from '@mui/icons-material/Today';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import FavoriteIcon from '@mui/icons-material/Favorite';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import { useFontScale } from '../hooks/use-font-scale';
@@ -780,26 +779,27 @@ export default function ProfilePage() {
                       )}
                     </Box>
 
-                    {/* 내용 */}
+                    {/* 내용 — 카테고리/날짜/좋아요를 한 줄 메타 정보로 합쳐서(예: "운동 ·
+                        2026. 8. 15. · ♡ 0") 기존 4줄(카테고리 줄 / 제목 / 본문 / 날짜·좋아요
+                        줄) 구조를 3줄로 줄였다. */}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.3 }}>
-                        <Chip
-                          label={TYPE_LABEL[post.post_type] || '게시글'}
-                          size='small'
-                          sx={{ height: 18, fontSize: '0.65rem', mr: 0.5 }}
-                        />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.3 }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem', minWidth: 0 }}>
+                          {TYPE_LABEL[post.post_type] || '게시글'} · {new Date(post.created_at).toLocaleDateString('ko-KR')} · ♡ {post.likes_count || 0}
+                        </Typography>
                         <Box sx={{ flex: 1 }} />
                         <IconButton
                           size='small'
                           onClick={(e) => openPostMenu(e, post)}
-                          sx={{ p: 0.3 }}
+                          sx={{ p: 0.3, flexShrink: 0 }}
                         >
                           <MoreVertIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Box>
                       <Typography sx={{
-                        fontWeight: 600, fontSize: '0.9rem', mb: 0.2,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontWeight: 600, fontSize: '0.9rem', mb: 0.2, lineHeight: 1.3, wordBreak: 'keep-all',
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}>
                         {post.title || '(제목 없음)'}
                       </Typography>
@@ -810,16 +810,6 @@ export default function ProfilePage() {
                       }}>
                         {post.caption}
                       </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
-                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem' }}>
-                          {new Date(post.created_at).toLocaleDateString('ko-KR')}
-                        </Typography>
-                        <Box sx={{ flex: 1 }} />
-                        <FavoriteIcon sx={{ fontSize: 12, color: '#bbb' }} />
-                        <Typography variant='caption' sx={{ fontSize: '0.7rem', color: '#999' }}>
-                          {post.likes_count || 0}
-                        </Typography>
-                      </Box>
                     </Box>
                   </Box>
                 </Card>

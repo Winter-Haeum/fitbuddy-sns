@@ -15,8 +15,11 @@ const CONTENT_SCALE = { small: 0.85, medium: 0.925, large: 1, xlarge: 1.15 };
 
 // navigation label/button/chip/input처럼 물리적 공간·터치 영역이 제한된 UI는 본문과 같은
 // 비율로 키우면 레이아웃이 깨지거나 터치 영역이 과도해지므로, 압축된 배율을 별도로 쓴다.
-// (하한 0.9 — "작게"에서도 터치 영역이 실사용에 지장 없는 수준 이하로는 줄어들지 않는다.)
-const COMPACT_SCALE = { small: 0.9, medium: 0.95, large: 1, xlarge: 1.08 };
+// xlarge는 nav/button이 고정 높이 UI를 뚫고 나가지 않도록 CONTENT_SCALE(1.15)보다 낮은
+// 1.08로 상한을 두고, small은 실사용에서 체감될 만큼 눈에 띄게 줄어야 한다는 피드백에 따라
+// CONTENT_SCALE.small과 같은 0.85로 낮췄다(버튼은 2차 액션 기준 상 32px 안팎까지는 여전히
+// 탭 가능한 범위로 판단 — 실기기 확인 필요).
+const COMPACT_SCALE = { small: 0.85, medium: 0.95, large: 1, xlarge: 1.08 };
 
 // large(=현재 FitBuddy 고정값) 기준 rem 값. 실제 렌더링 값은 이 값에 위 배율을 곱해 계산한다.
 const BASE_REM = {
@@ -193,6 +196,15 @@ export function createAppTheme(fontScale = DEFAULT_FONT_SCALE) {
             padding: '8px 24px 20px',
             gap: '8px',
           },
+        },
+      },
+      // BottomNavigation 컨테이너 자체는 MUI 기본값이 height:56px로 고정돼 있어, "아주
+      // 크게"에서 아이콘+라벨+padding 합이 56px에 근접/초과하면 내용이 잘릴 수 있다.
+      // height를 auto로 풀어 내용에 맞게 늘어나게 하고, minHeight로 "작게"에서도 눌리지
+      // 않게 하한만 유지한다(layout.jsx가 하단에 확보해 둔 70px 여백 안에서 충분히 수용됨).
+      MuiBottomNavigation: {
+        styleOverrides: {
+          root: { height: 'auto', minHeight: px(56, n) },
         },
       },
       // BottomNavigationAction은 theme.typography를 직접 참조하지 않고 자체 고정 rem 값을

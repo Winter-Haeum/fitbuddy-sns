@@ -14,6 +14,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
 import Divider from '@mui/material/Divider';
+import Collapse from '@mui/material/Collapse';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import IconButton from '@mui/material/IconButton';
@@ -29,6 +30,7 @@ import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TodayIcon from '@mui/icons-material/Today';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import { useFontScale } from '../hooks/use-font-scale';
@@ -75,6 +77,9 @@ export default function ProfilePage() {
   const [character, setCharacter] = useState(null);
 
   const [tab, setTab] = useState('posts');
+
+  // 설정 영역(글자 크기) — 기본은 접힘 상태
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // 프로필 수정
   const [editOpen, setEditOpen] = useState(false);
@@ -464,20 +469,30 @@ export default function ProfilePage() {
                 <input type='file' accept='image/*' ref={avatarInputRef} style={{ display: 'none' }} onChange={handleAvatarUpload} />
               </Box>
 
-              {/* 이름/관리자 chip/자기소개 — flexBasis를 확보해 큰 글씨에서도 이름이 한 글자씩
-                  세로로 잘리지 않게 하고(min-content로 스퀴즈되는 것을 방지), 공간이 부족하면
-                  수정 버튼이 다음 줄로 자연스럽게 내려가도록 outer box를 flexWrap 처리했다. */}
+              {/* 이름/관리자 chip/수정 버튼/자기소개 — 이전에는 아바타·이름·버튼 셋이 한 줄에서
+                  공간을 경쟁해 좁은 화면에서 버튼이 신체 정보 위에 혼자 툭 떨어지듯 줄바꿈됐다.
+                  아바타를 분리하고 "이름+chip"과 "수정 버튼"만 justify-space-between으로 묶어,
+                  버튼이 이름과 같은 줄(우측)에 남을 여유 공간을 늘렸다 — 그래도 좁으면 이
+                  안쪽 줄만 자연스럽게 wrap된다. */}
               <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.2 }}>
-                  <Typography
-                    variant='h2'
-                    sx={{ fontWeight: 700, color: '#1B5E20', wordBreak: 'keep-all', overflowWrap: 'break-word' }}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: profile?.bio ? 0.5 : 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}>
+                    <Typography
+                      variant='h2'
+                      sx={{ fontWeight: 700, color: '#1B5E20', wordBreak: 'keep-all', overflowWrap: 'break-word' }}
+                    >
+                      {profile?.display_name || '사용자'}
+                    </Typography>
+                    {isAdmin && (
+                      <Chip label='관리자' size='small' color='error' sx={{ flexShrink: 0 }} />
+                    )}
+                  </Box>
+                  <Button
+                    variant='outlined' size='small' startIcon={<EditIcon />} onClick={openEdit}
+                    sx={{ flexShrink: 0, whiteSpace: 'nowrap', borderColor: '#6BCB77', color: '#388E3C', '&:hover': { borderColor: '#4DBB68', bgcolor: '#F1F8E9' } }}
                   >
-                    {profile?.display_name || '사용자'}
-                  </Typography>
-                  {isAdmin && (
-                    <Chip label='관리자' size='small' color='error' sx={{ flexShrink: 0 }} />
-                  )}
+                    수정
+                  </Button>
                 </Box>
                 {profile?.bio && (
                   <Typography variant='body2' color='text.secondary'>
@@ -485,12 +500,6 @@ export default function ProfilePage() {
                   </Typography>
                 )}
               </Box>
-              <Button
-                variant='outlined' size='small' startIcon={<EditIcon />} onClick={openEdit}
-                sx={{ flexShrink: 0, whiteSpace: 'nowrap', borderColor: '#6BCB77', color: '#388E3C', '&:hover': { borderColor: '#4DBB68', bgcolor: '#F1F8E9' } }}
-              >
-                수정
-              </Button>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.6, mt: 1.8 }}>
               {/* 신체 정보 */}
@@ -546,7 +555,9 @@ export default function ProfilePage() {
                   버튼 20%에 가깝게 배분한다(실제 %는 화면 폭에 따라 달라짐). */}
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                 <Box sx={{ flex: '0 0 auto' }}>
-                  <FitBuddyCharacter size={Math.round(80 * scale.content)} gender={profile?.gender || 'female'} />
+                  {/* 80 → 92(15% 확대)로 한 단계 더 키워 캐릭터가 "캐릭터 보기 ›" 텍스트보다
+                      약하게 보이지 않도록 했다. */}
+                  <FitBuddyCharacter size={Math.round(92 * scale.content)} gender={profile?.gender || 'female'} />
                 </Box>
                 <Box sx={{ flex: '1 1 90px', minWidth: 0 }}>
                   <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
@@ -760,11 +771,14 @@ export default function ProfilePage() {
             </Box>
           ) : (
             <>
+              {/* 카드 간 gap(1.5→1)과 내부 padding(1.5→1.25)을 살짝 줄여, 내용이 짧은
+                  게시글에서도 게시글 사이 여백이 과하게 느껴지지 않게 했다. 썸네일 80×80은
+                  그대로 유지. */}
               {previewPosts.map((post) => (
-                <Card key={post.id} sx={{ mb: 1.5 }}>
+                <Card key={post.id} sx={{ mb: 1 }}>
                   <Box
                     onClick={() => navigate(`/post/${post.id}`)}
-                    sx={{ display: 'flex', gap: 1.5, p: 1.5, cursor: 'pointer' }}
+                    sx={{ display: 'flex', gap: 1.25, p: 1.25, cursor: 'pointer' }}
                   >
                     {/* 썸네일 */}
                     <Box sx={{
@@ -836,40 +850,59 @@ export default function ProfilePage() {
           )
         )}
 
-        {/* 설정 — 글자 크기(기기 저장, 계정 데이터 아님). 큰 설정 화면 대신 마이페이지 하단에
-            최소 구조로 배치했다. */}
+        {/* 설정 — 기본은 접힘, "⚙ 설정" 행을 탭하면 Collapse로 펼쳐진다(모바일 기준 PC식
+            드롭다운 대신 페이지 내 아래로 펼쳐지는 방식 사용). 글자 크기 값 자체와
+            localStorage 저장 방식은 변경하지 않았다 — 펼침/접힘 UI만 추가했다. 알림 설정은
+            실제 알림 기능이 없어 이번에도 추가하지 않는다(항목만 노출하는 것도 금지 사항). */}
         <Card sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography variant='body2' sx={{ fontWeight: 700, mb: 1.2, color: '#333' }}>
+          <Box
+            onClick={() => setSettingsOpen((prev) => !prev)}
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              px: 2, py: 1.5, cursor: 'pointer',
+            }}
+          >
+            <Typography variant='body2' sx={{ fontWeight: 700, color: '#333' }}>
               ⚙️ 설정
             </Typography>
-            <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.8 }}>
-              글자 크기
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
-              {FONT_SCALE_LEVELS.map((level) => {
-                const selected = fontScale === level;
-                return (
-                  <Box
-                    key={level}
-                    onClick={() => setFontScale(level)}
-                    sx={{
-                      px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
-                      border: `2px solid ${selected ? '#6BCB77' : '#E0E0E0'}`,
-                      bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
-                      color: selected ? '#2E7D32' : '#757575',
-                      fontWeight: selected ? 700 : 400,
-                      fontSize: '0.85rem',
-                      userSelect: 'none',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {FONT_SCALE_LABELS[level]}
-                  </Box>
-                );
-              })}
-            </Box>
-          </CardContent>
+            <ExpandMoreIcon
+              sx={{
+                color: '#9E9E9E',
+                transition: 'transform 0.2s ease',
+                transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            />
+          </Box>
+          <Collapse in={settingsOpen} unmountOnExit>
+            <CardContent sx={{ pt: 0 }}>
+              <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.8 }}>
+                글자 크기
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+                {FONT_SCALE_LEVELS.map((level) => {
+                  const selected = fontScale === level;
+                  return (
+                    <Box
+                      key={level}
+                      onClick={() => setFontScale(level)}
+                      sx={{
+                        px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
+                        border: `2px solid ${selected ? '#6BCB77' : '#E0E0E0'}`,
+                        bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
+                        color: selected ? '#2E7D32' : '#757575',
+                        fontWeight: selected ? 700 : 400,
+                        fontSize: '0.85rem',
+                        userSelect: 'none',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {FONT_SCALE_LABELS[level]}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </CardContent>
+          </Collapse>
         </Card>
 
         <Divider sx={{ my: 3 }} />

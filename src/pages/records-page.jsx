@@ -32,6 +32,7 @@ import { getLevelFromXP } from '../utils/xp-utils';
 import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
+import { useFontScale } from '../hooks/use-font-scale';
 
 // getLocalToday()와 동일한 로컬 날짜 포맷 방식을, 오늘이 아닌 임의의(과거) Date에도
 // 적용하기 위한 파일 내부 전용 헬퍼. toISOString()은 UTC로 변환되어 한국 시간 자정~오전 9시
@@ -59,6 +60,9 @@ export default function RecordsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile } = useAuth();
+  const { scale } = useFontScale();
+  // 장식용 이모지(제목 옆 아이콘 등)에 쓰는 헬퍼 — home-page.jsx와 동일한 패턴.
+  const es = (baseRem) => `${(baseRem * scale.content).toFixed(3)}rem`;
   const [tab, setTab] = useState(location.state?.initialTab ?? 0);
   const [weekWorkouts, setWeekWorkouts] = useState([]);
   const [rangeFilter, setRangeFilter] = useState('week');
@@ -427,10 +431,18 @@ export default function RecordsPage() {
           <IconButton onClick={() => navigate(-1)} size='small' sx={{ color: 'text.secondary' }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant='h2' sx={{ fontWeight: 700 }}>기록관 📓</Typography>
+          {/* 제목보다 장식 이모지가 더 튀지 않도록, 이모지만 별도 span으로 분리해 더 작은
+              scale-aware 크기를 준다(기존엔 h2와 같은 크기로 렌더링돼 서랍장 이모지가
+              제목만큼 커 보였다). */}
+          <Typography variant='h2' sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.6 }}>
+            기록관
+            <Box component='span' sx={{ fontSize: es(1.3), lineHeight: 1 }}>📓</Box>
+          </Typography>
         </Box>
 
-        {/* 탭 */}
+        {/* 탭 — fontSize:'0.875rem' 리터럴이 theme.typography.button(글자 크기 설정 연동)을
+            그대로 가리고 있었다. large 기준 값이 동일(0.875rem)해 제거해도 기본 모습은
+            그대로이고, 나머지 3단계에서는 이제 정상적으로 함께 스케일된다. */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, borderBottom: '2px solid #EEE', pb: 1 }}>
           {TAB_LIST.map((t, i) => (
             <Button
@@ -438,7 +450,7 @@ export default function RecordsPage() {
               variant='text'
               onClick={() => setTab(i)}
               sx={{
-                fontSize: '0.875rem', fontWeight: tab === i ? 700 : 400,
+                fontWeight: tab === i ? 700 : 400,
                 color: tab === i ? '#5DA9E9' : 'text.secondary',
                 borderBottom: tab === i ? '2px solid #5DA9E9' : '2px solid transparent',
                 borderRadius: 0, pb: 0.5,

@@ -39,6 +39,7 @@ import { getLevelFromXP } from '../utils/xp-utils';
 import { MOODS } from '../constants/workout';
 import StatsCard from '../components/ui/stats-card';
 import { useDailySteps, DAILY_STEP_GOAL } from '../hooks/use-daily-steps';
+import { useFontScale } from '../hooks/use-font-scale';
 
 const confettiFall = keyframes({
   '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: 1 },
@@ -88,6 +89,11 @@ export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile, signOut, fetchProfile } = useAuth();
+  const { scale } = useFontScale();
+  // 장식용 이모지/아이콘(제목이 아니라 보조 요소)에 쓰는 헬퍼 — theme.js의 typography처럼
+  // content scale을 곱해 글자 크기 설정과 함께 커지고 작아지되, 리터럴 rem 값이라 그동안
+  // 글자 크기 설정을 그대로 우회하고 있었다.
+  const es = (baseRem) => `${(baseRem * scale.content).toFixed(3)}rem`;
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [todayWorkoutList, setTodayWorkoutList] = useState([]);
   const [workoutSummaryOpen, setWorkoutSummaryOpen] = useState(false);
@@ -352,7 +358,10 @@ export default function HomePage() {
             <Typography variant='caption' sx={{ color: '#6BCB77', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 0.5 }}>
               오늘의 한마디
             </Typography>
-            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1B5E20', lineHeight: 1.6 }}>
+            {/* variant 없이 fontSize:'1rem'을 직접 박아뒀던 부분 — 글자 크기 설정을 완전히
+                우회하고 있었다. body1(테마 스케일 적용)로 바꿔 본문 위계를 유지하면서 4단계에
+                맞춰 함께 커지고 작아지게 한다. */}
+            <Typography variant='body1' sx={{ fontWeight: 600, color: '#1B5E20', lineHeight: 1.6 }}>
               💡 {quote}
             </Typography>
           </CardContent>
@@ -634,7 +643,9 @@ export default function HomePage() {
                     변경하기
                   </Typography>
                 </Box>
-                <Typography sx={{ fontSize: '3rem', lineHeight: 1 }}>
+                {/* 선택된 컨디션 이모지 — 기존 3rem(리터럴, scale 우회)에서 2.25rem로 한 단계
+                    낮추고 scale.content를 곱해 글자 크기 설정과 함께 움직이게 했다. */}
+                <Typography sx={{ fontSize: es(2.25), lineHeight: 1 }}>
                   {MOODS.find((m) => m.key === todayLog.mood_status)?.emoji}
                 </Typography>
               </Box>
@@ -652,7 +663,7 @@ export default function HomePage() {
                       '&:hover': { bgcolor: '#F3E8FF' },
                     }}
                   >
-                    <Typography sx={{ fontSize: '1.6rem', lineHeight: 1 }}>{m.emoji}</Typography>
+                    <Typography sx={{ fontSize: es(1.3), lineHeight: 1 }}>{m.emoji}</Typography>
                     <Typography variant='caption' sx={{ color: todayLog?.mood_status === m.key ? '#A084E8' : '#888', fontWeight: todayLog?.mood_status === m.key ? 700 : 400 }}>
                       {m.label}
                     </Typography>
@@ -689,7 +700,7 @@ export default function HomePage() {
               onClick={() => navigate('/timer', { state: { workoutType: r.type, duration: r.durationNum, level: r.level } })}
             >
               <CardContent sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography sx={{ fontSize: '2rem', flexShrink: 0 }}>{r.icon}</Typography>
+                <Typography sx={{ fontSize: es(1.5), flexShrink: 0 }}>{r.icon}</Typography>
                 <Box sx={{ flex: '1 1 100px', minWidth: 0 }}>
                   <Typography variant='h4' sx={{ wordBreak: 'keep-all' }}>{r.name}</Typography>
                   <Typography variant='body2' color='text.secondary'>{r.duration} · {r.level}</Typography>
@@ -715,8 +726,8 @@ export default function HomePage() {
         </Box>
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           {[
-            { icon: <TimerIcon sx={{ color: '#6BCB77', fontSize: 24 }} />, value: todayWorkout?.duration || 0, unit: '분', bgcolor: '#E8F5E9', color: '#4CAF5A' },
-            { icon: <LocalFireDepartmentIcon sx={{ color: '#FF7043', fontSize: 24 }} />, value: todayWorkout?.calories || 0, unit: 'kcal', bgcolor: '#FFF3E0', color: '#FF7043' },
+            { icon: <TimerIcon sx={{ color: '#6BCB77', fontSize: es(1.35) }} />, value: todayWorkout?.duration || 0, unit: '분', bgcolor: '#E8F5E9', color: '#4CAF5A' },
+            { icon: <LocalFireDepartmentIcon sx={{ color: '#FF7043', fontSize: es(1.35) }} />, value: todayWorkout?.calories || 0, unit: 'kcal', bgcolor: '#FFF3E0', color: '#FF7043' },
           ].map((item, i) => (
             <Grid size={{ xs: 6 }} key={i}>
               <StatsCard
@@ -737,7 +748,7 @@ export default function HomePage() {
           onClick={() => navigate('/records')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <Typography sx={{ fontSize: '1.8rem', flexShrink: 0 }}>📓</Typography>
+            <Typography sx={{ fontSize: es(1.4), flexShrink: 0 }}>📓</Typography>
             <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
               <Typography variant='h4' sx={{ fontWeight: 600, color: '#1565C0', wordBreak: 'keep-all' }}>기록관</Typography>
               {/* 큰 글씨에서도 설명이 카드를 무한정 늘리지 않도록 최대 2줄로 제한(글자 축소 아님) */}
@@ -757,7 +768,7 @@ export default function HomePage() {
           onClick={() => navigate('/challenges')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <EmojiEventsIcon sx={{ fontSize: 32, color: '#A084E8', flexShrink: 0 }} />
+            <EmojiEventsIcon sx={{ fontSize: es(1.5), color: '#A084E8', flexShrink: 0 }} />
             <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
               <Typography variant='h4' sx={{ fontWeight: 600, color: '#6B4FC8', wordBreak: 'keep-all' }}>
                 {joinedCount > 0 ? `${joinedCount}개 챌린지 참여 중` : '챌린지 참여하기'}

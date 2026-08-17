@@ -58,7 +58,9 @@ export default function PrivacyPage() {
             <Typography component='li' sx={LI_SX}>권한을 허용하면, 기기의 Health Connect가 이미 가지고 있는 오늘(자정~현재) 누적 걸음 수를 읽어와 홈 화면의 &quot;오늘의 걸음&quot; 카드에 표시합니다.</Typography>
             <Typography component='li' sx={LI_SX}>이 걸음 수는 운동 타이머 실행 여부와 관계없이 표시되는, 하루 전체 활동량입니다.</Typography>
             <Typography component='li' sx={LI_SX}>FitBuddy는 걸음 데이터를 Health Connect에 쓰지(기록하지) 않습니다.</Typography>
-            <Typography component='li' sx={LI_SX}>이 걸음 수는 현재 FitBuddy 서버(Supabase)에 저장되지 않습니다. 화면에 표시할 때마다 기기에서 다시 읽어올 뿐입니다.</Typography>
+            <Typography component='li' sx={LI_SX}>FitBuddy 앱이 화면에 켜져 있는 동안에는, Health Connect 값이 갱신되기를 기다리지 않고 곧바로 숫자를 올려서 보여주기 위해 기기의 걸음 센서(신체 활동 인식)를 함께 사용합니다. 이때 별도로 Android의 신체 활동 인식 권한(ACTIVITY_RECOGNITION)을 추가로 요청하며, 거부해도 Health Connect 기반의 &quot;오늘의 걸음&quot; 기능 자체는 그대로 사용할 수 있습니다.</Typography>
+            <Typography component='li' sx={LI_SX}>이 걸음 센서 값은 앱이 화면 앞에 떠 있을 때만 잠깐 사용되는 임시 값이며, 앱이 백그라운드로 전환되면 즉시 사용을 멈춥니다. 별도로 수집·저장하지 않고, 화면에 보여주는 용도로만 사용합니다.</Typography>
+            <Typography component='li' sx={LI_SX}>이 걸음 수(Health Connect 값, 걸음 센서로 보정된 화면 표시 값 모두 포함)는 현재 FitBuddy 서버(Supabase)에 저장되지 않습니다. 화면에 표시할 때마다 기기에서 다시 읽어올 뿐입니다.</Typography>
             <Typography component='li' sx={LI_SX}>걸음 데이터를 랭킹, 광고, 마케팅 목적으로 사용하지 않습니다.</Typography>
           </Box>
         </Box>

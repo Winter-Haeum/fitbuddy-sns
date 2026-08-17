@@ -517,12 +517,16 @@ export default function HomePage() {
                 </Box>
               ) : !dailySteps.permissionGranted ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                    <DirectionsWalkIcon sx={{ fontSize: 18, color: '#5DA9E9' }} />
-                    <Typography variant='body2' sx={{ fontWeight: 700 }}>오늘의 걸음</Typography>
-                    <Typography variant='caption' color='text.secondary'>걸음 수 연결 필요</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+                    <DirectionsWalkIcon sx={{ fontSize: 18, color: '#5DA9E9', flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant='body2' sx={{ fontWeight: 700, lineHeight: 1.3 }} noWrap>오늘의 걸음</Typography>
+                      <Typography variant='caption' color='text.secondary' sx={{ display: 'block', lineHeight: 1.3 }} noWrap>
+                        걸음 수 연결 필요
+                      </Typography>
+                    </Box>
                   </Box>
-                  <Button size='small' variant='outlined' onClick={dailySteps.connect} sx={{ minWidth: 0, py: 0.2, fontSize: '0.75rem' }}>
+                  <Button size='small' variant='outlined' onClick={dailySteps.connect} sx={{ minWidth: 0, py: 0.2, px: 1.2, fontSize: '0.75rem', flexShrink: 0 }}>
                     연결
                   </Button>
                 </Box>

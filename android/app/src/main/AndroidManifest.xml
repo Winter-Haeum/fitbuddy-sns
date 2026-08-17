@@ -66,4 +66,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- "오늘의 걸음" 기능 전용. 걸음 읽기만 요청하며 WRITE_STEPS 등 다른 건강 데이터 권한은 요청하지 않는다. -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- foreground일 때만 사용하는 실시간 걸음 센서(TYPE_STEP_DETECTOR/COUNTER)용. API 29+에서
+         런타임 권한이며, API 29 미만에서는 선언만 있고 별도 요청 없이 항상 사용 가능하다. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 </manifest>

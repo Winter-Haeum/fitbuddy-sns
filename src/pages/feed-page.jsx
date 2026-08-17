@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import CardMedia from '@mui/material/CardMedia';
 import CardActions from '@mui/material/CardActions';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
@@ -307,87 +306,91 @@ export default function FeedPage() {
           <>
             {posts.map((post, idx) => (
               <FadeInBox key={post.id} delay={Math.min(idx, 4) * 60}>
+                {/* 정보 밀도 개선: 카테고리/날짜/좋아요를 한 줄로 묶고, 큰 hero 이미지 대신
+                    profile-page.jsx의 "내 게시글" 목록과 같은 고정 크기 썸네일을 써서 카드
+                    높이를 줄였다(화면당 더 많은 글이 보이도록). 좋아요/댓글/저장 인터랙션은
+                    그대로 유지하되 액션 바만 더 촘촘하게 정리했다. */}
                 <Card
                   sx={{
-                    mb: 2,
+                    mb: 1.5,
                     cursor: 'pointer',
                     transition: 'box-shadow 0.15s ease, transform 0.1s ease',
                     '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)', transform: 'translateY(-1px)' },
                   }}
                 >
-                  <CardContent sx={{ pb: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        {post.fitbuddy_users?.display_name?.[0] || 'F'}
-                      </Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant='h4' sx={{ fontWeight: 600 }}>
+                  <Box
+                    onClick={() => navigate(`/post/${post.id}`)}
+                    sx={{ display: 'flex', gap: 1.5, p: 1.5 }}
+                  >
+                    {post.image_url && (
+                      <Box sx={{
+                        width: 72, height: 72, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0, bgcolor: '#f0f0f0',
+                      }}>
+                        <Box component='img' src={post.image_url} alt={post.title} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </Box>
+                    )}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.2 }}>
+                        <Avatar sx={{ width: 22, height: 22, fontSize: '0.7rem', bgcolor: 'primary.main', flexShrink: 0 }}>
+                          {post.fitbuddy_users?.display_name?.[0] || 'F'}
+                        </Avatar>
+                        <Typography variant='body2' noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
                           {post.fitbuddy_users?.display_name || '사용자'}
                         </Typography>
+                        {(post.user_id === user?.id || isAdmin) && (
+                          <IconButton size='small' onClick={(e) => openMenu(e, post)} sx={{ p: 0.3, ml: 'auto', flexShrink: 0 }}>
+                            <MoreVertIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        )}
+                      </Box>
+                      {/* 메타 정보 한 줄: 카테고리 · 날짜 · 좋아요(탭하면 좋아요한 사람 목록) */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mb: 0.3 }}>
                         <Typography variant='caption' color='text.secondary'>
-                          {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                          {typeLabel[post.post_type] || post.post_type} · {new Date(post.created_at).toLocaleDateString('ko-KR')} ·
+                        </Typography>
+                        <Typography
+                          variant='caption'
+                          color='text.secondary'
+                          onClick={(e) => { e.stopPropagation(); setLikersPostId(post.id); }}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          ♡ {post.likes_count || 0}
                         </Typography>
                       </Box>
-                      <Chip label={typeLabel[post.post_type] || post.post_type} size='small' color='primary' variant='outlined' />
-                      {(post.user_id === user?.id || isAdmin) && (
-                        <IconButton size='small' onClick={(e) => openMenu(e, post)} sx={{ p: 0.3 }}>
-                          <MoreVertIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
+                      {post.title && (
+                        <Typography sx={{
+                          fontWeight: 600, fontSize: '0.92rem', lineHeight: 1.35, mb: 0.2, wordBreak: 'keep-all',
+                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        }}>
+                          {post.title}
+                        </Typography>
                       )}
+                      <Typography variant='body2' color='text.secondary' sx={{
+                        fontSize: '0.8rem', lineHeight: 1.4,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {post.caption}
+                      </Typography>
                     </Box>
+                  </Box>
 
-                    {post.title && (
-                      <Typography variant='h4' sx={{ fontWeight: 600, mb: 1 }}>{post.title}</Typography>
-                    )}
-                  </CardContent>
-
-                  {post.image_url && (
-                    <CardMedia
-                      component='img'
-                      image={post.image_url}
-                      alt={post.title}
-                      sx={{ maxHeight: 300, objectFit: 'cover', cursor: 'pointer' }}
-                      onClick={() => navigate(`/post/${post.id}`)}
-                    />
-                  )}
-
-                  <CardContent sx={{ pt: 1, pb: 0 }} onClick={() => navigate(`/post/${post.id}`)}>
-                    <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
-                      {post.caption?.length > 80 ? post.caption.slice(0, 80) + '...' : post.caption}
-                    </Typography>
-                    {post.hashtags?.length > 0 && (
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {post.hashtags.map((tag) => (
-                          <Typography key={tag} variant='caption' sx={{ color: 'secondary.main' }}>#{tag}</Typography>
-                        ))}
-                      </Box>
-                    )}
-                  </CardContent>
-
-                  <CardActions sx={{ px: 2, py: 1 }}>
-                    <IconButton size='small' onClick={() => toggleLike(post.id)}>
+                  <CardActions sx={{ px: 1.5, py: 0.3 }}>
+                    <IconButton size='small' onClick={() => toggleLike(post.id)} sx={{ p: 0.4 }}>
                       {likedIds.has(post.id)
-                        ? <FavoriteIcon sx={{ color: 'red', fontSize: 20 }} />
-                        : <FavoriteBorderIcon sx={{ fontSize: 20 }} />}
+                        ? <FavoriteIcon sx={{ color: 'red', fontSize: 18 }} />
+                        : <FavoriteBorderIcon sx={{ fontSize: 18 }} />}
                     </IconButton>
-                    <Typography
-                      variant='caption'
-                      onClick={() => setLikersPostId(post.id)}
-                      sx={{ mr: 1, cursor: 'pointer' }}
-                    >
-                      {post.likes_count || 0}
-                    </Typography>
-                    <IconButton size='small' onClick={() => navigate(`/post/${post.id}`)}>
-                      <ChatBubbleOutlineIcon sx={{ fontSize: 20 }} />
+                    <IconButton size='small' onClick={() => navigate(`/post/${post.id}`)} sx={{ p: 0.4 }}>
+                      <ChatBubbleOutlineIcon sx={{ fontSize: 18 }} />
                     </IconButton>
                     <Typography variant='caption' sx={{ mr: 1 }}>{post.comments_count || 0}</Typography>
-                    <VisibilityIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                    <Typography variant='caption' sx={{ ml: 0.5 }}>{post.views_count || 0}</Typography>
+                    <VisibilityIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
+                    <Typography variant='caption' sx={{ ml: 0.4 }}>{post.views_count || 0}</Typography>
                     <Box sx={{ flex: 1 }} />
-                    <IconButton size='small' onClick={() => toggleSave(post.id)}>
+                    <IconButton size='small' onClick={() => toggleSave(post.id)} sx={{ p: 0.4 }}>
                       {savedIds.has(post.id)
-                        ? <BookmarkIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-                        : <BookmarkBorderIcon sx={{ fontSize: 20 }} />}
+                        ? <BookmarkIcon sx={{ color: 'primary.main', fontSize: 18 }} />
+                        : <BookmarkBorderIcon sx={{ fontSize: 18 }} />}
                     </IconButton>
                   </CardActions>
                 </Card>

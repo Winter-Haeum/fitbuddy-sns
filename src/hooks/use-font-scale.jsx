@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { createAppTheme, FONT_SCALE_LEVELS, DEFAULT_FONT_SCALE } from '../theme';
+import { createAppTheme, getScale, FONT_SCALE_LEVELS, DEFAULT_FONT_SCALE } from '../theme';
 
 const STORAGE_KEY = 'fitbuddy_fontScale';
 const FontScaleContext = createContext(null);
@@ -31,9 +31,12 @@ export function FontScaleProvider({ children }) {
   }
 
   const theme = useMemo(() => createAppTheme(fontScale), [fontScale]);
+  // FitBuddyCharacter의 size처럼 CSS가 아니라 숫자 prop으로 크기를 받는 컴포넌트를 페이지에서
+  // 직접 스케일링할 때 theme.js와 동일한 배율을 쓰기 위해 원시 숫자 값도 함께 제공한다.
+  const scale = useMemo(() => getScale(fontScale), [fontScale]);
 
   return (
-    <FontScaleContext.Provider value={{ fontScale, setFontScale }}>
+    <FontScaleContext.Provider value={{ fontScale, setFontScale, scale }}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {children}

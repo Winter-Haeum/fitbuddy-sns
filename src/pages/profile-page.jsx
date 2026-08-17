@@ -58,7 +58,7 @@ const TYPE_BG = { workout: '#E8F5E9', diet: '#FFF8E1', free: '#F3E5F5' };
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, signOut, fetchProfile } = useAuth();
-  const { fontScale, setFontScale } = useFontScale();
+  const { fontScale, setFontScale, scale } = useFontScale();
   const isAdmin = profile?.role === 'admin';
   const avatarInputRef = useRef(null);
 
@@ -541,18 +541,27 @@ export default function ProfilePage() {
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <FitBuddyCharacter size={56} gender={profile?.gender || 'female'} />
-                <Box sx={{ flex: '1 1 100px', minWidth: 0 }}>
+              {/* 캐릭터가 주인공이 되도록 캐릭터 영역 비중을 키우고(56→약 80, 글자 크기 설정과
+                  함께 스케일), 버튼은 보조 액션으로 축소(outlined 박스 대신 화살표 텍스트 링크
+                  형태)했다. flex-basis로 세 영역의 비중을 대략 캐릭터 45% : 텍스트 35% :
+                  버튼 20%에 가깝게 배분한다(실제 %는 화면 폭에 따라 달라짐). */}
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '0 0 auto' }}>
+                  <FitBuddyCharacter size={Math.round(80 * scale.content)} gender={profile?.gender || 'female'} />
+                </Box>
+                <Box sx={{ flex: '1 1 90px', minWidth: 0 }}>
                   <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
                     <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
                   </Box>
                 </Box>
-                {/* whiteSpace/flexShrink로 "캐릭터 보기" 텍스트가 세로로 쪼개지지 않도록 하고,
-                    공간이 부족하면(큰 글씨 등) 버튼 전체가 다음 줄로 넘어가게 한다. */}
-                <Button variant='outlined' size='small' sx={{ ml: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}>캐릭터 보기</Button>
+                <Button
+                  variant='text' size='small'
+                  sx={{ flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, color: '#6B7280' }}
+                >
+                  캐릭터 보기 ›
+                </Button>
               </CardContent>
             </Card>
           </Grid>

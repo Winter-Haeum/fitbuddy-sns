@@ -9,29 +9,52 @@ export const FONT_SCALE_LABELS = { small: '작게', medium: '보통', large: '�
 // 수준이므로, 기존 사용자 화면이 갑자기 바뀌지 않도록 기본값을 large로 둔다.
 export const DEFAULT_FONT_SCALE = 'large';
 
-// title/subtitle/body/caption 등 본문 계열 typography에 적용하는 배율(large=1 = 기존 값 그대로).
+// title/subtitle/body/caption 등 본문 계열 typography, 그리고 spacing(카드 padding/리스트
+// 간격 등 앱 전역에서 sx={{p, m, gap}}로 쓰는 모든 값)에 적용하는 배율(large=1 = 기존 값 그대로).
 const CONTENT_SCALE = { small: 0.85, medium: 0.925, large: 1, xlarge: 1.15 };
 
-// navigation label/button처럼 물리적 공간이 제한된 UI는 같은 비율로 키우면 레이아웃이
-// 깨지므로, 접근성 하한/상한은 유지하되 본문보다 압축된 배율을 별도로 사용한다.
+// navigation label/button/chip/input처럼 물리적 공간·터치 영역이 제한된 UI는 본문과 같은
+// 비율로 키우면 레이아웃이 깨지거나 터치 영역이 과도해지므로, 압축된 배율을 별도로 쓴다.
+// (하한 0.9 — "작게"에서도 터치 영역이 실사용에 지장 없는 수준 이하로는 줄어들지 않는다.)
 const COMPACT_SCALE = { small: 0.9, medium: 0.95, large: 1, xlarge: 1.08 };
 
 // large(=현재 FitBuddy 고정값) 기준 rem 값. 실제 렌더링 값은 이 값에 위 배율을 곱해 계산한다.
 const BASE_REM = {
   h1: 2, h2: 1.5, h3: 1.25, h4: 1.1, body1: 0.95, body2: 0.85,
-  caption: 0.75, button: 0.875, dialogTitle: 1.1, navLabel: 0.75,
+  caption: 0.75, button: 0.875, dialogTitle: 1.1, navLabel: 0.75, chipLabel: 0.8125,
 };
 
 function rem(base, scale) {
   return `${(base * scale).toFixed(3)}rem`;
 }
 
+function px(base, scale) {
+  return `${Math.round(base * scale)}px`;
+}
+
+/**
+ * getScale - 글자 크기 단계에 대응하는 배율 두 가지를 반환한다. theme.js가 만드는
+ * MUI 컴포넌트 스타일뿐 아니라, `<FitBuddyCharacter size={56}>`처럼 CSS가 아니라 숫자
+ * prop으로 크기를 받는 커스텀 컴포넌트를 페이지에서 스케일링할 때도 같은 배율을 쓴다.
+ *
+ * @param {string} fontScale - 'small'|'medium'|'large'|'xlarge' [Optional, 기본값: DEFAULT_FONT_SCALE]
+ * @returns {{ content: number, compact: number }}
+ */
+export function getScale(fontScale = DEFAULT_FONT_SCALE) {
+  return {
+    content: CONTENT_SCALE[fontScale] ?? CONTENT_SCALE[DEFAULT_FONT_SCALE],
+    compact: COMPACT_SCALE[fontScale] ?? COMPACT_SCALE[DEFAULT_FONT_SCALE],
+  };
+}
+
 /**
  * createAppTheme - 글자 크기 단계에 맞는 MUI 테마를 생성한다.
  *
- * 페이지마다 `if (fontScale === ...)` 분기를 두지 않고, 이 팩토리가 만든 theme의
- * typography 값을 모든 페이지가 Typography/Button 등 MUI 컴포넌트를 통해 공통으로
- * 따르도록 한다.
+ * 페이지마다 `if (fontScale === ...)` 분기를 두지 않고, 모든 페이지가 이 팩토리가 만든
+ * theme의 typography/spacing/컴포넌트 기본값을 통해 공통으로 스케일을 따르게 한다.
+ * `theme.spacing()`도 배율을 타므로(아래), sx={{p, m, gap}} 등 앱 전역의 카드 padding·
+ * 리스트 간격도 이 팩토리 하나만 손봐도 함께 조정된다 — 각 페이지의 개별 spacing 값을
+ * 일일이 찾아 고치지 않아도 되는 이유다.
  *
  * @param {string} fontScale - 'small'|'medium'|'large'|'xlarge' [Optional, 기본값: DEFAULT_FONT_SCALE]
  *
@@ -39,10 +62,13 @@ function rem(base, scale) {
  * const theme = createAppTheme('xlarge');
  */
 export function createAppTheme(fontScale = DEFAULT_FONT_SCALE) {
-  const c = CONTENT_SCALE[fontScale] ?? CONTENT_SCALE[DEFAULT_FONT_SCALE];
-  const n = COMPACT_SCALE[fontScale] ?? COMPACT_SCALE[DEFAULT_FONT_SCALE];
+  const { content: c, compact: n } = getScale(fontScale);
 
   return createTheme({
+    // MUI 기본 spacing(1) = 8px 고정. 여기서 배율을 곱해두면 theme.spacing()을 거치는
+    // 모든 sx={{p,m,gap,...}}와 Card/CardContent/Dialog 등 MUI 내부 기본 padding까지
+    // 글자 크기 단계에 맞춰 함께 커지고 줄어든다.
+    spacing: (factor = 1) => `${8 * factor * c}px`,
     palette: {
       primary: {
         main: '#6BCB77',
@@ -88,8 +114,25 @@ export function createAppTheme(fontScale = DEFAULT_FONT_SCALE) {
             borderRadius: 12,
             textTransform: 'none',
             fontWeight: 600,
-            padding: '10px 20px',
+            padding: `${px(10, n)} ${px(20, n)}`,
           },
+          sizeSmall: {
+            padding: `${px(5, n)} ${px(12, n)}`,
+            minHeight: px(30, n),
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: { padding: px(8, n) },
+          sizeSmall: { padding: px(5, n) },
+        },
+      },
+      // 개별 아이콘에 sx={{fontSize:...}}로 명시적 크기를 지정한 곳(코드베이스 전반에 흔함)은
+      // 그대로 우선 적용되고, 기본 크기를 쓰는 아이콘만 이 배율을 따른다.
+      MuiSvgIcon: {
+        styleOverrides: {
+          root: { fontSize: rem(1.5, n) },
         },
       },
       MuiCard: {
@@ -103,6 +146,19 @@ export function createAppTheme(fontScale = DEFAULT_FONT_SCALE) {
       MuiChip: {
         styleOverrides: {
           root: { borderRadius: 8 },
+          label: {
+            fontSize: rem(BASE_REM.chipLabel, n),
+            paddingLeft: px(10, n),
+            paddingRight: px(10, n),
+          },
+          sizeSmall: { height: px(24, n) },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          // 입력창 높이(상하 padding)도 글자 크기 단계에 맞춰 함께 조정. 좌우 padding은
+          // 손가락으로 텍스트 커서를 두기 쉬운 폭을 유지하기 위해 그대로 둔다.
+          input: { paddingTop: px(16.5, c), paddingBottom: px(16.5, c) },
         },
       },
       MuiDialog: {
@@ -141,9 +197,15 @@ export function createAppTheme(fontScale = DEFAULT_FONT_SCALE) {
       },
       // BottomNavigationAction은 theme.typography를 직접 참조하지 않고 자체 고정 rem 값을
       // 쓰므로, 5개 탭 label 크기가 선택/비선택 상태와 무관하게 항상 동일하도록 여기서
-      // 명시적으로 맞춘다(글자 크기 설정과도 연동되도록 compact scale 적용).
+      // 명시적으로 맞춘다(글자 크기 설정과도 연동되도록 compact scale 적용). root의
+      // minWidth/padding도 함께 스케일링해 큰 글씨에서 5개 탭 높이가 서로 달라지지 않게 한다.
       MuiBottomNavigationAction: {
         styleOverrides: {
+          root: {
+            minWidth: 0,
+            paddingTop: px(6, n),
+            paddingBottom: px(6, n),
+          },
           label: {
             fontSize: rem(BASE_REM.navLabel, n),
             '&.Mui-selected': { fontSize: rem(BASE_REM.navLabel, n) },

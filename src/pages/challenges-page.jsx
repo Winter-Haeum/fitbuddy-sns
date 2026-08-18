@@ -287,12 +287,15 @@ export default function ChallengesPage() {
           <Box component='span' sx={{ fontSize: es(1.3), lineHeight: 1 }}>🎯</Box>
         </Typography>
 
-        {/* 상단 배너 */}
+        {/* 상단 배너 — "함께 도전해요!"가 페이지 제목(운동 챌린지, h2)과 같은 급으로 보이던
+            h3를 h4로 낮췄다. h3도 theme scale은 타고 있었지만(기본 크기 자체가 페이지
+            제목급이라 "작게"에서도 여전히 크게 느껴진 것), 기본 크기를 카드 섹션 헤더와
+            같은 h4로 맞춰 한 단계 확실히 내려가게 했다. */}
         <Card sx={{ mb: 2, bgcolor: 'white', borderLeft: '4px solid #A084E8', boxShadow: '0 2px 10px rgba(160,132,232,0.12)' }}>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography sx={{ fontSize: '2.2rem' }}>🏆</Typography>
+            <Typography sx={{ fontSize: es(2.2) }}>🏆</Typography>
             <Box>
-              <Typography variant='h3' sx={{ fontWeight: 700, color: '#6B4FC8' }}>함께 도전해요!</Typography>
+              <Typography variant='h4' sx={{ fontWeight: 700, color: '#6B4FC8' }}>함께 도전해요!</Typography>
               <Typography variant='body2' color='text.secondary'>챌린지에 참여하고 운동 습관을 만들어보세요</Typography>
             </Box>
           </CardContent>

@@ -31,6 +31,7 @@ import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../utils/supabase';
 import { getLocalToday } from '../utils/date-utils';
@@ -390,7 +391,7 @@ export default function HomePage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.3, flexWrap: 'wrap', gap: 0.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
                 <Typography variant='h4' sx={{ fontWeight: 700, wordBreak: 'keep-all' }}>오늘의 운동 목표</Typography>
-                <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }} />
+                <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' sx={{ height: 20, fontSize: es(0.65), flexShrink: 0 }} />
               </Box>
               <Chip
                 label={
@@ -466,8 +467,8 @@ export default function HomePage() {
                   transition: 'all 0.15s',
                 }}
               >
-                <Typography sx={{ fontSize: '1rem' }}>🔥</Typography>
-                <Typography variant='body2' sx={{ fontWeight: 700, color: '#FF7043', fontSize: '0.85rem' }}>
+                <Typography sx={{ fontSize: es(1) }}>🔥</Typography>
+                <Typography variant='body2' sx={{ fontWeight: 700, color: '#FF7043' }}>
                   추가 운동 시작
                 </Typography>
               </Box>
@@ -496,7 +497,7 @@ export default function HomePage() {
                       if (e.key === 'Escape') { setGoalEditMode(false); setGoalEditValue(String(goalMinutes)); }
                     }}
                     style={{
-                      width: '42px', fontSize: '0.75rem',
+                      width: '42px', fontSize: es(0.75),
                       border: 'none', borderBottom: '1.5px solid #6BCB77',
                       background: 'transparent', textAlign: 'center', outline: 'none',
                     }}
@@ -535,7 +536,7 @@ export default function HomePage() {
               ) : dailySteps.error ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                   <Typography variant='caption' color='text.secondary'>걸음 수를 불러오지 못했습니다.</Typography>
-                  <Button size='small' onClick={dailySteps.refresh} sx={{ minWidth: 0, py: 0.2, fontSize: '0.75rem' }}>
+                  <Button size='small' onClick={dailySteps.refresh} sx={{ minWidth: 0, py: 0.2, fontSize: es(0.75) }}>
                     재시도
                   </Button>
                 </Box>
@@ -550,7 +551,7 @@ export default function HomePage() {
                       </Typography>
                     </Box>
                   </Box>
-                  <Button size='small' variant='outlined' onClick={dailySteps.connect} sx={{ minWidth: 0, py: 0.2, px: 1.2, fontSize: '0.75rem', flexShrink: 0 }}>
+                  <Button size='small' variant='outlined' onClick={dailySteps.connect} sx={{ minWidth: 0, py: 0.2, px: 1.2, fontSize: es(0.75), flexShrink: 0 }}>
                     연결
                   </Button>
                 </Box>
@@ -572,7 +573,7 @@ export default function HomePage() {
                     </Box>
                     {stepGoalEditMode ? (
                       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, flexShrink: 0 }}>
-                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.72rem' }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: es(0.72) }}>
                           {dailySteps.steps.toLocaleString()}/
                         </Typography>
                         <input
@@ -586,7 +587,7 @@ export default function HomePage() {
                             if (e.key === 'Escape') { setStepGoalEditMode(false); setStepGoalEditValue(String(stepGoal)); }
                           }}
                           style={{
-                            width: '52px', fontSize: '0.72rem',
+                            width: '52px', fontSize: es(0.72),
                             border: 'none', borderBottom: '1.5px solid #5DA9E9',
                             background: 'transparent', textAlign: 'center', outline: 'none',
                           }}
@@ -597,7 +598,7 @@ export default function HomePage() {
                         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, cursor: 'pointer', flexShrink: 0 }}
                         onClick={() => { setStepGoalEditValue(String(stepGoal)); setStepGoalEditMode(true); }}
                       >
-                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.72rem' }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: es(0.72) }}>
                           {dailySteps.steps.toLocaleString()}/{stepGoal.toLocaleString()}
                         </Typography>
                         <EditIcon sx={{ fontSize: 10, color: '#ccc' }} />
@@ -609,7 +610,7 @@ export default function HomePage() {
                       <Typography
                         variant='caption'
                         onClick={dailySteps.enableLiveSteps}
-                        sx={{ color: '#5DA9E9', fontWeight: 600, fontSize: '0.68rem', cursor: 'pointer', textDecoration: 'underline' }}
+                        sx={{ color: '#5DA9E9', fontWeight: 600, fontSize: es(0.68), cursor: 'pointer', textDecoration: 'underline' }}
                       >
                         실시간 걸음 보기 켜기
                       </Typography>
@@ -630,7 +631,7 @@ export default function HomePage() {
             {todayLog?.mood_status && !editingMood ? (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
                 <Box>
-                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600, color: '#A084E8', lineHeight: 1.4 }}>
+                  <Typography sx={{ fontSize: es(0.95), fontWeight: 600, color: '#A084E8', lineHeight: 1.4 }}>
                     {MOODS.find((m) => m.key === todayLog.mood_status)?.text}
                   </Typography>
                   <Typography
@@ -680,7 +681,7 @@ export default function HomePage() {
           startIcon={<FitnessCenterIcon />}
           onClick={() => navigate('/timer')}
           sx={{
-            py: 1.8, mb: 2, fontSize: '1.1rem',
+            py: 1.8, mb: 2, fontSize: es(1.1),
             bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' },
             boxShadow: '0 4px 15px rgba(95,203,119,0.35)',
           }}
@@ -746,10 +747,10 @@ export default function HomePage() {
           onClick={() => navigate('/records')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            {/* 이모지 글리프는 같은 rem이어도 outline 아이콘(EmojiEventsIcon)보다 시각적으로
-                더 무거워 보여, 1.4rem에서도 옆 챌린지 카드 아이콘보다 커 보인다는 피드백을
-                반영해 한 단계 더 낮췄다(1.4→1.15). 아래 챌린지 카드 아이콘은 반대로 올렸다. */}
-            <Typography sx={{ fontSize: es(1.15), flexShrink: 0 }}>📓</Typography>
+            {/* 이모지(📓)는 같은 rem이어도 outline 아이콘보다 시각적으로 더 무거워 보여, rem을
+                아무리 낮춰도 옆 챌린지 카드의 EmojiEventsIcon과 무게감이 안 맞았다 — 같은
+                outline 아이콘 계열(AutoStoriesIcon)로 바꿔 렌더링 방식 자체를 맞췄다. */}
+            <AutoStoriesIcon sx={{ fontSize: es(1.5), color: '#5DA9E9', flexShrink: 0 }} />
             <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
               <Typography variant='h4' sx={{ fontWeight: 600, color: '#1565C0', wordBreak: 'keep-all' }}>기록관</Typography>
               {/* 큰 글씨에서도 설명이 카드를 무한정 늘리지 않도록 최대 2줄로 제한(글자 축소 아님) */}
@@ -769,7 +770,7 @@ export default function HomePage() {
           onClick={() => navigate('/challenges')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-            <EmojiEventsIcon sx={{ fontSize: es(1.7), color: '#A084E8', flexShrink: 0 }} />
+            <EmojiEventsIcon sx={{ fontSize: es(1.5), color: '#A084E8', flexShrink: 0 }} />
             <Box sx={{ flex: '1 1 120px', minWidth: 0 }}>
               <Typography variant='h4' sx={{ fontWeight: 600, color: '#6B4FC8', wordBreak: 'keep-all' }}>
                 {joinedCount > 0 ? `${joinedCount}개 챌린지 참여 중` : '챌린지 참여하기'}
@@ -811,7 +812,7 @@ export default function HomePage() {
               { label: '소모 칼로리', value: `${todayWorkout?.calories || 0}kcal`, color: '#FF7043', bg: '#FFF3E0' },
             ].map((s) => (
               <Box key={s.label} sx={{ flex: 1, textAlign: 'center', bgcolor: s.bg, borderRadius: 2, py: 1.2 }}>
-                <Typography sx={{ fontWeight: 700, color: s.color, fontSize: '1rem' }}>{s.value}</Typography>
+                <Typography sx={{ fontWeight: 700, color: s.color, fontSize: es(1) }}>{s.value}</Typography>
                 <Typography variant='caption' color='text.secondary'>{s.label}</Typography>
               </Box>
             ))}

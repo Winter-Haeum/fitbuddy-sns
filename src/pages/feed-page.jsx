@@ -320,8 +320,11 @@ export default function FeedPage() {
                       <Avatar sx={{ bgcolor: 'primary.main' }}>
                         {post.fitbuddy_users?.display_name?.[0] || 'F'}
                       </Avatar>
+                      {/* 작성자 이름이 게시글 제목과 같은 h4를 써서 피드에서 제목보다 먼저
+                          눈에 띄던 지점 — body1로 한 단계 낮춰 "제목/본문 > 작성자명" 위계로
+                          정리했다(식별은 가능하되 더는 콘텐츠와 경쟁하지 않도록). */}
                       <Box sx={{ flex: 1 }}>
-                        <Typography variant='h4' sx={{ fontWeight: 600 }}>
+                        <Typography variant='body1' sx={{ fontWeight: 600 }}>
                           {post.fitbuddy_users?.display_name || '사용자'}
                         </Typography>
                         <Typography variant='caption' color='text.secondary'>

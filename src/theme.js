@@ -157,11 +157,21 @@ export function createAppTheme(fontScale = DEFAULT_FONT_SCALE) {
           sizeSmall: { height: px(24, n) },
         },
       },
+      // TextField/Select의 입력 텍스트는 MUI가 브라우저 기본(1rem, 고정)으로 렌더링해
+      // theme.typography variant를 타지 않는다 — 글자 크기 설정을 "일부 우회"하고 있던
+      // 지점(프로필 수정 모달의 닉네임/자기소개/키·몸무게·목표 입력창 등)이라, body1과
+      // 같은 배율로 명시적으로 맞춘다. Select도 outlined variant에서는 이 input 클래스를
+      // 함께 쓰므로 "최근 7일" 같은 드롭다운 표시 텍스트도 여기서 함께 스케일된다.
       MuiOutlinedInput: {
         styleOverrides: {
           // 입력창 높이(상하 padding)도 글자 크기 단계에 맞춰 함께 조정. 좌우 padding은
           // 손가락으로 텍스트 커서를 두기 쉬운 폭을 유지하기 위해 그대로 둔다.
-          input: { paddingTop: px(16.5, c), paddingBottom: px(16.5, c) },
+          input: { paddingTop: px(16.5, c), paddingBottom: px(16.5, c), fontSize: rem(BASE_REM.body1, c) },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: { fontSize: rem(BASE_REM.body1, c) },
         },
       },
       MuiDialog: {

@@ -472,8 +472,11 @@ export default function ProfilePage() {
                   행 오른쪽 끝으로 이동, 정보를 위→아래로 읽는 흐름을 방해하지 않도록). */}
               <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: profile?.bio ? 0.5 : 0 }}>
+                  {/* 상단 닉네임은 시선은 끌되 압도적이지 않아야 한다는 피드백 — 페이지
+                      제목급인 h2에서 h3로 한 단계 낮췄다("작게" 단계에서도 더 확실히
+                      줄어드는 체감을 준다). */}
                   <Typography
-                    variant='h2'
+                    variant='h3'
                     sx={{ fontWeight: 700, color: '#1B5E20', wordBreak: 'keep-all', overflowWrap: 'break-word' }}
                   >
                     {profile?.display_name || '사용자'}
@@ -562,7 +565,9 @@ export default function ProfilePage() {
                 <Box sx={{ flex: '0 0 auto' }}>
                   <FitBuddyCharacter size={Math.round(110 * scale.content)} gender={profile?.gender || 'female'} />
                 </Box>
-                <Box sx={{ flex: '1 1 90px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                {/* 컬럼 gap을 0.6→1.1로 늘려 이름과 Lv/XP 칩 줄 사이에 숨 쉴 공간을 확보했다
+                    (기존엔 바로 붙어 보인다는 피드백). */}
+                <Box sx={{ flex: '1 1 90px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.1 }}>
                   <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
                   {/* Lv/XP 두 칩이 붙어 보이지 않도록 gap을 0.5→1로 늘렸다. */}
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -692,7 +697,7 @@ export default function ProfilePage() {
                                   </Typography>
                                 )}
                                 {c.challenge_type === 'period' && (
-                                  <Typography variant='caption' sx={{ color: '#A084E8', fontSize: '0.7rem' }}>
+                                  <Typography variant='caption' sx={{ color: '#A084E8', fontSize: es(0.7) }}>
                                     {c.start_date} ~ {c.end_date}
                                   </Typography>
                                 )}
@@ -706,7 +711,7 @@ export default function ProfilePage() {
                                     bgcolor: isUrgent ? '#EF5350' : '#7C4DFF',
                                     color: 'white',
                                     fontWeight: 700,
-                                    fontSize: '0.75rem',
+                                    fontSize: es(0.75),
                                     height: 22,
                                   }}
                                 />
@@ -752,7 +757,7 @@ export default function ProfilePage() {
                             <Chip
                               label='종료'
                               size='small'
-                              sx={{ bgcolor: '#F5F5F5', color: '#9E9E9E', fontSize: '0.72rem', height: 22 }}
+                              sx={{ bgcolor: '#F5F5F5', color: '#9E9E9E', fontSize: es(0.72), height: 22 }}
                             />
                           </Box>
                         </CardContent>
@@ -919,7 +924,7 @@ export default function ProfilePage() {
         <Button
           variant='text' fullWidth startIcon={<DeleteForeverIcon />}
           onClick={() => { setDeleteError(''); setDeleteOpen(true); }}
-          sx={{ color: '#BDBDBD', fontSize: '0.8rem' }}
+          sx={{ color: '#BDBDBD', fontSize: es(0.8) }}
         >
           회원 탈퇴
         </Button>
@@ -1007,7 +1012,7 @@ export default function ProfilePage() {
                       bgcolor: selected ? '#E9D8FD' : '#FAFAFA',
                       color: selected ? '#6B46C1' : '#757575',
                       fontWeight: selected ? 700 : 400,
-                      fontSize: '0.85rem',
+                      fontSize: es(0.85),
                       userSelect: 'none',
                       transition: 'all 0.15s',
                     }}
@@ -1037,7 +1042,7 @@ export default function ProfilePage() {
                       bgcolor: selected ? '#E3F2FD' : '#FAFAFA',
                       color: selected ? '#1565C0' : '#757575',
                       fontWeight: selected ? 700 : 400,
-                      fontSize: '0.85rem',
+                      fontSize: es(0.85),
                       userSelect: 'none',
                       transition: 'all 0.15s',
                     }}

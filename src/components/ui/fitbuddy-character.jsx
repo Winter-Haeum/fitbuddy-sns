@@ -112,7 +112,10 @@ function snapProgress(percentage) {
 
 // pose: 운동 자세(레거시 전용, squat/pushup/stretch/lunge/workout/running) — 기존 `variant`
 // prop과 같은 개념이다. variantNum: 신규 캐릭터 번호(1/2/3, characterVariant 정규화 값) — 이름
-// 충돌을 피하기 위해 selectImg 내부에서는 variantNum으로만 부른다.
+// 충돌을 피하기 위해 selectImg 내부에서는 variantNum으로만 부른다. mood는 caller가 실제로
+// prop을 넘겼을 때만 truthy 값으로 들어온다(컴포넌트 쪽에서 더 이상 기본값을 주지 않음) —
+// 그래야 "아무 상태도 안 준 기본 호출"과 "mood='active'를 명시적으로 준 호출"을 구분해
+// 전자만 5순위 base로 떨어뜨릴 수 있다.
 function selectImg({ gender, style, variantNum, mood, percentage, pose, workoutType }) {
   const g = gender === 'male' ? 'male' : 'female';
   const gc = genderCode(gender);
@@ -142,12 +145,22 @@ function selectImg({ gender, style, variantNum, mood, percentage, pose, workoutT
     return legacyImg(`${g}-20.webp`);
   }
 
-  // 4순위: mood — 신규 progress asset(호환 매핑) 우선, 없으면 레거시 mood 이미지로 fallback
-  const moodKey = MOOD_MAP[mood] ? mood : 'active';
-  const stage = MOOD_TO_PROGRESS[moodKey];
-  const styled = styledImg(style, 'progress', `fitbuddy_${gc}0${variantNum}_progress_${stage}`);
-  if (styled) return styled;
-  return legacyImg(MOOD_MAP[moodKey](g));
+  // 4순위: mood — caller가 명시적으로 전달했을 때만. 신규 progress asset(호환 매핑) 우선,
+  // 없으면 레거시 mood 이미지로 fallback.
+  if (mood) {
+    const moodKey = MOOD_MAP[mood] ? mood : 'active';
+    const stage = MOOD_TO_PROGRESS[moodKey];
+    const styled = styledImg(style, 'progress', `fitbuddy_${gc}0${variantNum}_progress_${stage}`);
+    if (styled) return styled;
+    return legacyImg(MOOD_MAP[moodKey](g));
+  }
+
+  // 5순위: 운동 종류/자세/진행률/mood 중 아무것도 전달되지 않은 "기본 상태" — 신규 base
+  // asset을 사용한다. base asset을 못 찾는 경우(이론상 발생하지 않음)에만 기존 idle 이미지로
+  // 안전하게 fallback한다.
+  const styledBase = styledImg(style, 'base', `fitbuddy_${gc}0${variantNum}_base`);
+  if (styledBase) return styledBase;
+  return legacyImg(`${g}-20.webp`);
 }
 
 function selectAnim(mood, percentage, variant, workoutType, clicked) {
@@ -175,7 +188,7 @@ const CSS = `
  * @param {string} gender           - 'female'|'male' [Optional, 기본값: 'female']
  * @param {string} characterStyle   - 'semi'|'chibi' — 유효하지 않으면 'semi'로 처리 [Optional, 기본값: 'semi']
  * @param {number} characterVariant - 1|2|3(캐릭터 번호) — 유효하지 않으면 1로 처리 [Optional, 기본값: 1]
- * @param {string} mood             - 'idle'|'active'|'running'|'celebrating' [Optional]
+ * @param {string} mood             - 'idle'|'active'|'running'|'celebrating' — 전달하지 않으면(기본값 없음) workoutType/variant/percentage와 마찬가지로 "상태 없음"으로 취급되어 base asset이 선택된다 [Optional]
  * @param {number} percentage       - 0-100 게이지 비율 (mood보다 우선) [Optional]
  * @param {string} variant          - 'running'|'squat'|'pushup'|'stretch'|'lunge'|'workout' — 운동 자세(레거시 전용, characterVariant와는 다른 개념) [Optional]
  * @param {string} workoutType      - 한글 운동 종류 (variant보다 우선) [Optional]
@@ -186,7 +199,7 @@ function FitBuddyCharacter({
   gender = 'female',
   characterStyle = 'semi',
   characterVariant = 1,
-  mood = 'active',
+  mood,
   percentage,
   variant,
   workoutType,

@@ -14,12 +14,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
 import Divider from '@mui/material/Divider';
+import Collapse from '@mui/material/Collapse';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import EditIcon from '@mui/icons-material/Edit';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -29,9 +29,11 @@ import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TodayIcon from '@mui/icons-material/Today';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import FavoriteIcon from '@mui/icons-material/Favorite';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
+import { useFontScale } from '../hooks/use-font-scale';
+import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import StatsCard from '../components/ui/stats-card';
@@ -56,6 +58,7 @@ const TYPE_BG = { workout: '#E8F5E9', diet: '#FFF8E1', free: '#F3E5F5' };
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, signOut, fetchProfile } = useAuth();
+  const { fontScale, setFontScale, scale, scaleRem: es } = useFontScale();
   const isAdmin = profile?.role === 'admin';
   const avatarInputRef = useRef(null);
 
@@ -73,6 +76,9 @@ export default function ProfilePage() {
   const [character, setCharacter] = useState(null);
 
   const [tab, setTab] = useState('posts');
+
+  // 설정 영역(글자 크기) — 기본은 접힘 상태
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // 프로필 수정
   const [editOpen, setEditOpen] = useState(false);
@@ -437,7 +443,7 @@ export default function ProfilePage() {
         {/* 프로필 헤더 */}
         <Card sx={{ mb: 2, bgcolor: '#EAF7EE', border: '1.5px solid #B2DFC0' }}>
           <CardContent sx={{ pb: '20px !important' }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
               {/* 프로필 이미지 + 카메라 아이콘 */}
               <Box sx={{ position: 'relative', flexShrink: 0 }}>
                 <Avatar
@@ -462,13 +468,21 @@ export default function ProfilePage() {
                 <input type='file' accept='image/*' ref={avatarInputRef} style={{ display: 'none' }} onChange={handleAvatarUpload} />
               </Box>
 
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
-                  <Typography variant='h2' sx={{ fontWeight: 700, color: '#1B5E20' }}>
+              {/* 이름/관리자 chip/자기소개 — 수정 버튼은 더 이상 이 줄에 없다(아래 "신체 정보"
+                  행 오른쪽 끝으로 이동, 정보를 위→아래로 읽는 흐름을 방해하지 않도록). */}
+              <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: profile?.bio ? 0.5 : 0 }}>
+                  {/* 상단 닉네임은 시선은 끌되 압도적이지 않아야 한다는 피드백 — 페이지
+                      제목급인 h2에서 h3로 한 단계 낮췄다("작게" 단계에서도 더 확실히
+                      줄어드는 체감을 준다). */}
+                  <Typography
+                    variant='h3'
+                    sx={{ fontWeight: 700, color: '#1B5E20', wordBreak: 'keep-all', overflowWrap: 'break-word' }}
+                  >
                     {profile?.display_name || '사용자'}
                   </Typography>
                   {isAdmin && (
-                    <Chip label='관리자' size='small' color='error' />
+                    <Chip label='관리자' size='small' color='error' sx={{ flexShrink: 0 }} />
                   )}
                 </Box>
                 {profile?.bio && (
@@ -477,27 +491,38 @@ export default function ProfilePage() {
                   </Typography>
                 )}
               </Box>
-              <Button
-                variant='outlined' size='small' startIcon={<EditIcon />} onClick={openEdit}
-                sx={{ borderColor: '#6BCB77', color: '#388E3C', '&:hover': { borderColor: '#4DBB68', bgcolor: '#F1F8E9' } }}
-              >
-                수정
-              </Button>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.6, mt: 1.8 }}>
-              {/* 신체 정보 */}
-              {(profile?.height > 0 || profile?.weight > 0 || profile?.goal_weight > 0) && (
-                <Box>
-                  <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.7 }}>
+              {/* 신체 정보 — 수정은 이 섹션의 타이틀 줄 오른쪽 끝에 보조 액션으로 배치한다.
+                  신체 정보가 비어 있어도 수정 버튼 자체는 항상 접근 가능해야 하므로, 이
+                  타이틀 줄은 데이터 유무와 무관하게 항상 렌더링한다(칩 목록만 조건부). 버튼은
+                  variant='text' + 작은 폰트(신체 정보 캡션보다 크지 않게)로 보조 액션임을
+                  분명히 했다. */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.7 }}>
+                  <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600 }}>
                     👤 신체 정보
                   </Typography>
+                  <Button
+                    variant='text' size='small' onClick={openEdit}
+                    sx={{
+                      flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 0.8, py: 0.2,
+                      fontSize: es(0.72), fontWeight: 600, color: '#388E3C',
+                    }}
+                  >
+                    ✎ 수정
+                  </Button>
+                </Box>
+                {(profile?.height > 0 || profile?.weight > 0 || profile?.goal_weight > 0) ? (
                   <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
                     {profile?.height > 0 && <Chip label={`키: ${profile.height}cm`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
                     {profile?.weight > 0 && <Chip label={`몸무게: ${profile.weight}kg`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
                     {profile?.goal_weight > 0 && <Chip label={`목표: ${profile.goal_weight}kg`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
                   </Box>
-                </Box>
-              )}
+                ) : (
+                  <Typography variant='caption' color='text.secondary'>등록된 신체 정보가 없습니다</Typography>
+                )}
+              </Box>
               {/* 운동 목표 */}
               {profile?.workout_goal && profile.workout_goal.split(',').filter(Boolean).length > 0 && (
                 <Box>
@@ -532,16 +557,30 @@ export default function ProfilePage() {
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <FitBuddyCharacter size={56} gender={profile?.gender || 'female'} />
-                <Box>
-                  <Typography variant='h4' sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {/* 캐릭터를 20% 더 키우고(92→110 기준), "캐릭터 보기" 버튼을 세 번째 형제가
+                  아니라 텍스트 정보 컬럼의 마지막 줄로 옮겼다 — 이전에는 키가 큰 캐릭터
+                  옆에서 버튼만 수직 중앙에 붕 떠 보였는데, 이제 이름→Lv/XP→보기 순서로
+                  "캐릭터 / 텍스트+보조액션" 두 블록 관계가 되어 자연스럽다. */}
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '0 0 auto' }}>
+                  <FitBuddyCharacter size={Math.round(110 * scale.content)} gender={profile?.gender || 'female'} />
+                </Box>
+                {/* 컬럼 gap을 0.6→1.1로 늘려 이름과 Lv/XP 칩 줄 사이에 숨 쉴 공간을 확보했다
+                    (기존엔 바로 붙어 보인다는 피드백). */}
+                <Box sx={{ flex: '1 1 90px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.1 }}>
+                  <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
+                  {/* Lv/XP 두 칩이 붙어 보이지 않도록 gap을 0.5→1로 늘렸다. */}
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
                     <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
                   </Box>
+                  <Button
+                    variant='text' size='small'
+                    sx={{ alignSelf: 'flex-end', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 0.2, color: '#6B7280' }}
+                  >
+                    캐릭터 보기 ›
+                  </Button>
                 </Box>
-                <Button variant='outlined' size='small' sx={{ ml: 'auto' }}>캐릭터 보기</Button>
               </CardContent>
             </Card>
           </Grid>
@@ -658,7 +697,7 @@ export default function ProfilePage() {
                                   </Typography>
                                 )}
                                 {c.challenge_type === 'period' && (
-                                  <Typography variant='caption' sx={{ color: '#A084E8', fontSize: '0.7rem' }}>
+                                  <Typography variant='caption' sx={{ color: '#A084E8', fontSize: es(0.7) }}>
                                     {c.start_date} ~ {c.end_date}
                                   </Typography>
                                 )}
@@ -672,7 +711,7 @@ export default function ProfilePage() {
                                     bgcolor: isUrgent ? '#EF5350' : '#7C4DFF',
                                     color: 'white',
                                     fontWeight: 700,
-                                    fontSize: '0.75rem',
+                                    fontSize: es(0.75),
                                     height: 22,
                                   }}
                                 />
@@ -718,7 +757,7 @@ export default function ProfilePage() {
                             <Chip
                               label='종료'
                               size='small'
-                              sx={{ bgcolor: '#F5F5F5', color: '#9E9E9E', fontSize: '0.72rem', height: 22 }}
+                              sx={{ bgcolor: '#F5F5F5', color: '#9E9E9E', fontSize: es(0.72), height: 22 }}
                             />
                           </Box>
                         </CardContent>
@@ -741,11 +780,14 @@ export default function ProfilePage() {
             </Box>
           ) : (
             <>
+              {/* 카드 간 gap(1.5→1)과 내부 padding(1.5→1.25)을 살짝 줄여, 내용이 짧은
+                  게시글에서도 게시글 사이 여백이 과하게 느껴지지 않게 했다. 썸네일 80×80은
+                  그대로 유지. */}
               {previewPosts.map((post) => (
-                <Card key={post.id} sx={{ mb: 1.5 }}>
+                <Card key={post.id} sx={{ mb: 1 }}>
                   <Box
                     onClick={() => navigate(`/post/${post.id}`)}
-                    sx={{ display: 'flex', gap: 1.5, p: 1.5, cursor: 'pointer' }}
+                    sx={{ display: 'flex', gap: 1.25, p: 1.25, cursor: 'pointer' }}
                   >
                     {/* 썸네일 */}
                     <Box sx={{
@@ -760,46 +802,40 @@ export default function ProfilePage() {
                       )}
                     </Box>
 
-                    {/* 내용 */}
+                    {/* 내용 — 카테고리/날짜/좋아요를 한 줄 메타 정보로 합쳐서(예: "운동 ·
+                        2026. 8. 15. · ♡ 0") 기존 4줄(카테고리 줄 / 제목 / 본문 / 날짜·좋아요
+                        줄) 구조를 3줄로 줄였다. 메타/제목/본문 모두 variant + 리터럴 fontSize를
+                        같이 갖고 있어 리터럴이 variant의 scale을 가리고 있었다 — 리터럴을
+                        제거하거나 variant를 지정해 theme typography(스케일 연동)를 따르게
+                        정리했다. */}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.3 }}>
-                        <Chip
-                          label={TYPE_LABEL[post.post_type] || '게시글'}
-                          size='small'
-                          sx={{ height: 18, fontSize: '0.65rem', mr: 0.5 }}
-                        />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.3 }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ minWidth: 0 }}>
+                          {TYPE_LABEL[post.post_type] || '게시글'} · {new Date(post.created_at).toLocaleDateString('ko-KR')} · ♡ {post.likes_count || 0}
+                        </Typography>
                         <Box sx={{ flex: 1 }} />
                         <IconButton
                           size='small'
                           onClick={(e) => openPostMenu(e, post)}
-                          sx={{ p: 0.3 }}
+                          sx={{ p: 0.3, flexShrink: 0 }}
                         >
                           <MoreVertIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Box>
-                      <Typography sx={{
-                        fontWeight: 600, fontSize: '0.9rem', mb: 0.2,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      <Typography variant='body1' sx={{
+                        fontWeight: 600, mb: 0.2, lineHeight: 1.3, wordBreak: 'keep-all',
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}>
                         {post.title || '(제목 없음)'}
                       </Typography>
                       <Typography variant='body2' color='text.secondary' sx={{
-                        fontSize: '0.78rem', lineHeight: 1.4,
+                        lineHeight: 1.4,
                         display: '-webkit-box', WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}>
                         {post.caption}
                       </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
-                        <Typography variant='caption' color='text.secondary' sx={{ fontSize: '0.7rem' }}>
-                          {new Date(post.created_at).toLocaleDateString('ko-KR')}
-                        </Typography>
-                        <Box sx={{ flex: 1 }} />
-                        <FavoriteIcon sx={{ fontSize: 12, color: '#bbb' }} />
-                        <Typography variant='caption' sx={{ fontSize: '0.7rem', color: '#999' }}>
-                          {post.likes_count || 0}
-                        </Typography>
-                      </Box>
                     </Box>
                   </Box>
                 </Card>
@@ -826,6 +862,61 @@ export default function ProfilePage() {
           )
         )}
 
+        {/* 설정 — 기본은 접힘, "⚙ 설정" 행을 탭하면 Collapse로 펼쳐진다(모바일 기준 PC식
+            드롭다운 대신 페이지 내 아래로 펼쳐지는 방식 사용). 글자 크기 값 자체와
+            localStorage 저장 방식은 변경하지 않았다 — 펼침/접힘 UI만 추가했다. 알림 설정은
+            실제 알림 기능이 없어 이번에도 추가하지 않는다(항목만 노출하는 것도 금지 사항). */}
+        <Card sx={{ mb: 2 }}>
+          <Box
+            onClick={() => setSettingsOpen((prev) => !prev)}
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              px: 2, py: 1.5, cursor: 'pointer',
+            }}
+          >
+            <Typography variant='body2' sx={{ fontWeight: 700, color: '#333' }}>
+              ⚙️ 설정
+            </Typography>
+            <ExpandMoreIcon
+              sx={{
+                color: '#9E9E9E',
+                transition: 'transform 0.2s ease',
+                transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            />
+          </Box>
+          <Collapse in={settingsOpen} unmountOnExit>
+            <CardContent sx={{ pt: 0 }}>
+              <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.8 }}>
+                글자 크기
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+                {FONT_SCALE_LEVELS.map((level) => {
+                  const selected = fontScale === level;
+                  return (
+                    <Box
+                      key={level}
+                      onClick={() => setFontScale(level)}
+                      sx={{
+                        px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
+                        border: `2px solid ${selected ? '#6BCB77' : '#E0E0E0'}`,
+                        bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
+                        color: selected ? '#2E7D32' : '#757575',
+                        fontWeight: selected ? 700 : 400,
+                        fontSize: es(0.85),
+                        userSelect: 'none',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {FONT_SCALE_LABELS[level]}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </CardContent>
+          </Collapse>
+        </Card>
+
         <Divider sx={{ my: 3 }} />
         <Button variant='outlined' fullWidth color='error' startIcon={<LogoutIcon />} onClick={handleSignOut} sx={{ mb: 1.5 }}>
           로그아웃
@@ -833,7 +924,7 @@ export default function ProfilePage() {
         <Button
           variant='text' fullWidth startIcon={<DeleteForeverIcon />}
           onClick={() => { setDeleteError(''); setDeleteOpen(true); }}
-          sx={{ color: '#BDBDBD', fontSize: '0.8rem' }}
+          sx={{ color: '#BDBDBD', fontSize: es(0.8) }}
         >
           회원 탈퇴
         </Button>
@@ -921,7 +1012,7 @@ export default function ProfilePage() {
                       bgcolor: selected ? '#E9D8FD' : '#FAFAFA',
                       color: selected ? '#6B46C1' : '#757575',
                       fontWeight: selected ? 700 : 400,
-                      fontSize: '0.85rem',
+                      fontSize: es(0.85),
                       userSelect: 'none',
                       transition: 'all 0.15s',
                     }}
@@ -951,7 +1042,7 @@ export default function ProfilePage() {
                       bgcolor: selected ? '#E3F2FD' : '#FAFAFA',
                       color: selected ? '#1565C0' : '#757575',
                       fontWeight: selected ? 700 : 400,
-                      fontSize: '0.85rem',
+                      fontSize: es(0.85),
                       userSelect: 'none',
                       transition: 'all 0.15s',
                     }}

@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
+import { useFontScale } from '../../hooks/use-font-scale';
 
 /**
  * StatsCard - 통계 수치 표시 카드
@@ -20,6 +21,9 @@ import Typography from '@mui/material/Typography';
  */
 export default function StatsCard({ icon, value, unit, bgcolor, color, onClick, compact = false }) {
   const isClickable = typeof onClick === 'function';
+  // compact 모드의 고정 rem 리터럴이 h4/caption variant를 덮어써 글자 크기 설정을 우회하고
+  // 있었다 — es()로 바꿔 4단계 스케일에 맞춰 함께 커지고 작아지게 한다.
+  const { scaleRem: es } = useFontScale();
 
   return (
     <Card
@@ -39,14 +43,14 @@ export default function StatsCard({ icon, value, unit, bgcolor, color, onClick, 
         <Box sx={{ color }}>{icon}</Box>
         <Typography
           variant='h4'
-          sx={{ fontWeight: 700, color, fontSize: compact ? '1.1rem' : undefined }}
+          sx={{ fontWeight: 700, color, fontSize: compact ? es(1.1) : undefined }}
         >
           {value}
         </Typography>
         <Typography
           variant='caption'
           color='text.secondary'
-          sx={compact ? { fontSize: '0.65rem' } : undefined}
+          sx={compact ? { fontSize: es(0.65) } : undefined}
         >
           {unit}
         </Typography>

@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../utils/supabase';
 
 const AuthContext = createContext(null);
+
+// 네이티브 앱(Capacitor)에서는 "모두 닫기"로 프로세스가 종료되면 sessionStorage도 함께
+// 사라지므로, 웹 전용으로 설계된 "자동 로그인 미체크 시 재로그인 요구" 정책을 그대로
+// 적용하면 매번 강제 로그아웃된다. 네이티브에서는 이 정책 자체를 건너뛰고 Supabase가 이미
+// localStorage에 영구 저장해둔 세션을 항상 그대로 복구한다 — 로그아웃은 오직 사용자가 직접
+// "로그아웃" 버튼을 눌렀을 때만 발생해야 한다는 것이 앱의 정책이기 때문이다.
+const isNativeApp = Capacitor.isNativePlatform();
 
 /**
  * AuthProvider 컴포넌트
@@ -25,10 +33,11 @@ export function AuthProvider({ children }) {
     let subscription = null;
     try {
       const result = supabase.auth.onAuthStateChange((_event, session) => {
-        if (_event === 'INITIAL_SESSION' && session?.user) {
+        if (_event === 'INITIAL_SESSION' && session?.user && !isNativeApp) {
           const autoLogin = localStorage.getItem('fitbuddy_autoLogin') === '1';
           const sessionActive = sessionStorage.getItem('fitbuddy_session') === '1';
           // 자동로그인 미설정 + 현재 브라우저 세션에서 로그인한 적 없음 → 이전 세션 잔존 → 로그아웃
+          // (웹/PWA 전용 정책 — 네이티브 앱은 위 isNativeApp 분기로 이 블록 자체를 건너뛴다)
           if (!autoLogin && !sessionActive) {
             clearTimeout(timeout);
             safeSetLoadingFalse();

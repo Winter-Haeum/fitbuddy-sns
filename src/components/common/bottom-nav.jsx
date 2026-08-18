@@ -88,16 +88,23 @@ export default function BottomNav() {
       <BottomNavigation
         value={currentValue === -1 ? false : currentValue}
         onChange={(_, newValue) => navigate(NAV_ITEMS[newValue].path)}
+        showLabels
         sx={{ bgcolor: 'background.paper' }}
       >
+        {/* showLabels로 5개 탭 모두 항상 라벨을 표시한다 — MUI 기본값(showLabels=false)은
+            선택된 탭만 라벨을 보여주면서 icon/label 위치와 전체 높이가 달라지는데, 그것이
+            바로 "active/inactive 탭 높이가 들쑥날쑥해 보이는" 원인이었다. active 상태 차이는
+            color/font-weight로만 표현한다. */}
         {NAV_ITEMS.map((item) => (
           <BottomNavigationAction
             key={item.path}
             label={item.label}
             icon={item.icon}
             sx={{
-              '&.Mui-selected': { color: 'primary.main' },
               minWidth: 0,
+              color: 'text.secondary',
+              '&.Mui-selected': { color: 'primary.main' },
+              '& .MuiBottomNavigationAction-label.Mui-selected': { fontWeight: 700 },
             }}
           />
         ))}

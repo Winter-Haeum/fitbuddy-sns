@@ -38,6 +38,7 @@ import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
+import { WORKOUT_TYPES } from '../constants/workout';
 
 // getLocalToday()와 동일한 로컬 날짜 포맷 방식을, 오늘이 아닌 임의의(과거) Date에도
 // 적용하기 위한 파일 내부 전용 헬퍼. toISOString()은 UTC로 변환되어 한국 시간 자정~오전 9시
@@ -49,7 +50,9 @@ function formatLocalDate(date) {
 const POSTS_PREVIEW = 5;
 
 const WORKOUT_GOALS = ['다이어트', '근력 증가', '건강 관리', '습관 만들기'];
-const INTERESTS = ['홈트', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산'];
+// 관심 운동 선택지 — 운동 종류(WORKOUT_TYPES)와 같은 10종 도메인이라 별도 배열을 두지 않고
+// 공통 상수를 그대로 참조한다(기존엔 8종으로 스트레칭/줄넘기가 빠져 있었다).
+const INTERESTS = WORKOUT_TYPES;
 
 const TYPE_LABEL = { workout: '운동', diet: '식단', free: '자유' };
 const TYPE_EMOJI = { workout: '🏋️', diet: '🥗', free: '💬' };
@@ -563,7 +566,12 @@ export default function ProfilePage() {
                   "캐릭터 / 텍스트+보조액션" 두 블록 관계가 되어 자연스럽다. */}
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                 <Box sx={{ flex: '0 0 auto' }}>
-                  <FitBuddyCharacter size={Math.round(110 * scale.content)} gender={profile?.gender || 'female'} />
+                  <FitBuddyCharacter
+                    size={Math.round(110 * scale.content)}
+                    gender={profile?.gender || 'female'}
+                    characterStyle={profile?.character_style || 'semi'}
+                    characterVariant={profile?.character_variant || 1}
+                  />
                 </Box>
                 {/* 컬럼 gap을 0.6→1.1로 늘려 이름과 Lv/XP 칩 줄 사이에 숨 쉴 공간을 확보했다
                     (기존엔 바로 붙어 보인다는 피드백). */}

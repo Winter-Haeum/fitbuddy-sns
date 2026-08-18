@@ -177,6 +177,8 @@ export default function TimerPage() {
             <FitBuddyCharacter
               size={90}
               gender={gender}
+              characterStyle={profile?.character_style || 'semi'}
+              characterVariant={profile?.character_variant || 1}
               mood={charMood}
               workoutType={charWorkoutType}
               clickable

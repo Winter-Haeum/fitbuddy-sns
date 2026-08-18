@@ -423,7 +423,13 @@ export default function HomePage() {
                 zIndex: 2,
                 filter: progress >= 100 ? 'drop-shadow(0 0 8px rgba(255,179,0,0.8))' : 'none',
               }}>
-                <FitBuddyCharacter size={44} gender={profile?.gender || 'female'} mood={characterMood} />
+                <FitBuddyCharacter
+                  size={44}
+                  gender={profile?.gender || 'female'}
+                  characterStyle={profile?.character_style || 'semi'}
+                  characterVariant={profile?.character_variant || 1}
+                  mood={characterMood}
+                />
               </Box>
 
               {/* 진행 바 트랙 */}

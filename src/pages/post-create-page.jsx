@@ -25,8 +25,8 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import { getLocalToday } from '../utils/date-utils';
+import { WORKOUT_TYPES } from '../constants/workout';
 
-const WORKOUT_TYPES = ['홈트', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산', '기타'];
 const INTENSITIES = [
   { value: 'low', label: '낮음', cal: 4 },
   { value: 'medium', label: '보통', cal: 7 },

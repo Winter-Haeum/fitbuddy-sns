@@ -33,6 +33,7 @@ import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import { useFontScale } from '../hooks/use-font-scale';
+import { WORKOUT_TYPES } from '../constants/workout';
 
 // getLocalToday()와 동일한 로컬 날짜 포맷 방식을, 오늘이 아닌 임의의(과거) Date에도
 // 적용하기 위한 파일 내부 전용 헬퍼. toISOString()은 UTC로 변환되어 한국 시간 자정~오전 9시
@@ -48,7 +49,6 @@ const MOODS = [
   { key: 'great', emoji: '💪', label: '활기참', text: '에너지가 넘치는 날이에요.' },
 ];
 
-const WORKOUT_TYPES = ['홈트', '스트레칭', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산', '기타'];
 const INTENSITIES = [
   { value: 'low', label: '낮음' },
   { value: 'medium', label: '보통' },
@@ -522,6 +522,8 @@ export default function RecordsPage() {
                               <FitBuddyCharacter
                                 size={44}
                                 gender={profile?.gender || 'female'}
+                                characterStyle={profile?.character_style || 'semi'}
+                                characterVariant={profile?.character_variant || 1}
                                 workoutType={w.workout_type}
                               />
                               <IconButton size='small' onClick={(e) => openMenu(e, 'workout', w)} sx={{ p: 0.3 }}>

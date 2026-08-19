@@ -12,6 +12,7 @@ import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
+import CharacterStylePicker from '../components/ui/character-style-picker';
 import { useAuth } from '../hooks/use-auth';
 import { WORKOUT_TYPES } from '../constants/workout';
 
@@ -90,6 +91,8 @@ export default function RegisterPage() {
     email: '', password: '', confirmPw: '',
     displayName: '', gender: '', height: '', weight: '', goalWeight: '',
     workoutGoals: [], interests: [],
+    // 아무것도 고르지 않아도 DB DEFAULT와 같은 semi/1로 가입되도록 기본값을 미리 채워둔다.
+    characterStyle: 'semi', characterVariant: 1,
   });
 
   function update(key, value) {
@@ -135,6 +138,8 @@ export default function RegisterPage() {
         workoutGoals: form.workoutGoals,
         interests: form.interests,
         gender: form.gender,
+        characterStyle: form.characterStyle,
+        characterVariant: form.characterVariant,
       });
       // 회원가입 완료 → 로그인 페이지로 이동 (수동 로그인)
       navigate('/login');
@@ -261,6 +266,17 @@ export default function RegisterPage() {
                   ))}
                 </Box>
               </Box>
+
+              {/* 캐릭터 스타일/번호 선택 — 성별 선택 바로 아래에 자연스럽게 이어 붙인다.
+                  아무것도 고르지 않으면 기본값(semi/1번)으로 가입된다. */}
+              <CharacterStylePicker
+                gender={form.gender || 'female'}
+                characterStyle={form.characterStyle}
+                characterVariant={form.characterVariant}
+                onStyleChange={(v) => update('characterStyle', v)}
+                onVariantChange={(v) => update('characterVariant', v)}
+                previewSize={60}
+              />
 
               <TextField label='이메일' type='email' value={form.email} onChange={(e) => update('email', e.target.value)} fullWidth sx={inputSx} />
               <TextField

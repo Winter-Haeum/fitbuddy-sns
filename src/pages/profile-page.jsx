@@ -586,7 +586,7 @@ export default function ProfilePage() {
                     variant='text' size='small'
                     sx={{ alignSelf: 'flex-end', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 0.2, color: '#6B7280' }}
                   >
-                    캐릭터 보기 ›
+                    캐릭터 변경 ›
                   </Button>
                 </Box>
               </CardContent>
@@ -1075,7 +1075,14 @@ export default function ProfilePage() {
                     transition: 'all 0.15s',
                   }}
                 >
-                  <FitBuddyCharacter size={36} gender={opt.value} />
+                  {/* gender만 바뀔 뿐 캐릭터 페이지에서 고른 style/variant는 그대로 유지되므로,
+                      이 미리보기도 semi/1로 고정하지 않고 현재 저장된 값으로 보여준다. */}
+                  <FitBuddyCharacter
+                    size={36}
+                    gender={opt.value}
+                    characterStyle={profile?.character_style || 'semi'}
+                    characterVariant={profile?.character_variant || 1}
+                  />
                   <Typography variant='caption' sx={{ display: 'block', fontWeight: editForm.gender === opt.value ? 700 : 400, color: editForm.gender === opt.value ? '#2E7D32' : '#757575' }}>
                     {opt.label}
                   </Typography>

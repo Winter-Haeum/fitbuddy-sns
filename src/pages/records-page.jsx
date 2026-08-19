@@ -470,12 +470,19 @@ export default function RecordsPage() {
               </Typography>
               {/* 필터 컨트롤은 "6개 기록" 캡션(body2)보다 튀면 안 되는 보조 컨트롤이다 —
                   리터럴 0.85rem은 스케일을 타지 않아 "작게"에서 body2보다 오히려 커 보이던
-                  지점이었다. es()로 바꾸고 body2보다 한 단계 작게 잡는다. */}
-              <FormControl size='small' sx={{ minWidth: 120 }}>
+                  지점이었다. es()로 바꾸고 body2보다 한 단계 작게 잡는다. MUI Select의 기본
+                  padding(size='small'이어도 상하 8.5px/좌우 14px+화살표 32px)과 minWidth는
+                  "6개 기록" 옆 보조 필터치고 여전히 커서, select/icon 내부 padding과 minWidth를
+                  직접 줄인다(터치 영역은 최소 32px 높이를 유지해 접근성은 지킨다). */}
+              <FormControl size='small' sx={{ minWidth: 0 }}>
                 <Select
                   value={rangeFilter}
                   onChange={(e) => { setRangeFilter(e.target.value); setDisplayCount(10); }}
-                  sx={{ fontSize: es(0.8) }}
+                  sx={{
+                    fontSize: es(0.8),
+                    '& .MuiSelect-select': { py: 0.4, pl: 1, pr: '28px !important', minHeight: '1.3em' },
+                    '& .MuiSelect-icon': { right: 2, fontSize: '1.2rem' },
+                  }}
                 >
                   <MenuItem value='week'>최근 7일</MenuItem>
                   <MenuItem value='month'>최근 한 달</MenuItem>

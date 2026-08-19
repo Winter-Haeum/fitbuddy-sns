@@ -166,6 +166,8 @@ export function AuthProvider({ children }) {
       workout_goal: extraData.workoutGoals?.join(',') || 'health',
       interests: extraData.interests || [],
       gender: extraData.gender || '',
+      character_style: extraData.characterStyle || 'semi',
+      character_variant: extraData.characterVariant || 1,
       avatar_url: null,
       is_deleted: false,
       deleted_at: null,

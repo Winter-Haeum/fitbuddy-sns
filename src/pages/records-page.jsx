@@ -468,19 +468,22 @@ export default function RecordsPage() {
               <Typography variant='body2' color='text.secondary'>
                 {weekWorkouts.length}개 기록
               </Typography>
-              {/* 필터 컨트롤은 "6개 기록" 캡션(body2)보다 튀면 안 되는 보조 컨트롤이다 —
-                  리터럴 0.85rem은 스케일을 타지 않아 "작게"에서 body2보다 오히려 커 보이던
-                  지점이었다. es()로 바꾸고 body2보다 한 단계 작게 잡는다. MUI Select의 기본
-                  padding(size='small'이어도 상하 8.5px/좌우 14px+화살표 32px)과 minWidth는
-                  "6개 기록" 옆 보조 필터치고 여전히 커서, select/icon 내부 padding과 minWidth를
-                  직접 줄인다(터치 영역은 최소 32px 높이를 유지해 접근성은 지킨다). */}
+              {/* 필터 컨트롤은 "6개 기록" 캡션(body2)보다 튀면 안 되는 보조 컨트롤이다.
+                  theme.js의 MuiOutlinedInput.styleOverrides.input이 .MuiOutlinedInput-input
+                  (=Select 값 표시 요소가 겹쳐 쓰는 클래스)에 body1 fontSize를 직접 박아둬서,
+                  Select 루트에 준 fontSize는 상속으로 내려가지 못하고 항상 그 규칙에 덮어씌워져
+                  실제로는 한 번도 작아진 적이 없었다(코드는 es(0.8)이라 써 있어도 화면엔 body1
+                  그대로 렌더). 같은 특이도 싸움에서 이기도록 .MuiSelect-select에 직접
+                  fontSize를 지정하고, body2보다 눈에 띄게 작은 보조 텍스트 수준(이 페이지의
+                  "✎ 수정"류 보조 액션에 이미 쓰던 es(0.72)와 동일 톤)까지 낮춘다. MUI Select의
+                  기본 padding/minWidth도 "6개 기록" 옆 보조 필터치고 커서 함께 줄인다(터치
+                  영역은 최소 32px 높이로 유지). */}
               <FormControl size='small' sx={{ minWidth: 0 }}>
                 <Select
                   value={rangeFilter}
                   onChange={(e) => { setRangeFilter(e.target.value); setDisplayCount(10); }}
                   sx={{
-                    fontSize: es(0.8),
-                    '& .MuiSelect-select': { py: 0.4, pl: 1, pr: '28px !important', minHeight: '1.3em' },
+                    '& .MuiSelect-select': { py: 0.4, pl: 1, pr: '28px !important', minHeight: '1.3em', fontSize: `${es(0.72)} !important` },
                     '& .MuiSelect-icon': { right: 2, fontSize: '1.2rem' },
                   }}
                 >

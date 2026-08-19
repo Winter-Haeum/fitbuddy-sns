@@ -14,7 +14,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
 import Divider from '@mui/material/Divider';
-import Collapse from '@mui/material/Collapse';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import IconButton from '@mui/material/IconButton';
@@ -29,13 +28,14 @@ import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TodayIcon from '@mui/icons-material/Today';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
 import { useFontScale } from '../hooks/use-font-scale';
 import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
+import { getBasePreviewScale } from '../utils/character-preview';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
 import { WORKOUT_TYPES } from '../constants/workout';
@@ -80,8 +80,9 @@ export default function ProfilePage() {
 
   const [tab, setTab] = useState('posts');
 
-  // 설정 영역(글자 크기) — 기본은 접힘 상태
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // 상단 우측 설정 드롭다운(프로필 수정 진입점 + 글자 크기) — 별도 페이지 대신 헤더에서
+  // 여는 Menu 하나로 처리한다.
+  const [settingsAnchor, setSettingsAnchor] = useState(null);
 
   // 프로필 수정
   const [editOpen, setEditOpen] = useState(false);
@@ -440,12 +441,31 @@ export default function ProfilePage() {
   const activeJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) > 0);
   const endedJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) === 0);
 
+  const profileGender = profile?.gender || 'female';
+  const profileCharacterStyle = profile?.character_style || 'semi';
+  const profileCharacterVariant = profile?.character_variant || 1;
+  // base 단계(워크아웃/percentage/mood 없이 렌더)로 보이는 두 미리보기(캐릭터 요약 카드,
+  // 성별 수정 미리보기)에서만 필요 — character-style-picker.jsx의 getBasePreviewScale 참고.
+  const basePreviewScale = getBasePreviewScale(profileGender, profileCharacterStyle, profileCharacterVariant);
+  const basePreviewScaleSx = basePreviewScale !== 1
+    ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' }
+    : null;
+
   return (
     <Layout>
       <Box sx={{ p: 2 }}>
         {/* 프로필 헤더 */}
         <Card sx={{ mb: 2, bgcolor: '#EAF7EE', border: '1.5px solid #B2DFC0' }}>
-          <CardContent sx={{ pb: '20px !important' }}>
+          <CardContent sx={{ pb: '20px !important', position: 'relative' }}>
+            {/* 설정 진입점 — 헤더 우측 상단 고정. 별도 /settings 페이지 대신 Menu 드롭다운으로
+                프로필 수정 + 글자 크기를 모아둔다(아래 Menu 참고). */}
+            <IconButton
+              onClick={(e) => setSettingsAnchor(e.currentTarget)}
+              size='small'
+              sx={{ position: 'absolute', top: 8, right: 8, color: '#5C7A66' }}
+            >
+              <SettingsIcon />
+            </IconButton>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
               {/* 프로필 이미지 + 카메라 아이콘 */}
               <Box sx={{ position: 'relative', flexShrink: 0 }}>
@@ -471,9 +491,8 @@ export default function ProfilePage() {
                 <input type='file' accept='image/*' ref={avatarInputRef} style={{ display: 'none' }} onChange={handleAvatarUpload} />
               </Box>
 
-              {/* 이름/관리자 chip/자기소개 — 수정 버튼은 더 이상 이 줄에 없다(아래 "신체 정보"
-                  행 오른쪽 끝으로 이동, 정보를 위→아래로 읽는 흐름을 방해하지 않도록). */}
-              <Box sx={{ flex: '1 1 160px', minWidth: 0 }}>
+              {/* 이름/관리자 chip/자기소개 — 우측 상단 설정 아이콘과 겹치지 않도록 pr을 둔다. */}
+              <Box sx={{ flex: '1 1 160px', minWidth: 0, pr: 4.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: profile?.bio ? 0.5 : 0 }}>
                   {/* 상단 닉네임은 시선은 끌되 압도적이지 않아야 한다는 피드백 — 페이지
                       제목급인 h2에서 h3로 한 단계 낮췄다("작게" 단계에서도 더 확실히
@@ -496,26 +515,12 @@ export default function ProfilePage() {
               </Box>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.6, mt: 1.8 }}>
-              {/* 신체 정보 — 수정은 이 섹션의 타이틀 줄 오른쪽 끝에 보조 액션으로 배치한다.
-                  신체 정보가 비어 있어도 수정 버튼 자체는 항상 접근 가능해야 하므로, 이
-                  타이틀 줄은 데이터 유무와 무관하게 항상 렌더링한다(칩 목록만 조건부). 버튼은
-                  variant='text' + 작은 폰트(신체 정보 캡션보다 크지 않게)로 보조 액션임을
-                  분명히 했다. */}
+              {/* 신체 정보 — 수정 진입점은 상단 설정(⚙) 드롭다운의 "프로필 수정"으로 통합했다
+                  (중복 진입점 제거). */}
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.7 }}>
-                  <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600 }}>
-                    👤 신체 정보
-                  </Typography>
-                  <Button
-                    variant='text' size='small' onClick={openEdit}
-                    sx={{
-                      flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 0.8, py: 0.2,
-                      fontSize: es(0.72), fontWeight: 600, color: '#388E3C',
-                    }}
-                  >
-                    ✎ 수정
-                  </Button>
-                </Box>
+                <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.7 }}>
+                  👤 신체 정보
+                </Typography>
                 {(profile?.height > 0 || profile?.weight > 0 || profile?.goal_weight > 0) ? (
                   <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
                     {profile?.height > 0 && <Chip label={`키: ${profile.height}cm`} size='small' sx={{ bgcolor: '#C8E6C9', color: '#2E7D32', fontWeight: 500 }} />}
@@ -560,31 +565,31 @@ export default function ProfilePage() {
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
-              {/* 캐릭터를 20% 더 키우고(92→110 기준), "캐릭터 보기" 버튼을 세 번째 형제가
-                  아니라 텍스트 정보 컬럼의 마지막 줄로 옮겼다 — 이전에는 키가 큰 캐릭터
-                  옆에서 버튼만 수직 중앙에 붕 떠 보였는데, 이제 이름→Lv/XP→보기 순서로
-                  "캐릭터 / 텍스트+보조액션" 두 블록 관계가 되어 자연스럽다. */}
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                <Box sx={{ flex: '0 0 auto' }}>
+              {/* 캐릭터+텍스트 그룹을 하나의 묶음으로 보이게 하려면 justifyContent:'center'만으로는
+                  부족하다 — 텍스트 컬럼이 flex-grow(1 1 90px)라 남는 폭을 전부 먹어치워서
+                  중앙 정렬이 무의미해졌었다. 텍스트 컬럼을 flex-grow 0(컨텐츠 크기만큼만,
+                  maxWidth로 상한)으로 바꾸고 나서야 "캐릭터+텍스트" 그룹 자체가 고정 폭을 갖게
+                  되고, 그 결과 justifyContent:'center'가 카드 안에서 좌우 여백을 실제로
+                  균등하게 만든다. 버튼도 alignSelf:'flex-end'(컬럼 오른쪽 끝으로 따로 붕 뜸)를
+                  없애 이름→Lv/XP→변경 순서로 왼쪽 정렬된 한 덩어리가 되게 했다. */}
+              <CardContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '0 0 auto', ...basePreviewScaleSx }}>
                   <FitBuddyCharacter
                     size={Math.round(110 * scale.content)}
-                    gender={profile?.gender || 'female'}
-                    characterStyle={profile?.character_style || 'semi'}
-                    characterVariant={profile?.character_variant || 1}
+                    gender={profileGender}
+                    characterStyle={profileCharacterStyle}
+                    characterVariant={profileCharacterVariant}
                   />
                 </Box>
-                {/* 컬럼 gap을 0.6→1.1로 늘려 이름과 Lv/XP 칩 줄 사이에 숨 쉴 공간을 확보했다
-                    (기존엔 바로 붙어 보인다는 피드백). */}
-                <Box sx={{ flex: '1 1 90px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.1 }}>
+                <Box sx={{ flex: '0 1 auto', maxWidth: 200, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.1 }}>
                   <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
-                  {/* Lv/XP 두 칩이 붙어 보이지 않도록 gap을 0.5→1로 늘렸다. */}
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
                     <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
                   </Box>
                   <Button
                     variant='text' size='small'
-                    sx={{ alignSelf: 'flex-end', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 0.2, color: '#6B7280' }}
+                    sx={{ alignSelf: 'flex-start', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 0.2, color: '#6B7280' }}
                   >
                     캐릭터 변경 ›
                   </Button>
@@ -870,61 +875,6 @@ export default function ProfilePage() {
           )
         )}
 
-        {/* 설정 — 기본은 접힘, "⚙ 설정" 행을 탭하면 Collapse로 펼쳐진다(모바일 기준 PC식
-            드롭다운 대신 페이지 내 아래로 펼쳐지는 방식 사용). 글자 크기 값 자체와
-            localStorage 저장 방식은 변경하지 않았다 — 펼침/접힘 UI만 추가했다. 알림 설정은
-            실제 알림 기능이 없어 이번에도 추가하지 않는다(항목만 노출하는 것도 금지 사항). */}
-        <Card sx={{ mb: 2 }}>
-          <Box
-            onClick={() => setSettingsOpen((prev) => !prev)}
-            sx={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              px: 2, py: 1.5, cursor: 'pointer',
-            }}
-          >
-            <Typography variant='body2' sx={{ fontWeight: 700, color: '#333' }}>
-              ⚙️ 설정
-            </Typography>
-            <ExpandMoreIcon
-              sx={{
-                color: '#9E9E9E',
-                transition: 'transform 0.2s ease',
-                transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-              }}
-            />
-          </Box>
-          <Collapse in={settingsOpen} unmountOnExit>
-            <CardContent sx={{ pt: 0 }}>
-              <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.8 }}>
-                글자 크기
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
-                {FONT_SCALE_LEVELS.map((level) => {
-                  const selected = fontScale === level;
-                  return (
-                    <Box
-                      key={level}
-                      onClick={() => setFontScale(level)}
-                      sx={{
-                        px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
-                        border: `2px solid ${selected ? '#6BCB77' : '#E0E0E0'}`,
-                        bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
-                        color: selected ? '#2E7D32' : '#757575',
-                        fontWeight: selected ? 700 : 400,
-                        fontSize: es(0.85),
-                        userSelect: 'none',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {FONT_SCALE_LABELS[level]}
-                    </Box>
-                  );
-                })}
-              </Box>
-            </CardContent>
-          </Collapse>
-        </Card>
-
         <Divider sx={{ my: 3 }} />
         <Button variant='outlined' fullWidth color='error' startIcon={<LogoutIcon />} onClick={handleSignOut} sx={{ mb: 1.5 }}>
           로그아웃
@@ -978,6 +928,51 @@ export default function ProfilePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 상단 설정 드롭다운 — 별도 /settings 페이지 대신 Menu 하나로 "프로필 수정"과
+          "글자 크기"를 모은다. 글자 크기 pill은 MenuItem이 아닌 일반 Box라 클릭해도 메뉴가
+          닫히지 않는다 — 값을 바꿔가며 바로 비교해볼 수 있도록. localStorage 저장 방식과
+          font scale 로직 자체는 변경하지 않았다. */}
+      <Menu
+        anchorEl={settingsAnchor}
+        open={Boolean(settingsAnchor)}
+        onClose={() => setSettingsAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem onClick={() => { setSettingsAnchor(null); openEdit(); }}>
+          ✎ 프로필 수정
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <Box sx={{ px: 2, py: 1, minWidth: 220 }}>
+          <Typography variant='caption' sx={{ color: '#757575', fontWeight: 600, display: 'block', mb: 0.8 }}>
+            글자 크기
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+            {FONT_SCALE_LEVELS.map((level) => {
+              const selected = fontScale === level;
+              return (
+                <Box
+                  key={level}
+                  onClick={() => setFontScale(level)}
+                  sx={{
+                    px: 1.5, py: 0.6, borderRadius: '999px', cursor: 'pointer',
+                    border: `2px solid ${selected ? '#6BCB77' : '#E0E0E0'}`,
+                    bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
+                    color: selected ? '#2E7D32' : '#757575',
+                    fontWeight: selected ? 700 : 400,
+                    fontSize: es(0.85),
+                    userSelect: 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {FONT_SCALE_LABELS[level]}
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      </Menu>
 
       {/* 프로필 수정 다이얼로그 */}
       <Dialog open={editOpen} onClose={() => !loading && setEditOpen(false)} fullWidth maxWidth='sm'>
@@ -1064,30 +1059,36 @@ export default function ProfilePage() {
           <Box>
             <Typography variant='body2' sx={{ fontWeight: 600, mb: 1 }}>성별</Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              {[{ value: 'female', label: '여성' }, { value: 'male', label: '남성' }].map((opt) => (
-                <Box
-                  key={opt.value}
-                  onClick={() => setEditForm({ ...editForm, gender: opt.value })}
-                  sx={{
-                    flex: 1, textAlign: 'center', py: 1.2, borderRadius: 2, cursor: 'pointer',
-                    border: `2px solid ${editForm.gender === opt.value ? '#6BCB77' : '#E0E0E0'}`,
-                    bgcolor: editForm.gender === opt.value ? '#E8F5E9' : '#FAFAFA',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {/* gender만 바뀔 뿐 캐릭터 페이지에서 고른 style/variant는 그대로 유지되므로,
-                      이 미리보기도 semi/1로 고정하지 않고 현재 저장된 값으로 보여준다. */}
-                  <FitBuddyCharacter
-                    size={36}
-                    gender={opt.value}
-                    characterStyle={profile?.character_style || 'semi'}
-                    characterVariant={profile?.character_variant || 1}
-                  />
-                  <Typography variant='caption' sx={{ display: 'block', fontWeight: editForm.gender === opt.value ? 700 : 400, color: editForm.gender === opt.value ? '#2E7D32' : '#757575' }}>
-                    {opt.label}
-                  </Typography>
-                </Box>
-              ))}
+              {[{ value: 'female', label: '여성' }, { value: 'male', label: '남성' }].map((opt) => {
+                // gender만 바뀔 뿐 캐릭터 페이지에서 고른 style/variant는 그대로 유지되므로,
+                // 이 미리보기도 semi/1로 고정하지 않고 현재 저장된 값으로 보여준다. opt.value가
+                // 'female'/'male'로 바뀌므로 base 보정도 옵션별로 다시 계산한다.
+                const optScale = getBasePreviewScale(opt.value, profileCharacterStyle, profileCharacterVariant);
+                return (
+                  <Box
+                    key={opt.value}
+                    onClick={() => setEditForm({ ...editForm, gender: opt.value })}
+                    sx={{
+                      flex: 1, textAlign: 'center', py: 1.2, borderRadius: 2, cursor: 'pointer',
+                      border: `2px solid ${editForm.gender === opt.value ? '#6BCB77' : '#E0E0E0'}`,
+                      bgcolor: editForm.gender === opt.value ? '#E8F5E9' : '#FAFAFA',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <Box sx={optScale !== 1 ? { display: 'inline-block', transform: `scale(${optScale})`, transformOrigin: 'bottom center' } : { display: 'inline-block' }}>
+                      <FitBuddyCharacter
+                        size={36}
+                        gender={opt.value}
+                        characterStyle={profileCharacterStyle}
+                        characterVariant={profileCharacterVariant}
+                      />
+                    </Box>
+                    <Typography variant='caption' sx={{ display: 'block', fontWeight: editForm.gender === opt.value ? 700 : 400, color: editForm.gender === opt.value ? '#2E7D32' : '#757575' }}>
+                      {opt.label}
+                    </Typography>
+                  </Box>
+                );
+              })}
             </Box>
           </Box>
         </DialogContent>

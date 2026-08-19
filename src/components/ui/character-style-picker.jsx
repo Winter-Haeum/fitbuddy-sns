@@ -3,6 +3,7 @@ import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import FitBuddyCharacter from './fitbuddy-character';
+import { getBasePreviewScale } from '../../utils/character-preview';
 
 const STYLE_OPTIONS = [
   { value: 'semi', label: '세미' },
@@ -65,6 +66,7 @@ function CharacterStylePicker({
       <Box sx={{ display: 'flex', gap: 1.2, justifyContent: 'center' }}>
         {VARIANT_OPTIONS.map((v) => {
           const selected = characterVariant === v;
+          const previewScale = getBasePreviewScale(gender, characterStyle, v);
           return (
             <Box
               key={v}
@@ -85,12 +87,14 @@ function CharacterStylePicker({
                 transition: 'border-color 0.15s ease, background-color 0.15s ease',
               }}
             >
-              <FitBuddyCharacter
-                size={previewSize}
-                gender={gender}
-                characterStyle={characterStyle}
-                characterVariant={v}
-              />
+              <Box sx={previewScale !== 1 ? { transform: `scale(${previewScale})`, transformOrigin: 'bottom center' } : undefined}>
+                <FitBuddyCharacter
+                  size={previewSize}
+                  gender={gender}
+                  characterStyle={characterStyle}
+                  characterVariant={v}
+                />
+              </Box>
               <Typography
                 variant='caption'
                 sx={{ fontWeight: selected ? 700 : 400, color: selected ? '#2E7D32' : '#757575' }}

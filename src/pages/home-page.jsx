@@ -79,11 +79,22 @@ const ROUTINES = [
 const MIN_STEP_GOAL = 1000;
 const MAX_STEP_GOAL = 100000;
 
-// "오늘의 운동 목표" 게이지 위의 캐릭터 크기. 신규 semi/chibi 캐릭터를 실기기에서 확인해보니
-// 기존 44px는 진행 상태를 보여주는 주인공이 아니라 작은 장식 아이콘처럼 보인다는 피드백에
-// 따라 2배로 키웠다. 이 카드에만 적용되는 값이라 Profile/Records/Timer/Character 등 다른
+// "오늘의 운동 목표" 게이지 위의 캐릭터 크기. 신규 semi/chibi progress 이미지(1024×1536,
+// object-fit:contain으로 표시)는 몸통 좌우로 투명 여백이 커서 size만 키워도 실제 인물이
+// 커 보이는 정도가 제한적이었다 — 그래서 size 확대와 함께 여백을 crop해 시각적 크기를
+// 더 끌어올린다. 이 카드에만 적용되는 값이라 Profile/Records/Timer/Character 등 다른
 // 화면의 캐릭터 크기에는 영향을 주지 않는다.
-const HOME_CHAR_SIZE = 88;
+const HOME_CHAR_SIZE = 110;
+
+// 위 semi/chibi progress 이미지를 style×gender×variant×(000/025/075/100) 48개 조합 전수
+// 실측한 결과, 어떤 포즈(만세 주먹, 물병, 팔 벌린 자세, 옆으로 퍼지는 머리카락/구름 이펙트
+// 등)에서도 캐릭터 콘텐츠가 캔버스 좌우 8~9%~91~92% 밖으로는 나가지 않았다(=폭의 82~84%
+// 사용). breathe/jump 애니메이션이 최대 scale(1.07)까지 커지는 것까지 감안해 82% 근방까지만
+// crop하고 — 9%(각 옆)를 안전 여유로 남겨 어떤 조합·애니메이션 상태에서도 손/발/머리카락/
+// 물병이 잘리지 않도록 했다. 세로는 반대로 콘텐츠가 이미 캔버스의 거의 전체(1~3%~99%)를
+// 쓰고 있어 crop 여유가 없으므로 세로는 자르지 않는다(아래 clipPath의 top/bottom은 -9999px로
+// 사실상 무제한).
+const HOME_CHAR_CROP_PX = Math.round(HOME_CHAR_SIZE * 0.09);
 
 function getTodayRoutine() {
   const now = new Date();
@@ -418,13 +429,15 @@ export default function HomePage() {
               {profile?.display_name ? `${profile.display_name}의 캐릭터` : (character?.character_name || '내 캐릭터')} · {activityState.label} {activityState.emoji}
             </Typography>
 
-            {/* 게이지 트랙 — 캐릭터를 44px→88px(2배)로 키우면서, 커진 캐릭터가 위쪽 제목/Lv/%
-                줄과 겹치지 않도록 트랙 높이도 84→140으로 함께 늘렸다(캐릭터는 bottom:16으로
-                여전히 진행률 바 바로 위에 서 있고, 늘어난 높이만큼 위쪽 여유가 생긴다). 좌우
-                위치는 고정 93% 상한 대신 clamp()로 컨테이너 폭 기준 최대값을 계산해, 캐릭터가
-                커져도 좁은 화면에서 오른쪽으로 잘리지 않는다. */}
-            <Box sx={{ position: 'relative', height: 140, mx: 0.5 }}>
-              {/* 캐릭터 (게이지 위에서 이동) */}
+            {/* 게이지 트랙 — 캐릭터 높이(size*1.3)에 bottom 여백(16)과 breathe/jump 애니메이션이
+                위쪽 제목/Lv/% 줄과 겹치지 않도록 위쪽 여유(16)를 더한 만큼만 확보한다(고정값
+                대신 HOME_CHAR_SIZE 기준으로 계산해 size를 바꿔도 자동으로 맞는다). 좌우 위치는
+                고정 상한 대신 clamp()로 컨테이너 폭 기준 최대값을 계산해, 캐릭터가 커져도 좁은
+                화면에서 오른쪽으로 잘리지 않는다. */}
+            <Box sx={{ position: 'relative', height: Math.round(HOME_CHAR_SIZE * 1.3) + 32, mx: 0.5 }}>
+              {/* 캐릭터 (게이지 위에서 이동). clipPath로 좌우 투명 여백만 crop한다(top/bottom은
+                  -9999px로 사실상 무제한이라 세로는 전혀 잘리지 않음 — breathe/jump 애니메이션이
+                  위로 튀어 오르는 오버슈트도 그대로 보인다) */}
               <Box sx={{
                 position: 'absolute',
                 bottom: 16,
@@ -432,6 +445,7 @@ export default function HomePage() {
                 transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 zIndex: 2,
                 filter: progress >= 100 ? 'drop-shadow(0 0 8px rgba(255,179,0,0.8))' : 'none',
+                clipPath: `inset(-9999px ${HOME_CHAR_CROP_PX}px -9999px ${HOME_CHAR_CROP_PX}px)`,
               }}>
                 <FitBuddyCharacter
                   size={HOME_CHAR_SIZE}

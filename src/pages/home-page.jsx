@@ -106,7 +106,15 @@ const HOME_CHAR_CROP_PX = Math.round(HOME_CHAR_SIZE * 0.09);
 // 기존 left 계산은 이 안쪽 여백을 무시하고 박스 전체(HOME_CHAR_SIZE)를 기준으로 잡아서, 0%에서도
 // 실제 캐릭터가 게이지 시작점보다 30%(size=110 기준 약 33px)만큼 오른쪽에서 시작해 "이미
 // 진행된 것처럼" 보였다. 아래 두 값은 그 콘텐츠 위치를 박스 왼쪽 기준 px로 환산한 것이다.
-const HOME_CHAR_IDLE_CONTENT_LEFT_PX = HOME_CHAR_SIZE * 0.30;
+//
+// 30%는 48개 조합 전체 평균이라, 실기기(사용자의 실제 gender/style/variant 조합)에서 재확인한
+// 결과 콘텐츠가 평균보다 더 안쪽에서 시작해 왼쪽 끝이 여전히 12~15px 남았다 — 조합별 정확한
+// 값은 알 수 없으므로(전수 실측은 평균/최댓값만 확보) 이 실기기 피드백을 15px 보정으로 더한다.
+// 이 보정은 아래 homeCharLeft의 보간식에 들어가는 L 자체를 키우는 것이라 0%에 가장 크게, 진행률이
+// 오를수록 옅어지며 100%(celebrating 기준, L이 전혀 안 쓰임)에는 영향을 주지 않는다 — 0%만 따로
+// 고정하는 방식이 아니라 곡선 전체가 자연스럽게 이어진다.
+const HOME_CHAR_IDLE_LEFT_CORRECTION_PX = 15;
+const HOME_CHAR_IDLE_CONTENT_LEFT_PX = HOME_CHAR_SIZE * 0.30 + HOME_CHAR_IDLE_LEFT_CORRECTION_PX;
 const HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX = HOME_CHAR_SIZE * 0.876;
 
 // progress(0~100)에서 idle→celebrating 콘텐츠 위치를 선형 보간해, "실제 보이는 캐릭터 왼쪽/

@@ -13,9 +13,12 @@ import StepLabel from '@mui/material/StepLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import { useAuth } from '../hooks/use-auth';
+import { WORKOUT_TYPES } from '../constants/workout';
 
 const WORKOUT_GOALS = ['다이어트', '근력 증가', '건강 관리', '습관 만들기'];
-const INTERESTS = ['홈트', '러닝', '헬스', '요가', '필라테스', '수영', '자전거', '등산'];
+// 관심 운동 선택지 — 운동 종류(WORKOUT_TYPES)와 같은 10종 도메인이라 별도 배열을 두지 않고
+// 공통 상수를 그대로 참조한다(기존엔 8종으로 스트레칭/줄넘기가 빠져 있었다).
+const INTERESTS = WORKOUT_TYPES;
 const STEPS = ['기본 정보', '신체 정보', '운동 목표'];
 
 function getPasswordStrength(pw) {

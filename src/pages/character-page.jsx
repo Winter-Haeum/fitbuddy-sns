@@ -46,6 +46,10 @@ export default function CharacterPage() {
   const filledArc = (xpPct / 100) * circumference;
 
   const gender = profile?.gender || 'female';
+  // DB에 character_style/character_variant 컬럼이 아직 없어도(다음 PR에서 추가 예정)
+  // profile에 값이 없으면 그냥 undefined이므로 안전하게 semi/variant 1로 폴백된다.
+  const characterStyle = profile?.character_style || 'semi';
+  const characterVariant = profile?.character_variant || 1;
   const nickName = profile?.display_name || '내 캐릭터';
 
   return (
@@ -77,7 +81,13 @@ export default function CharacterPage() {
                 />
               </svg>
               <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <FitBuddyCharacter size={110} gender={gender} percentage={Math.round(xpPct)} />
+                <FitBuddyCharacter
+                  size={110}
+                  gender={gender}
+                  characterStyle={characterStyle}
+                  characterVariant={characterVariant}
+                  percentage={Math.round(xpPct)}
+                />
               </Box>
             </Box>
 

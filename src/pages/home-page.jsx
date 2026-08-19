@@ -79,6 +79,53 @@ const ROUTINES = [
 const MIN_STEP_GOAL = 1000;
 const MAX_STEP_GOAL = 100000;
 
+// "오늘의 운동 목표" 게이지 위의 캐릭터 크기. 신규 semi/chibi progress 이미지(1024×1536,
+// object-fit:contain으로 표시)는 몸통 좌우로 투명 여백이 커서 size만 키워도 실제 인물이
+// 커 보이는 정도가 제한적이었다 — 그래서 size 확대와 함께 여백을 crop해 시각적 크기를
+// 더 끌어올린다. 이 카드에만 적용되는 값이라 Profile/Records/Timer/Character 등 다른
+// 화면의 캐릭터 크기에는 영향을 주지 않는다.
+const HOME_CHAR_SIZE = 110;
+
+// 위 semi/chibi progress 이미지를 style×gender×variant×(000/025/075/100) 48개 조합 전수
+// 실측한 결과, 어떤 포즈(만세 주먹, 물병, 팔 벌린 자세, 옆으로 퍼지는 머리카락/구름 이펙트
+// 등)에서도 캐릭터 콘텐츠가 캔버스 좌우 8~9%~91~92% 밖으로는 나가지 않았다(=폭의 82~84%
+// 사용). breathe/jump 애니메이션이 최대 scale(1.07)까지 커지는 것까지 감안해 82% 근방까지만
+// crop하고 — 9%(각 옆)를 안전 여유로 남겨 어떤 조합·애니메이션 상태에서도 손/발/머리카락/
+// 물병이 잘리지 않도록 했다. 세로는 반대로 콘텐츠가 이미 캔버스의 거의 전체(1~3%~99%)를
+// 쓰고 있어 crop 여유가 없으므로 세로는 자르지 않는다(아래 clipPath의 top/bottom은 -9999px로
+// 사실상 무제한).
+const HOME_CHAR_CROP_PX = Math.round(HOME_CHAR_SIZE * 0.09);
+
+// 캐릭터 left 위치 계산용 — 위 HOME_CHAR_CROP_PX(모든 포즈에서 안전한 최대 crop)와는 목적이
+// 다르다. 이건 0%/100%에서 실제로 "보이는" 캐릭터 픽셀이 progress bar 양 끝에 맞도록 쓰는
+// 값이라, 0%에서 항상 뜨는 idle(000) 포즈와 100%에서 항상 뜨는 celebrating(100) 포즈의 실제
+// 콘텐츠 위치만 봐야 한다(중간 mood인 active/running은 위치 요구가 느슨해 보간으로 처리).
+// 48개 조합(semi/chibi × 성별 × 캐릭터 번호) 실측 평균:
+// - idle(000): 콘텐츠 왼쪽 끝 ≈ 박스 폭의 30%(semi 31~35%, chibi 15~32%)
+// - celebrating(100): 콘텐츠 오른쪽 끝 ≈ 박스 폭의 87.6%(semi 82~86%, chibi 89~92%)
+// 기존 left 계산은 이 안쪽 여백을 무시하고 박스 전체(HOME_CHAR_SIZE)를 기준으로 잡아서, 0%에서도
+// 실제 캐릭터가 게이지 시작점보다 30%(size=110 기준 약 33px)만큼 오른쪽에서 시작해 "이미
+// 진행된 것처럼" 보였다. 아래 두 값은 그 콘텐츠 위치를 박스 왼쪽 기준 px로 환산한 것이다.
+//
+// 30%는 48개 조합 전체 평균이라, 실기기(사용자의 실제 gender/style/variant 조합)에서 재확인한
+// 결과 콘텐츠가 평균보다 더 안쪽에서 시작해 왼쪽 끝이 여전히 12~15px 남았다 — 조합별 정확한
+// 값은 알 수 없으므로(전수 실측은 평균/최댓값만 확보) 이 실기기 피드백을 15px 보정으로 더한다.
+// 이 보정은 아래 homeCharLeft의 보간식에 들어가는 L 자체를 키우는 것이라 0%에 가장 크게, 진행률이
+// 오를수록 옅어지며 100%(celebrating 기준, L이 전혀 안 쓰임)에는 영향을 주지 않는다 — 0%만 따로
+// 고정하는 방식이 아니라 곡선 전체가 자연스럽게 이어진다.
+const HOME_CHAR_IDLE_LEFT_CORRECTION_PX = 15;
+const HOME_CHAR_IDLE_CONTENT_LEFT_PX = HOME_CHAR_SIZE * 0.30 + HOME_CHAR_IDLE_LEFT_CORRECTION_PX;
+const HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX = HOME_CHAR_SIZE * 0.876;
+
+// progress(0~100)에서 idle→celebrating 콘텐츠 위치를 선형 보간해, "실제 보이는 캐릭터 왼쪽/
+// 오른쪽 끝"이 0%/100%에서 progress bar 양 끝에 오도록 wrapper의 left를 계산한다.
+function homeCharLeft(progressPct) {
+  const p = Math.min(Math.max(progressPct, 0), 100);
+  const contentPx = HOME_CHAR_IDLE_CONTENT_LEFT_PX
+    + (p / 100) * (HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX - HOME_CHAR_IDLE_CONTENT_LEFT_PX);
+  return `calc(${p}% - ${contentPx.toFixed(1)}px)`;
+}
+
 function getTodayRoutine() {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
@@ -412,18 +459,32 @@ export default function HomePage() {
               {profile?.display_name ? `${profile.display_name}의 캐릭터` : (character?.character_name || '내 캐릭터')} · {activityState.label} {activityState.emoji}
             </Typography>
 
-            {/* 게이지 트랙 */}
-            <Box sx={{ position: 'relative', height: 84, mx: 0.5 }}>
-              {/* 캐릭터 (게이지 위에서 이동) */}
+            {/* 게이지 트랙 — 캐릭터 높이(size*1.3)에 bottom 여백(16)과 breathe/jump 애니메이션이
+                위쪽 제목/Lv/% 줄과 겹치지 않도록 위쪽 여유(16)를 더한 만큼만 확보한다(고정값
+                대신 HOME_CHAR_SIZE 기준으로 계산해 size를 바꿔도 자동으로 맞는다). */}
+            <Box sx={{ position: 'relative', height: Math.round(HOME_CHAR_SIZE * 1.3) + 32, mx: 0.5 }}>
+              {/* 캐릭터 (게이지 위에서 이동). left는 homeCharLeft()로 "실제 보이는 콘텐츠"의
+                  왼쪽/오른쪽 끝이 0%/100%에서 트랙 양 끝에 오도록 계산한다(박스 전체 크기가
+                  아니라 idle/celebrating 콘텐츠 위치 기준 — 위 상수 설명 참고). clipPath로 좌우
+                  투명 여백만 crop한다(top/bottom은 -9999px로 사실상 무제한이라 세로는 전혀
+                  잘리지 않음 — breathe/jump 애니메이션이 위로 튀어 오르는 오버슈트도 그대로
+                  보인다) */}
               <Box sx={{
                 position: 'absolute',
                 bottom: 16,
-                left: `calc(${Math.min(Math.max(progress, 0), 93)}% - 22px)`,
+                left: homeCharLeft(progress),
                 transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 zIndex: 2,
                 filter: progress >= 100 ? 'drop-shadow(0 0 8px rgba(255,179,0,0.8))' : 'none',
+                clipPath: `inset(-9999px ${HOME_CHAR_CROP_PX}px -9999px ${HOME_CHAR_CROP_PX}px)`,
               }}>
-                <FitBuddyCharacter size={44} gender={profile?.gender || 'female'} mood={characterMood} />
+                <FitBuddyCharacter
+                  size={HOME_CHAR_SIZE}
+                  gender={profile?.gender || 'female'}
+                  characterStyle={profile?.character_style || 'semi'}
+                  characterVariant={profile?.character_variant || 1}
+                  mood={characterMood}
+                />
               </Box>
 
               {/* 진행 바 트랙 */}

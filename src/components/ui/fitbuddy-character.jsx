@@ -1,13 +1,42 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
+import { EXERCISE_ASSET_SLUG } from '../../constants/workout';
 
-const allImgs = import.meta.glob('/src/assets/characters/*.webp', { eager: true, import: 'default' });
+// 신규(semi/chibi/*)와 레거시(평면 파일) asset을 하나의 glob으로 함께 인식한다. `**`는 0개
+// 이상의 하위 폴더에 매치되므로 `characters/female-100.webp` 같은 레거시 평면 경로와
+// `characters/semi/base/....webp` 같은 신규 경로를 모두 이 한 맵으로 조회할 수 있다.
+const allImgs = import.meta.glob('/src/assets/characters/**/*.webp', { eager: true, import: 'default' });
 
-function img(filename) {
+function legacyImg(filename) {
   return allImgs[`/src/assets/characters/${filename}`] || null;
 }
 
-/* mood 기반 이미지 */
+// 신규 asset은 대부분 `이름.png.webp`(webp로 재변환된 png)이지만 chibi/exercise의 남성 1번
+// 자전거 파일 하나만 `이름.webp` 단일 확장자로 존재한다(알려진 예외 — 이번 PR에서 파일명은
+// 건드리지 않는다). 확장자를 문자열로 하드코딩하면 그 한 파일만 깨지므로, 두 형식을 순서대로
+// 시도해 glob 맵에 실제로 존재하는 키를 찾는다.
+function styledImg(style, category, stem) {
+  const base = `/src/assets/characters/${style}/${category}/${stem}`;
+  return allImgs[`${base}.png.webp`] || allImgs[`${base}.webp`] || null;
+}
+
+const VALID_STYLES = ['semi', 'chibi'];
+const VALID_VARIANTS = [1, 2, 3];
+
+function normalizeStyle(characterStyle) {
+  return VALID_STYLES.includes(characterStyle) ? characterStyle : 'semi';
+}
+
+function normalizeVariant(characterVariant) {
+  const n = Number(characterVariant);
+  return VALID_VARIANTS.includes(n) ? n : 1;
+}
+
+function genderCode(gender) {
+  return gender === 'male' ? 'm' : 'f';
+}
+
+/* mood 기반 이미지 (레거시 fallback 전용 — 아래 MOOD_TO_PROGRESS로 신규 asset을 우선 사용) */
 const MOOD_MAP = {
   idle:        (g) => `${g}-20.webp`,
   active:      (g) => `${g}-active.webp`,
@@ -15,7 +44,15 @@ const MOOD_MAP = {
   celebrating: (g) => `${g}-100.webp`,
 };
 
-/* 운동 동작별 이미지 (variant 기반 — 하위 호환) */
+// mood 문자열 → 신규 progress 5단계 매핑(표시용). Home/Timer가 mood를 언제 idle/active/
+// running/celebrating으로 판단하는지의 "의미"는 이번 PR에서 바꾸지 않는다 — 이미 정해진
+// mood 값을 신규 asset 중 어떤 파일로 보여줄지만 정한다(다음 PR에서 진행률 정책 통일 예정).
+const MOOD_TO_PROGRESS = { idle: '000', active: '025', running: '075', celebrating: '100' };
+
+/* 운동 동작별 이미지 (pose variant 기반 — 하위 호환 전용). squat/pushup/stretch/lunge 같은
+   "동작" 개념은 신규 semi/chibi asset(base/exercise/progress)에 대응 카테고리가 없어 대체할
+   수 없다 — 그대로 레거시 평면 파일을 계속 참조한다. 현재 어떤 화면도 variant prop을 실제로
+   넘기지 않아 이 경로는 사실상 미사용 상태이지만, 대체 asset이 없는 한 임의로 제거하지 않는다. */
 const VARIANT_IMG = {
   female: {
     running: 'female-running.webp',
@@ -35,7 +72,7 @@ const VARIANT_IMG = {
   },
 };
 
-/* 운동 종류(한국어)별 전용 이미지 */
+/* 운동 종류(한글)별 레거시 이미지 — 신규 exercise asset을 못 찾았을 때만 쓰는 2차 fallback. */
 const WORKOUT_TYPE_IMG = {
   female: {
     '헬스': 'female-gym.webp',
@@ -61,29 +98,69 @@ const WORKOUT_TYPE_IMG = {
   },
 };
 
-function selectImg(gender, mood, percentage, variant, workoutType) {
+// percentage(0~100)를 신규 asset의 5단계(000/025/050/075/100) 중 가장 가까운 표시용 파일로
+// 스냅한다. 화면별 progress의 "의미"(무엇을 0~100으로 볼지)는 그대로 두고, 이미 정해진 숫자를
+// 어떤 파일로 그릴지만 정하는 표시 레이어다.
+function snapProgress(percentage) {
+  const p = Math.max(0, Math.min(100, percentage));
+  if (p >= 100) return '100';
+  if (p >= 75) return '075';
+  if (p >= 50) return '050';
+  if (p >= 25) return '025';
+  return '000';
+}
+
+// pose: 운동 자세(레거시 전용, squat/pushup/stretch/lunge/workout/running) — 기존 `variant`
+// prop과 같은 개념이다. variantNum: 신규 캐릭터 번호(1/2/3, characterVariant 정규화 값) — 이름
+// 충돌을 피하기 위해 selectImg 내부에서는 variantNum으로만 부른다. mood는 caller가 실제로
+// prop을 넘겼을 때만 truthy 값으로 들어온다(컴포넌트 쪽에서 더 이상 기본값을 주지 않음) —
+// 그래야 "아무 상태도 안 준 기본 호출"과 "mood='active'를 명시적으로 준 호출"을 구분해
+// 전자만 5순위 base로 떨어뜨릴 수 있다.
+function selectImg({ gender, style, variantNum, mood, percentage, pose, workoutType }) {
   const g = gender === 'male' ? 'male' : 'female';
+  const gc = genderCode(gender);
 
-  // 1순위: 운동 종류별 전용 이미지
+  // 1순위: 운동 종류별 전용 이미지 — 신규 exercise asset 우선, 없으면 레거시로 fallback
+  if (workoutType && EXERCISE_ASSET_SLUG[workoutType]) {
+    const stem = `fitbuddy_${gc}0${variantNum}_${EXERCISE_ASSET_SLUG[workoutType]}`;
+    const styled = styledImg(style, 'exercise', stem);
+    if (styled) return styled;
+  }
   if (workoutType && WORKOUT_TYPE_IMG[g]?.[workoutType]) {
-    return img(WORKOUT_TYPE_IMG[g][workoutType]);
+    return legacyImg(WORKOUT_TYPE_IMG[g][workoutType]);
   }
 
-  // 2순위: variant 기반 이미지
-  if (variant && VARIANT_IMG[g]?.[variant]) return img(VARIANT_IMG[g][variant]);
+  // 2순위: pose(운동 자세) — 대체 asset이 없는 레거시 전용 경로, 그대로 유지
+  if (pose && VARIANT_IMG[g]?.[pose]) return legacyImg(VARIANT_IMG[g][pose]);
 
-  // 3순위: 게이지 비율 기반
+  // 3순위: 게이지 비율 — 신규 progress asset 우선, 없으면 레거시 20/50/80/100으로 fallback
   if (percentage != null) {
+    const stage = snapProgress(percentage);
+    const styled = styledImg(style, 'progress', `fitbuddy_${gc}0${variantNum}_progress_${stage}`);
+    if (styled) return styled;
     const p = Math.max(0, Math.min(100, percentage));
-    if (p >= 80) return img(`${g}-100.webp`);
-    if (p >= 50) return img(`${g}-80.webp`);
-    if (p >= 25) return img(`${g}-50.webp`);
-    return img(`${g}-20.webp`);
+    if (p >= 80) return legacyImg(`${g}-100.webp`);
+    if (p >= 50) return legacyImg(`${g}-80.webp`);
+    if (p >= 25) return legacyImg(`${g}-50.webp`);
+    return legacyImg(`${g}-20.webp`);
   }
 
-  // 4순위: mood 기반
-  const fn = MOOD_MAP[mood] || MOOD_MAP.active;
-  return img(fn(g));
+  // 4순위: mood — caller가 명시적으로 전달했을 때만. 신규 progress asset(호환 매핑) 우선,
+  // 없으면 레거시 mood 이미지로 fallback.
+  if (mood) {
+    const moodKey = MOOD_MAP[mood] ? mood : 'active';
+    const stage = MOOD_TO_PROGRESS[moodKey];
+    const styled = styledImg(style, 'progress', `fitbuddy_${gc}0${variantNum}_progress_${stage}`);
+    if (styled) return styled;
+    return legacyImg(MOOD_MAP[moodKey](g));
+  }
+
+  // 5순위: 운동 종류/자세/진행률/mood 중 아무것도 전달되지 않은 "기본 상태" — 신규 base
+  // asset을 사용한다. base asset을 못 찾는 경우(이론상 발생하지 않음)에만 기존 idle 이미지로
+  // 안전하게 fallback한다.
+  const styledBase = styledImg(style, 'base', `fitbuddy_${gc}0${variantNum}_base`);
+  if (styledBase) return styledBase;
+  return legacyImg(`${g}-20.webp`);
 }
 
 function selectAnim(mood, percentage, variant, workoutType, clicked) {
@@ -107,15 +184,27 @@ const CSS = `
  * FitBuddyCharacter - 실제 캐릭터 이미지 기반 운동 캐릭터
  *
  * Props:
- * @param {number} size         - 너비(px) [Optional, 기본값: 64]
- * @param {string} gender       - 'female'|'male' [Optional, 기본값: 'female']
- * @param {string} mood         - 'idle'|'active'|'running'|'celebrating' [Optional]
- * @param {number} percentage   - 0-100 게이지 비율 (mood보다 우선) [Optional]
- * @param {string} variant      - 'running'|'squat'|'pushup'|'stretch'|'lunge'|'workout' [Optional]
- * @param {string} workoutType  - 한국어 운동 종류 (variant보다 우선) [Optional]
- * @param {boolean} clickable   - 클릭 시 점프 애니메이션 [Optional, 기본값: false]
+ * @param {number} size             - 너비(px) [Optional, 기본값: 64]
+ * @param {string} gender           - 'female'|'male' [Optional, 기본값: 'female']
+ * @param {string} characterStyle   - 'semi'|'chibi' — 유효하지 않으면 'semi'로 처리 [Optional, 기본값: 'semi']
+ * @param {number} characterVariant - 1|2|3(캐릭터 번호) — 유효하지 않으면 1로 처리 [Optional, 기본값: 1]
+ * @param {string} mood             - 'idle'|'active'|'running'|'celebrating' — 전달하지 않으면(기본값 없음) workoutType/variant/percentage와 마찬가지로 "상태 없음"으로 취급되어 base asset이 선택된다 [Optional]
+ * @param {number} percentage       - 0-100 게이지 비율 (mood보다 우선) [Optional]
+ * @param {string} variant          - 'running'|'squat'|'pushup'|'stretch'|'lunge'|'workout' — 운동 자세(레거시 전용, characterVariant와는 다른 개념) [Optional]
+ * @param {string} workoutType      - 한글 운동 종류 (variant보다 우선) [Optional]
+ * @param {boolean} clickable       - 클릭 시 점프 애니메이션 [Optional, 기본값: false]
  */
-function FitBuddyCharacter({ size = 64, gender = 'female', mood = 'active', percentage, variant, workoutType, clickable = false }) {
+function FitBuddyCharacter({
+  size = 64,
+  gender = 'female',
+  characterStyle = 'semi',
+  characterVariant = 1,
+  mood,
+  percentage,
+  variant,
+  workoutType,
+  clickable = false,
+}) {
   const [clicked, setClicked] = useState(false);
 
   function handleClick() {
@@ -124,7 +213,9 @@ function FitBuddyCharacter({ size = 64, gender = 'female', mood = 'active', perc
     setTimeout(() => setClicked(false), 3000);
   }
 
-  const src = selectImg(gender, mood, percentage, variant, workoutType);
+  const style = normalizeStyle(characterStyle);
+  const variantNum = normalizeVariant(characterVariant);
+  const src = selectImg({ gender, style, variantNum, mood, percentage, pose: variant, workoutType });
   const anim = selectAnim(mood, percentage, variant, workoutType, clicked);
 
   return (

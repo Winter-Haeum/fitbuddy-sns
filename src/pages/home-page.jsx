@@ -96,6 +96,28 @@ const HOME_CHAR_SIZE = 110;
 // 사실상 무제한).
 const HOME_CHAR_CROP_PX = Math.round(HOME_CHAR_SIZE * 0.09);
 
+// 캐릭터 left 위치 계산용 — 위 HOME_CHAR_CROP_PX(모든 포즈에서 안전한 최대 crop)와는 목적이
+// 다르다. 이건 0%/100%에서 실제로 "보이는" 캐릭터 픽셀이 progress bar 양 끝에 맞도록 쓰는
+// 값이라, 0%에서 항상 뜨는 idle(000) 포즈와 100%에서 항상 뜨는 celebrating(100) 포즈의 실제
+// 콘텐츠 위치만 봐야 한다(중간 mood인 active/running은 위치 요구가 느슨해 보간으로 처리).
+// 48개 조합(semi/chibi × 성별 × 캐릭터 번호) 실측 평균:
+// - idle(000): 콘텐츠 왼쪽 끝 ≈ 박스 폭의 30%(semi 31~35%, chibi 15~32%)
+// - celebrating(100): 콘텐츠 오른쪽 끝 ≈ 박스 폭의 87.6%(semi 82~86%, chibi 89~92%)
+// 기존 left 계산은 이 안쪽 여백을 무시하고 박스 전체(HOME_CHAR_SIZE)를 기준으로 잡아서, 0%에서도
+// 실제 캐릭터가 게이지 시작점보다 30%(size=110 기준 약 33px)만큼 오른쪽에서 시작해 "이미
+// 진행된 것처럼" 보였다. 아래 두 값은 그 콘텐츠 위치를 박스 왼쪽 기준 px로 환산한 것이다.
+const HOME_CHAR_IDLE_CONTENT_LEFT_PX = HOME_CHAR_SIZE * 0.30;
+const HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX = HOME_CHAR_SIZE * 0.876;
+
+// progress(0~100)에서 idle→celebrating 콘텐츠 위치를 선형 보간해, "실제 보이는 캐릭터 왼쪽/
+// 오른쪽 끝"이 0%/100%에서 progress bar 양 끝에 오도록 wrapper의 left를 계산한다.
+function homeCharLeft(progressPct) {
+  const p = Math.min(Math.max(progressPct, 0), 100);
+  const contentPx = HOME_CHAR_IDLE_CONTENT_LEFT_PX
+    + (p / 100) * (HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX - HOME_CHAR_IDLE_CONTENT_LEFT_PX);
+  return `calc(${p}% - ${contentPx.toFixed(1)}px)`;
+}
+
 function getTodayRoutine() {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
@@ -431,17 +453,18 @@ export default function HomePage() {
 
             {/* 게이지 트랙 — 캐릭터 높이(size*1.3)에 bottom 여백(16)과 breathe/jump 애니메이션이
                 위쪽 제목/Lv/% 줄과 겹치지 않도록 위쪽 여유(16)를 더한 만큼만 확보한다(고정값
-                대신 HOME_CHAR_SIZE 기준으로 계산해 size를 바꿔도 자동으로 맞는다). 좌우 위치는
-                고정 상한 대신 clamp()로 컨테이너 폭 기준 최대값을 계산해, 캐릭터가 커져도 좁은
-                화면에서 오른쪽으로 잘리지 않는다. */}
+                대신 HOME_CHAR_SIZE 기준으로 계산해 size를 바꿔도 자동으로 맞는다). */}
             <Box sx={{ position: 'relative', height: Math.round(HOME_CHAR_SIZE * 1.3) + 32, mx: 0.5 }}>
-              {/* 캐릭터 (게이지 위에서 이동). clipPath로 좌우 투명 여백만 crop한다(top/bottom은
-                  -9999px로 사실상 무제한이라 세로는 전혀 잘리지 않음 — breathe/jump 애니메이션이
-                  위로 튀어 오르는 오버슈트도 그대로 보인다) */}
+              {/* 캐릭터 (게이지 위에서 이동). left는 homeCharLeft()로 "실제 보이는 콘텐츠"의
+                  왼쪽/오른쪽 끝이 0%/100%에서 트랙 양 끝에 오도록 계산한다(박스 전체 크기가
+                  아니라 idle/celebrating 콘텐츠 위치 기준 — 위 상수 설명 참고). clipPath로 좌우
+                  투명 여백만 crop한다(top/bottom은 -9999px로 사실상 무제한이라 세로는 전혀
+                  잘리지 않음 — breathe/jump 애니메이션이 위로 튀어 오르는 오버슈트도 그대로
+                  보인다) */}
               <Box sx={{
                 position: 'absolute',
                 bottom: 16,
-                left: `clamp(0px, calc(${Math.min(Math.max(progress, 0), 100)}% - ${HOME_CHAR_SIZE / 2}px), calc(100% - ${HOME_CHAR_SIZE}px))`,
+                left: homeCharLeft(progress),
                 transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 zIndex: 2,
                 filter: progress >= 100 ? 'drop-shadow(0 0 8px rgba(255,179,0,0.8))' : 'none',

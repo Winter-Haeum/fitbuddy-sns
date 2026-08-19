@@ -259,6 +259,10 @@ export default function ProfilePage() {
 
   function openEdit() {
     setEditForm({
+      // real_name(실제 이름)은 닉네임으로 자동 대체해 채우지 않는다 — 채워두면 저장 시
+      // "닉네임을 실제 이름으로 그대로 저장"하는 것처럼 보일 수 있다. 비어 있으면 그대로
+      // 빈 칸으로 시작해 사용자가 직접 입력하게 한다.
+      real_name: profile?.real_name || '',
       display_name: profile?.display_name || '',
       bio: profile?.bio || '',
       height: profile?.height > 0 ? String(profile.height) : '',
@@ -295,6 +299,7 @@ export default function ProfilePage() {
     setLoading(true);
     setSaveError('');
     const payload = {
+      real_name: editForm.real_name,
       display_name: editForm.display_name,
       bio: editForm.bio,
       height: editForm.height ? Number(editForm.height) : 0,
@@ -441,6 +446,13 @@ export default function ProfilePage() {
   const activeJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) > 0);
   const endedJoinedChallenges = joinedChallenges.filter((c) => getChallengesDaysLeft(c.end_date) === 0);
 
+  // real_name(실제 이름)은 마이페이지 상단 전용 표시값. 기존 사용자는 NULL일 수 있어
+  // trim 후 빈 값이면 기존 닉네임(display_name)으로 "표시만" 대체한다 — DB에는 절대
+  // real_name = display_name으로 되돌려 쓰지 않는다(순수 read-time fallback).
+  const headerName = (profile?.real_name && profile.real_name.trim())
+    ? profile.real_name
+    : (profile?.display_name || '사용자');
+
   const profileGender = profile?.gender || 'female';
   const profileCharacterStyle = profile?.character_style || 'semi';
   const profileCharacterVariant = profile?.character_variant || 1;
@@ -501,7 +513,7 @@ export default function ProfilePage() {
                     variant='h3'
                     sx={{ fontWeight: 700, color: '#1B5E20', wordBreak: 'keep-all', overflowWrap: 'break-word' }}
                   >
-                    {profile?.display_name || '사용자'}
+                    {headerName}
                   </Typography>
                   {isAdmin && (
                     <Chip label='관리자' size='small' color='error' sx={{ flexShrink: 0 }} />
@@ -979,6 +991,15 @@ export default function ProfilePage() {
         <DialogTitle>프로필 수정</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {saveError && <Alert severity='error'>{saveError}</Alert>}
+          {/* 이름(real_name)과 닉네임(display_name)은 독립된 값 — 하나만 고쳐도 다른 값은
+              그대로 다시 저장된다(saveProfile 참고). */}
+          <TextField
+            label='이름'
+            value={editForm.real_name || ''}
+            onChange={(e) => setEditForm({ ...editForm, real_name: e.target.value })}
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 20 } }}
+          />
           <TextField
             label='닉네임'
             value={editForm.display_name || ''}

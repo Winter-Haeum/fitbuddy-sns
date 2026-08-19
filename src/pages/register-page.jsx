@@ -89,7 +89,7 @@ export default function RegisterPage() {
 
   const [form, setForm] = useState({
     email: '', password: '', confirmPw: '',
-    displayName: '', gender: '', height: '', weight: '', goalWeight: '',
+    realName: '', displayName: '', gender: '', height: '', weight: '', goalWeight: '',
     workoutGoals: [], interests: [],
     // 아무것도 고르지 않아도 DB DEFAULT와 같은 semi/1로 가입되도록 기본값을 미리 채워둔다.
     characterStyle: 'semi', characterVariant: 1,
@@ -121,6 +121,7 @@ export default function RegisterPage() {
     if (step === 0) {
       if (!form.email || !form.password) { setError('이메일과 비밀번호를 입력하세요.'); return; }
       if (form.password !== form.confirmPw) { setError('비밀번호가 일치하지 않습니다.'); return; }
+      if (!form.realName) { setError('이름을 입력하세요.'); return; }
       if (!form.displayName) { setError('닉네임을 입력하세요.'); return; }
     }
     setError('');
@@ -132,6 +133,7 @@ export default function RegisterPage() {
     setError('');
     try {
       await signUp(form.email, form.password, form.displayName, {
+        realName: form.realName,
         height: form.height,
         weight: form.weight,
         goalWeight: form.goalWeight,
@@ -237,6 +239,10 @@ export default function RegisterPage() {
           {/* Step 0: 기본 정보 */}
           {step === 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* 이름(real_name)은 실제 프로필 정보, 닉네임(display_name)은 FitBuddy 서비스
+                  전반(Feed/Post/캐릭터 등)에서 쓰는 표시 이름 — 서로 독립된 값이라 각각
+                  입력받는다. */}
+              <TextField label='이름' value={form.realName} onChange={(e) => update('realName', e.target.value)} fullWidth sx={inputSx} />
               <TextField label='닉네임' value={form.displayName} onChange={(e) => update('displayName', e.target.value)} fullWidth sx={inputSx} />
 
               {/* 성별 선택 */}

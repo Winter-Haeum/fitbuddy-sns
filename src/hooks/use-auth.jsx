@@ -159,6 +159,7 @@ export function AuthProvider({ children }) {
       id: authUser.id,
       username,
       display_name: displayName,
+      real_name: extraData.realName || null,
       bio: '',
       height: extraData.height ? Number(extraData.height) : 0,
       weight: extraData.weight ? Number(extraData.weight) : 0,

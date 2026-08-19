@@ -79,6 +79,12 @@ const ROUTINES = [
 const MIN_STEP_GOAL = 1000;
 const MAX_STEP_GOAL = 100000;
 
+// "오늘의 운동 목표" 게이지 위의 캐릭터 크기. 신규 semi/chibi 캐릭터를 실기기에서 확인해보니
+// 기존 44px는 진행 상태를 보여주는 주인공이 아니라 작은 장식 아이콘처럼 보인다는 피드백에
+// 따라 2배로 키웠다. 이 카드에만 적용되는 값이라 Profile/Records/Timer/Character 등 다른
+// 화면의 캐릭터 크기에는 영향을 주지 않는다.
+const HOME_CHAR_SIZE = 88;
+
 function getTodayRoutine() {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
@@ -412,19 +418,23 @@ export default function HomePage() {
               {profile?.display_name ? `${profile.display_name}의 캐릭터` : (character?.character_name || '내 캐릭터')} · {activityState.label} {activityState.emoji}
             </Typography>
 
-            {/* 게이지 트랙 */}
-            <Box sx={{ position: 'relative', height: 84, mx: 0.5 }}>
+            {/* 게이지 트랙 — 캐릭터를 44px→88px(2배)로 키우면서, 커진 캐릭터가 위쪽 제목/Lv/%
+                줄과 겹치지 않도록 트랙 높이도 84→140으로 함께 늘렸다(캐릭터는 bottom:16으로
+                여전히 진행률 바 바로 위에 서 있고, 늘어난 높이만큼 위쪽 여유가 생긴다). 좌우
+                위치는 고정 93% 상한 대신 clamp()로 컨테이너 폭 기준 최대값을 계산해, 캐릭터가
+                커져도 좁은 화면에서 오른쪽으로 잘리지 않는다. */}
+            <Box sx={{ position: 'relative', height: 140, mx: 0.5 }}>
               {/* 캐릭터 (게이지 위에서 이동) */}
               <Box sx={{
                 position: 'absolute',
                 bottom: 16,
-                left: `calc(${Math.min(Math.max(progress, 0), 93)}% - 22px)`,
+                left: `clamp(0px, calc(${Math.min(Math.max(progress, 0), 100)}% - ${HOME_CHAR_SIZE / 2}px), calc(100% - ${HOME_CHAR_SIZE}px))`,
                 transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 zIndex: 2,
                 filter: progress >= 100 ? 'drop-shadow(0 0 8px rgba(255,179,0,0.8))' : 'none',
               }}>
                 <FitBuddyCharacter
-                  size={44}
+                  size={HOME_CHAR_SIZE}
                   gender={profile?.gender || 'female'}
                   characterStyle={profile?.character_style || 'semi'}
                   characterVariant={profile?.character_variant || 1}

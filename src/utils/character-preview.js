@@ -33,15 +33,17 @@ export function getBasePreviewScale(gender, characterStyle, characterVariant) {
 // (다른 11개 조합은 세로 여백이 이미 충분해 같은 scale에서도 넘지 않는다). 이 카드는 MUI
 // Card가 아니라 일반 Box라 overflow:hidden이 없어 위로 넘친 부분이 실제로 잘리지는 않지만,
 // 시각적으로 2/3번보다 눈에 띄게 위로 솟아 보인다.
-// f01/f02/f03 base를 실제 선택 카드와 동일한 76×98.8 박스 + 실제 preview stage(상하 padding
-// 8px)에서 alpha 채널로 "실제 보이는 신발 끝" 위치를 재고, f02/f03의 평균을 기준으로 f01에
-// 필요한 정확한 하향 이동량을 역산한 값이다(1/2/3 세 preview가 같은 좌표계에서 비교됨).
-// 이전 값(15.2%, 상단 여백 기준 추정치)은 f01의 신발 끝을 f02/f03보다 아주 살짝(≈2px)
-// 아래로 지나치게 내렸던 것으로 재실측 결과 확인되어, 신발 끝 기준으로 다시 맞춘 값(13.16%)
-// 으로 교체한다 — f01 vs avg(f02,f03) 신발 끝 위치 차이가 이제 0.04px 수준이다. "캐릭터
-// 변경" 선택 카드(1/2/3 preview) 전용 보정이라 다른 화면(Profile 요약 카드 등)에는 적용하지
-// 않는다.
-const CHIBI_FEMALE_VARIANT1_SELECT_CARD_OFFSET_FRACTION = 0.1316;
+// f01/f02/f03 base를 76×98.8 박스에서 alpha 채널로 재는 방식(0.1316, f01 vs avg(f02,f03)
+// 신발 끝 차이 0.04px)으로는 데스크톱 Chromium 기준 계산상 거의 완벽히 맞았지만, 실제
+// Android 실기기에서는 여전히 f01이 눈에 띄게 위에 떠 보인다는 피드백을 받았다 — 렌더링
+// 엔진(Android WebView) 차이일 수 있어 이번엔 alpha 평균값 대신 실기기 육안 결과를 최우선
+// 기준으로 삼는다. Android 기준 "13px대에서도 위에 있음, 8~10px 추가 하향 필요"라는 관찰을
+// 반영해 22/98.8로 재조정한다(21~23px 권장 범위의 중간값). 이 정도로 내리면 원래 카드
+// 여백(라벨과의 gap 4px)으로는 신발이 "1번" 라벨과 겹치므로, 아래 character-style-picker.jsx
+// 에서 1/2/3 공통 preview stage 간격을 4px→12px로 넓혀 세 카드 모두 라벨과 안전 여백을
+// 확보했다(1/2/3 카드 높이·라벨 위치는 동일하게 유지, f01만 이동). "캐릭터 변경" 선택
+// 카드(1/2/3 preview) 전용 보정이라 다른 화면(Profile 요약 카드 등)에는 적용하지 않는다.
+const CHIBI_FEMALE_VARIANT1_SELECT_CARD_OFFSET_FRACTION = 0.2227; // 22px / 98.8px(size=76 기준)
 
 /**
  * getBaseVariantSelectCardOffsetY - "캐릭터 변경" 선택 카드(1/2/3 preview)에서만 쓰는 세로

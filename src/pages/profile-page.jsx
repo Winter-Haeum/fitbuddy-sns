@@ -606,7 +606,15 @@ export default function ProfilePage() {
                   실측 + overflow:hidden을 포함한 Playwright 렌더링으로 머리 잘림 없음과
                   신발 끝↔버튼 하단 차이 0px을 확인했다. translateX 좌우 보정은 쓰지 않는다 —
                   좌우 균형은 이 grid 비율 구조 자체로 해결한다. */}
-              <CardContent sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)', gap: 2 }}>
+              {/* CardContent는 MUI 기본값이 padding:16(모든 방향)이지만 &:last-child에서
+                  paddingBottom만 24로 덮어써서(node_modules/@mui/material/CardContent/
+                  CardContent.js 확인 — 이 CardContent가 Card의 유일한/마지막 자식이라 항상
+                  적용됨) 상단(16)보다 하단(24)이 8px 더 컸다. 위 헤더 카드가 이미 같은
+                  이유로 pb를 override하고 있던 것과 동일한 문제라 같은 방식(:last-child도
+                  같이 override)으로 상하를 16px로 맞춘다. 이 pb는 grid 콘텐츠 "바깥" 여백만
+                  줄이는 것이라 버튼 위치(= row 안에서 mt:'auto'로 정해짐)는 전혀 움직이지
+                  않는다 — 카드 하단 테두리만 버튼 쪽으로 당겨온다. */}
+              <CardContent sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)', gap: 2, pb: 2, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', minHeight: profileCharColMinHeight }}>
                   <Box sx={basePreviewScaleSx}>
                     <FitBuddyCharacter
@@ -618,7 +626,11 @@ export default function ProfilePage() {
                   </Box>
                 </Box>
                 <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
+                  {/* 닉네임+Lv/XP 묶음이 버튼과 너무 떨어져 보인다는 피드백 — 버튼은
+                      mt:'auto'로 "남는 공간"을 흡수해 컬럼 바닥에 붙어 있으므로, 위 블록에
+                      mt를 줘서 아래로 내리면 그만큼 auto-margin이 줄어들 뿐 버튼 자체의
+                      위치(= row 바닥 기준)는 그대로 유지된다. */}
+                  <Typography variant='h4' noWrap sx={{ fontWeight: 700, mt: 1.75 }}>{profile?.display_name || '내 캐릭터'}</Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.1 }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
                     <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />

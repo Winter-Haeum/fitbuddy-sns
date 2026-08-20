@@ -35,7 +35,7 @@ import { useFontScale } from '../hooks/use-font-scale';
 import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
-import { getBasePreviewScale, getProfileSummaryShiftPx } from '../utils/character-preview';
+import { getBasePreviewScale } from '../utils/character-preview';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
 import { WORKOUT_TYPES } from '../constants/workout';
@@ -462,11 +462,7 @@ export default function ProfilePage() {
   const basePreviewScaleSx = basePreviewScale !== 1
     ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' }
     : null;
-  // 캐릭터 요약 카드의 "캐릭터+텍스트" 그룹은 CSS 박스 기준으로는 카드 안에서 정확히
-  // 대칭 정렬되지만, 캐릭터 이미지 자체의 좌우 비대칭 투명 여백 때문에 실제로는 왼쪽이
-  // 더 비어 보인다 — utils/character-preview.js의 getProfileSummaryShiftPx 설명 참고.
   const profileCharBoxSize = Math.round(110 * scale.content);
-  const profileSummaryShiftPx = getProfileSummaryShiftPx(profileCharBoxSize);
 
   return (
     <Layout>
@@ -582,21 +578,19 @@ export default function ProfilePage() {
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
-              {/* "캐릭터+텍스트"를 fit-content 크기의 내부 group으로 한 번 더 묶고, 그 group
-                  자체를 CardContent에서 justifyContent:'center'로 가운데 놓는다 — group의 폭이
-                  콘텐츠 크기(flex-grow 없음)라야 남는 여백이 좌우로 고르게 나뉜다. 그 상태에서도
-                  실기기에서는 여전히 왼쪽이 더 비어 보였는데, 원인은 group이 아니라 캐릭터
-                  이미지 자체의 좌우 비대칭 투명 여백이었다(12개 base asset 실측, 왼쪽 평균
-                  27.6% > 텍스트 쪽은 이미지가 아니라 그런 여백이 없음) — getProfileSummaryShiftPx
-                  참고. group 전체를 그 절반만큼 translateX로 왼쪽에 옮겨 "실제 보이는" 좌우
-                  여백을 맞춘다(레이아웃엔 영향 없는 순수 시각 보정이라 group이 카드 안에서
-                  차지하는 자리는 그대로 두고 그림만 옮긴다). */}
-              <CardContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-                  transform: profileSummaryShiftPx ? `translateX(-${profileSummaryShiftPx}px)` : undefined,
-                }}>
-                  <Box sx={{ flex: '0 0 auto', ...basePreviewScaleSx }}>
+              {/* fit-content 그룹을 가운데 모으던 이전 방식은 카드 폭을 다 안 쓰고 가운데에
+                  작은 덩어리로 떠 보인다는 피드백을 받았다 — Profile의 다른 영역처럼 카드
+                  전체 폭을 쓰는 2열 구조로 바꿨다. 왼쪽 column(캐릭터)과 오른쪽 column(닉네임/
+                  Lv/XP/캐릭터 변경)을 CardContent에서 alignItems:'stretch'로 같은 높이를
+                  갖게 하고, 왼쪽은 alignItems:'flex-end'로 캐릭터를 column 바닥에, 오른쪽은
+                  버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다 — 두 column의 "바닥"이 같은 기준선
+                  이라 캐릭터 발끝과 "캐릭터 변경 ›" 하단이 자연스럽게 맞춰진다(margin 숫자를
+                  맞춘 게 아니라 레이아웃 구조로 정렬). 이전 그룹-중앙정렬용 translateX(-15px)
+                  보정(getProfileSummaryShiftPx)은 그룹 자체가 없어져 의미가 없으므로 제거했다
+                  — 이제 캐릭터는 자기 column 안에서 자연스럽게 자리잡는다. */}
+              <CardContent sx={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
+                <Box sx={{ flex: '0 0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <Box sx={basePreviewScaleSx || undefined}>
                     <FitBuddyCharacter
                       size={profileCharBoxSize}
                       gender={profileGender}
@@ -604,19 +598,19 @@ export default function ProfilePage() {
                       characterVariant={profileCharacterVariant}
                     />
                   </Box>
-                  <Box sx={{ flex: '0 1 auto', maxWidth: 200, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.1 }}>
-                    <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
-                      <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
-                    </Box>
-                    <Button
-                      variant='text' size='small'
-                      sx={{ alignSelf: 'flex-start', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 0.2, color: '#6B7280' }}
-                    >
-                      캐릭터 변경 ›
-                    </Button>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.1 }}>
+                    <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />
+                    <Chip label={`${character?.experience || 0} XP`} size='small' variant='outlined' />
                   </Box>
+                  <Button
+                    variant='text' size='small'
+                    sx={{ alignSelf: 'flex-start', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 'auto', pt: 0.6, color: '#6B7280' }}
+                  >
+                    캐릭터 변경 ›
+                  </Button>
                 </Box>
               </CardContent>
             </Card>

@@ -26,30 +26,6 @@ export function getBasePreviewScale(gender, characterStyle, characterVariant) {
   return 1;
 }
 
-// Profile의 "캐릭터 요약" 카드는 캐릭터(왼쪽)+닉네임/Lv/XP/캐릭터 변경(오른쪽)을 한 그룹으로
-// 묶어 카드 안에서 가운데 정렬한다. 이 그룹은 CSS 박스 기준으로는 정확히 대칭 정렬되지만,
-// 실기기에서는 여전히 왼쪽이 더 비어 보인다는 피드백이 있었다 — 원인은 그룹이 아니라 안에 든
-// 캐릭터 이미지 자체다. object-fit:contain으로 그려지는 12개 base asset을 전부 캔버스 픽셀
-// 단위로 실측(alpha>10을 몸통으로 판정)한 결과, 110×143 박스 기준 왼쪽 투명 여백이 21.8~32.7%
-// (평균 27.6%)였다 — 텍스트 쪽(닉네임/Lv/XP/버튼)은 이미지가 아니라 이런 여백이 없으므로,
-// "박스는 대칭, 실제 보이는 콘텐츠는 왼쪽으로 치우침" 현상이 생긴다. 그룹 전체를 캐릭터
-// 왼쪽 평균 여백의 절반만큼 왼쪽으로 옮기면 실제 보이는 좌우 여백이 맞아떨어진다(절반인
-// 이유: 그만큼 옮기면 왼쪽은 줄고 오른쪽은 같은 만큼 늘어 정확히 상쇄됨). 조합마다 정확한
-// 값은 다르지만(예: semi f01=30.9%, chibi f03=21.8%), 12개 평균을 쓰는 게 특정 조합에
-// 맞춘 임의 px보다 근거 있는 절충값이다.
-const AVG_BASE_LEFT_INSET_FRACTION = 0.276;
-
-/**
- * getProfileSummaryShiftPx - Profile 캐릭터 요약 카드에서 "캐릭터+텍스트" 그룹 전체에 적용할
- * 왼쪽 이동량(px). 그룹을 이 값만큼 translateX(-N)하면 실제 보이는 좌우 여백이 비슷해진다.
- *
- * @param {number} charBoxWidth - FitBuddyCharacter에 전달하는 size(px)
- * @returns {number} translateX에 바로 쓸 수 있는 음수 이동량의 절대값(px)
- */
-export function getProfileSummaryShiftPx(charBoxWidth) {
-  return Math.round((charBoxWidth * AVG_BASE_LEFT_INSET_FRACTION) / 2);
-}
-
 // 위 getBasePreviewScale의 scale(1.3)은 transform-origin:'bottom center'로 걸린다 — 박스
 // 아래쪽을 고정점 삼아 커지므로, 위쪽이 아래쪽보다 훨씬 많이 위로 밀려 올라간다. chibi
 // female 1번은 원본이 정사각형이라 다른 조합보다 세로 여백 자체가 훨씬 작았던 탓에, 이

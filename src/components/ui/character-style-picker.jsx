@@ -78,11 +78,11 @@ function CharacterStylePicker({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                // 1/2/3 세 카드가 공유하는 "미리보기~라벨" 간격 — chibi female 1번을 Android
-                // 실기기 기준으로 맞추려면 아래로 더 옮겨야 하는데(getBaseVariantSelectCardOffsetY
-                // 참고), 기존 4px 간격으로는 그만큼 옮긴 신발이 "1번" 라벨과 겹친다. 세 카드
-                // 모두 같은 gap을 쓰므로 2/3번의 실제 위치는 그대로 유지되면서(카드 높이·라벨
-                // 위치는 셋 다 동일), f01만 넓어진 여유 공간을 써서 라벨과 안전하게 떨어진다.
+                // 1/2/3 세 카드가 공유하는 "미리보기~라벨" 간격. variant 1이 getVariant1Normalization
+                // 으로 아래로 이동해야 하는 조합(현재 chibi female)에서, 옮긴 만큼 신발이
+                // "1번" 라벨과 겹치지 않도록 여유를 준다. 세 카드 모두 같은 gap을 쓰므로 2/3번의
+                // 실제 위치·카드 높이·라벨 위치는 전혀 바뀌지 않는다 — variant 1만 넓어진
+                // 여유 공간을 써서 라벨과 안전하게 떨어진다.
                 gap: 1.5,
                 py: 1,
                 borderRadius: 3,

@@ -469,10 +469,10 @@ export default function ProfilePage() {
   // 머리 위쪽이 카드 경계에서 잘린다 — 캐릭터 column의 minHeight를 scale만큼 키워서(음수
   // margin으로 부모 공간을 줄이는 대신) 캐릭터 전체가 항상 카드 안에 들어오게 한다.
   const profileCharColMinHeight = Math.round(profileCharBoxHeight * basePreviewScale);
-  // chibi/female/1번만 0이 아님 — 위와 같이 자리를 넉넉히 확보하면 이번엔 "캐릭터 변경 ›"
-  // 버튼이 (스케일된 캐릭터의) 실제 신발 끝보다 아래에 남는다. 큰 캐릭터 이미지를 원하는
-  // 위치로 밀어내는 대신, 버튼 쪽에 이 값만큼 margin-bottom을 더해 신발 끝 높이로 끌어
-  // 올린다 — utils/character-preview.js 설명 참고.
+  // variant 2/3은 항상 0 — 위와 같이 자리를 넉넉히 확보하면 (scale이 걸린) variant 1에서는
+  // "캐릭터 변경 ›" 버튼이 실제 신발 끝보다 아래에 남는다. 큰 캐릭터 이미지를 원하는 위치로
+  // 밀어내는 대신, 버튼 쪽에 이 값만큼 margin-bottom을 더해 신발 끝 높이로 끌어올린다 —
+  // utils/character-preview.js의 getVariant1Normalization 설명 참고.
   const profileButtonExtraMb = getProfileButtonExtraMarginBottomPx(profileGender, profileCharacterStyle, profileCharacterVariant, profileCharBoxHeight);
 
   return (
@@ -596,8 +596,8 @@ export default function ProfilePage() {
                   같은 행 높이를 공유하고, 왼쪽은 alignItems:'flex-end'로 캐릭터를 column
                   바닥에, 오른쪽은 버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다.
                   [중요] MUI Card는 overflow:hidden이 컴포넌트에 박혀 있어(Card.js 확인),
-                  scale(1.3)로 커진 chibi/female/1번을 예전처럼 음수 margin-bottom으로 밀면
-                  레이아웃이 필요로 하는 높이 자체가 줄어들어 머리 위쪽이 카드 경계에서 잘린다
+                  scale이 걸린 variant 1을 예전처럼 음수 margin-bottom으로 밀면 레이아웃이
+                  필요로 하는 높이 자체가 줄어들어 머리 위쪽이 카드 경계에서 잘린다
                   — 그래서 이번엔 순서를 바꿔 캐릭터 column에 minHeight(profileCharColMinHeight
                   = 박스높이×scale)를 먼저 줘서 스케일된 캐릭터 전체가 들어갈 자리를 레이아웃
                   으로 확보하고(Card도 함께 자연스럽게 커짐), 그 다음 버튼에만 작은 양수

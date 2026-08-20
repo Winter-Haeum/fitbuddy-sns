@@ -174,7 +174,13 @@ export default function ProfilePage() {
     } catch (err) { console.error(err); }
   }
 
-  async function fetchStats() {
+  // resetAtOverride: handleResetStats가 방금 DB에 저장한 stats_reset_at을 그 자리에서
+  // 즉시 반영하기 위한 값이다. fetchProfile(user.id)가 완료돼도 setProfile은 리렌더를
+  // 예약할 뿐이라, 같은 클릭 안에서 곧바로 이어 부르는 fetchStats()는 여전히 이전 렌더의
+  // profile(=아직 갱신 전 stats_reset_at)을 그대로 참조한다 — 그래서 첫 클릭은 반영되지
+  // 않고 리렌더가 끝난 다음 클릭에서야 새 값이 쓰이는 버그가 있었다. override를 명시적으로
+  // 넘기면 이 렌더 지연과 무관하게 방금 쓴 값을 바로 계산에 쓸 수 있다.
+  async function fetchStats(resetAtOverride) {
     try {
       const { data } = await supabase
         .from('fitbuddy_workouts')
@@ -187,7 +193,8 @@ export default function ProfilePage() {
       // 당일" 문제가 생긴다 — 초기화 이전에 이미 저장된 오늘 운동까지 workout_date가 같다는
       // 이유로 다시 포함돼버린다. 그래서 같은 날짜인 경우에는 실제 저장 시각(created_at)까지
       // 함께 비교해, reset 이전 오늘 운동은 제외하고 reset 이후 새 운동만 포함한다.
-      const resetAt = profile?.stats_reset_at ? new Date(profile.stats_reset_at) : null;
+      const resetAtStr = resetAtOverride ?? profile?.stats_reset_at;
+      const resetAt = resetAtStr ? new Date(resetAtStr) : null;
       const resetLocalDate = resetAt ? formatLocalDate(resetAt) : null;
       const afterReset = (w) => {
         if (!resetAt) return true;
@@ -253,13 +260,17 @@ export default function ProfilePage() {
   async function handleResetStats() {
     setStatsResetLoading(true);
     try {
+      const resetAt = new Date().toISOString();
       const { error } = await supabase
         .from('fitbuddy_users')
-        .update({ stats_reset_at: new Date().toISOString() })
+        .update({ stats_reset_at: resetAt })
         .eq('id', user.id);
       if (error) throw error;
+      // fetchProfile은 context의 profile을 나중 렌더를 위해 갱신할 뿐이므로, 지금 이
+      // 클릭 안에서 통계를 다시 계산할 때는 방금 DB에 쓴 resetAt을 직접 넘긴다(위 fetchStats
+      // 주석 참고) — 이렇게 해야 첫 클릭에서 바로 네 통계가 0으로 바뀐다.
       await fetchProfile(user.id);
-      await fetchStats();
+      await fetchStats(resetAt);
       setStatsResetOpen(false);
       setSnack({ open: true, msg: '운동 통계가 초기화되었습니다.', severity: 'success' });
     } catch (err) {

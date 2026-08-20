@@ -39,18 +39,38 @@ export default function StatsCard({ icon, value, unit, bgcolor, color, onClick, 
         }),
       }}
     >
-      <CardContent sx={{ py: 1.5, px: compact ? 0.5 : 1 }}>
-        <Box sx={{ color }}>{icon}</Box>
+      {/* compact(마이페이지 4분할) 모드만 대상 — 아이콘/숫자/라벨 세로 간격을 CardContent의
+          padding + MUI 기본 :last-child 24px padding-bottom에 기대는 대신 flex column + gap으로
+          직접 통제한다. 두 번째 압축판(pt/pb 1.2/1.5)도 실기기에서 "아이콘이 카드 위쪽에
+          붙어 보인다"는 피드백을 받아 상단만 확실히 더 키웠다(1.2→2, +6.4px) — 하단은
+          그보다 작게만 늘렸다(1.5→1.75, +2px)여서 상단 증가폭이 하단보다 크다. compact가
+          아닌 Home 등 기존 사용처는 이 카드가 렌더링될 때 아무 값도 바뀌지 않는다(아래 모든
+          분기가 compact일 때만 새 값을 준다). */}
+      <CardContent
+        sx={{
+          pt: compact ? 2 : 1.5,
+          pb: compact ? 1.75 : 1.5,
+          px: compact ? 0.5 : 1,
+          ...(compact && {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 0.4,
+            '&:last-child': { pb: 1.75 },
+          }),
+        }}
+      >
+        <Box sx={{ color, ...(compact && { display: 'flex' }) }}>{icon}</Box>
         <Typography
           variant='h4'
-          sx={{ fontWeight: 700, color, fontSize: compact ? es(1.1) : undefined }}
+          sx={{ fontWeight: 700, color, fontSize: compact ? es(1.1) : undefined, ...(compact && { lineHeight: 1.2 }) }}
         >
           {value}
         </Typography>
         <Typography
           variant='caption'
           color='text.secondary'
-          sx={compact ? { fontSize: es(0.65) } : undefined}
+          sx={compact ? { fontSize: es(0.65), lineHeight: 1.2 } : undefined}
         >
           {unit}
         </Typography>

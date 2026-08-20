@@ -3,7 +3,7 @@ import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import FitBuddyCharacter from './fitbuddy-character';
-import { getBasePreviewScale } from '../../utils/character-preview';
+import { getBasePreviewScale, getBaseVariantSelectCardOffsetY } from '../../utils/character-preview';
 
 const STYLE_OPTIONS = [
   { value: 'semi', label: '세미' },
@@ -67,6 +67,7 @@ function CharacterStylePicker({
         {VARIANT_OPTIONS.map((v) => {
           const selected = characterVariant === v;
           const previewScale = getBasePreviewScale(gender, characterStyle, v);
+          const previewOffsetY = getBaseVariantSelectCardOffsetY(gender, characterStyle, v, previewSize * 1.3);
           return (
             <Box
               key={v}
@@ -87,13 +88,18 @@ function CharacterStylePicker({
                 transition: 'border-color 0.15s ease, background-color 0.15s ease',
               }}
             >
-              <Box sx={previewScale !== 1 ? { transform: `scale(${previewScale})`, transformOrigin: 'bottom center' } : undefined}>
-                <FitBuddyCharacter
-                  size={previewSize}
-                  gender={gender}
-                  characterStyle={characterStyle}
-                  characterVariant={v}
-                />
+              {/* previewOffsetY는 별도 바깥 wrapper에서 순수 translateY(최종 화면 px)로 적용한다
+                  — scale과 같은 transform에 translateY를 같이 넣으면 이동량 자체가 scale
+                  배율만큼 같이 늘어나 버려서 의도한 px만큼 못 옮긴다. */}
+              <Box sx={previewOffsetY ? { transform: `translateY(${previewOffsetY}px)` } : undefined}>
+                <Box sx={previewScale !== 1 ? { transform: `scale(${previewScale})`, transformOrigin: 'bottom center' } : undefined}>
+                  <FitBuddyCharacter
+                    size={previewSize}
+                    gender={gender}
+                    characterStyle={characterStyle}
+                    characterVariant={v}
+                  />
+                </Box>
               </Box>
               <Typography
                 variant='caption'

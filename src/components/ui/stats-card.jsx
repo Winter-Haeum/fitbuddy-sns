@@ -40,23 +40,23 @@ export default function StatsCard({ icon, value, unit, bgcolor, color, onClick, 
       }}
     >
       {/* compact(마이페이지 4분할) 모드만 대상 — 아이콘/숫자/라벨 세로 간격을 CardContent의
-          py + MUI 기본 :last-child 24px padding-bottom에 기대는 대신 flex column + gap으로
-          직접 통제한다. 최초 압축(py 1/gap 0.3/pb 1.25)이 실기기에서 "너무 타이트하다"는
-          피드백을 받아 상하 padding과 요소 간 gap을 약 20% 다시 늘렸다 — 수정 전(py 1.5,
-          gap 없음, MUI 기본 pb 24px)보다는 훨씬 압축된 채로, 첫 압축판보다만 살짝 여유를
-          더 준 상태다. 상단(1.2)보다 하단(1.5)이 살짝 더 크다. compact가 아닌 Home 등 기존
-          사용처는 이 카드가 렌더링될 때 아무 값도 바뀌지 않는다(아래 모든 분기가 compact일
-          때만 새 값을 준다). */}
+          padding + MUI 기본 :last-child 24px padding-bottom에 기대는 대신 flex column + gap으로
+          직접 통제한다. 두 번째 압축판(pt/pb 1.2/1.5)도 실기기에서 "아이콘이 카드 위쪽에
+          붙어 보인다"는 피드백을 받아 상단만 확실히 더 키웠다(1.2→2, +6.4px) — 하단은
+          그보다 작게만 늘렸다(1.5→1.75, +2px)여서 상단 증가폭이 하단보다 크다. compact가
+          아닌 Home 등 기존 사용처는 이 카드가 렌더링될 때 아무 값도 바뀌지 않는다(아래 모든
+          분기가 compact일 때만 새 값을 준다). */}
       <CardContent
         sx={{
-          py: compact ? 1.2 : 1.5,
+          pt: compact ? 2 : 1.5,
+          pb: compact ? 1.75 : 1.5,
           px: compact ? 0.5 : 1,
           ...(compact && {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: 0.4,
-            '&:last-child': { pb: 1.5 },
+            '&:last-child': { pb: 1.75 },
           }),
         }}
       >

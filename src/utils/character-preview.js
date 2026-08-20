@@ -56,3 +56,37 @@ export function getBaseVariantSelectCardOffsetY(gender, characterStyle, characte
   }
   return 0;
 }
+
+// Profile 캐릭터 요약 카드에서 "캐릭터의 실제 보이는 신발 끝"과 "캐릭터 변경 › 글씨 하단"을
+// 맞추기 위한 보정. DOM img 박스의 bottom을 info column의 버튼 bottom과 맞추는 것(flex-end)
+// 만으로는 부족하다 — 12개 base asset을 캔버스 110×143 박스 기준으로 alpha 채널 실측한 결과
+// 11개는 세로 투명 여백이 사실상 없어(0~5px, 평균 1.2px) flex-end만으로 이미 신발 끝과
+// 버튼이 거의 같은 줄에 온다. 하지만 chibi female 1번은 원본이 정사각형이라 세로 여백
+// 자체가 커서(스케일 전 기준 박스 높이의 12.6%), 위 getBasePreviewScale의 scale(1.3,
+// transform-origin:'bottom center')을 거치면 이 여백도 배율만큼 함께 늘어나(12.6%×1.3≈
+// 16.4%) 신발 끝이 flex-end 위치보다 훨씬 위에서 끝난다(박스 bottom은 버튼과 맞아도 신발
+// 끝은 그보다 한참 위). 캐릭터 wrapper에 이 비율만큼 음수 margin-bottom을 줘서 "박스
+// bottom" 자체를 그만큼 더 내리면(margin은 transform과 달리 레이아웃에 반영되어 카드가
+// 그만큼 자연스럽게 커진다), 신발 끝이 다시 버튼과 같은 줄로 온다 — Playwright로 실제
+// 마크업을 렌더링해 alpha 채널 기준 신발 끝↔버튼 하단 차이가 0px임을 확인했다. 나머지
+// 11개 조합은 여백이 이미 무시할 수준이라 0을 반환(불필요한 보정 없음).
+const CHIBI_FEMALE_VARIANT1_PROFILE_BOTTOM_OFFSET_FRACTION = 0.1637; // 스케일 전 12.59% × scale 1.3
+
+/**
+ * getProfileVisibleBottomOffsetPx - Profile 캐릭터 요약 카드에서만 쓰는, 캐릭터 wrapper의
+ * margin-bottom(음수)에 바로 넣을 보정값. getBasePreviewScale과 같은 조합(chibi/female/1)
+ * 에서만 0이 아닌 값을 반환한다. "캐릭터 변경" 선택 카드(getBaseVariantSelectCardOffsetY)
+ * 와는 화면이 달라 별도로 관리한다.
+ *
+ * @param {string} gender           - 'female'|'male'
+ * @param {string} characterStyle   - 'semi'|'chibi'
+ * @param {number} characterVariant - 1|2|3
+ * @param {number} charBoxHeight    - FitBuddyCharacter 박스 높이(size*1.3)
+ * @returns {number} margin-bottom에 음수로 넣을 절대값(px) — 0이면 보정 불필요
+ */
+export function getProfileVisibleBottomOffsetPx(gender, characterStyle, characterVariant, charBoxHeight) {
+  if (characterStyle === 'chibi' && gender === 'female' && Number(characterVariant) === 1) {
+    return Math.round(charBoxHeight * CHIBI_FEMALE_VARIANT1_PROFILE_BOTTOM_OFFSET_FRACTION);
+  }
+  return 0;
+}

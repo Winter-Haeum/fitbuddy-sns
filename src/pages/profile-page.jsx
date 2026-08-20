@@ -35,7 +35,7 @@ import { useFontScale } from '../hooks/use-font-scale';
 import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
-import { getBasePreviewScale } from '../utils/character-preview';
+import { getBasePreviewScale, getProfileVisibleBottomOffsetPx } from '../utils/character-preview';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
 import { WORKOUT_TYPES } from '../constants/workout';
@@ -459,10 +459,17 @@ export default function ProfilePage() {
   // base 단계(워크아웃/percentage/mood 없이 렌더)로 보이는 두 미리보기(캐릭터 요약 카드,
   // 성별 수정 미리보기)에서만 필요 — character-style-picker.jsx의 getBasePreviewScale 참고.
   const basePreviewScale = getBasePreviewScale(profileGender, profileCharacterStyle, profileCharacterVariant);
-  const basePreviewScaleSx = basePreviewScale !== 1
-    ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' }
-    : null;
   const profileCharBoxSize = Math.round(110 * scale.content);
+  const profileCharBoxHeight = Math.round(profileCharBoxSize * 1.3);
+  // chibi/female/1번만 0이 아님 — 스케일된 캐릭터의 "실제 보이는 신발 끝"이 DOM 박스
+  // bottom보다 한참 위에 있어서, 박스 자체를 이 값만큼 더 내려야 신발 끝이 "캐릭터 변경 ›"
+  // 버튼과 같은 줄에 온다. margin-bottom(레이아웃에 반영)으로 적용해 transform과 달리
+  // 카드 높이가 자연스럽게 함께 늘어난다 — utils/character-preview.js 설명 참고.
+  const profileBottomOffsetPx = getProfileVisibleBottomOffsetPx(profileGender, profileCharacterStyle, profileCharacterVariant, profileCharBoxHeight);
+  const basePreviewScaleSx = {
+    ...(basePreviewScale !== 1 ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' } : null),
+    ...(profileBottomOffsetPx ? { marginBottom: `-${profileBottomOffsetPx}px` } : null),
+  };
 
   return (
     <Layout>
@@ -577,20 +584,24 @@ export default function ProfilePage() {
         {/* 캐릭터 요약 카드 */}
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
           <Grid size={{ xs: 12 }}>
-            <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/character')}>
-              {/* fit-content 그룹을 가운데 모으던 이전 방식은 카드 폭을 다 안 쓰고 가운데에
-                  작은 덩어리로 떠 보인다는 피드백을 받았다 — Profile의 다른 영역처럼 카드
-                  전체 폭을 쓰는 2열 구조로 바꿨다. 왼쪽 column(캐릭터)과 오른쪽 column(닉네임/
-                  Lv/XP/캐릭터 변경)을 CardContent에서 alignItems:'stretch'로 같은 높이를
-                  갖게 하고, 왼쪽은 alignItems:'flex-end'로 캐릭터를 column 바닥에, 오른쪽은
-                  버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다 — 두 column의 "바닥"이 같은 기준선
-                  이라 캐릭터 발끝과 "캐릭터 변경 ›" 하단이 자연스럽게 맞춰진다(margin 숫자를
-                  맞춘 게 아니라 레이아웃 구조로 정렬). 이전 그룹-중앙정렬용 translateX(-15px)
-                  보정(getProfileSummaryShiftPx)은 그룹 자체가 없어져 의미가 없으므로 제거했다
-                  — 이제 캐릭터는 자기 column 안에서 자연스럽게 자리잡는다. */}
-              <CardContent sx={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
-                <Box sx={{ flex: '0 0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                  <Box sx={basePreviewScaleSx || undefined}>
+            <Card sx={{ cursor: 'pointer', border: '1px solid #E8F0EA' }} onClick={() => navigate('/character')}>
+              {/* character column을 flex:'0 0 auto'(캐릭터 박스 크기만큼만)로 두면 CardContent
+                  자체는 전체 폭이어도 두 column을 합친 콘텐츠가 카드 가운데에 좁게 몰려 보인다
+                  — 실제로 폭을 나눠 쓰는 2열이 되도록 CSS Grid로 명시적 비율(캐릭터 42.5% /
+                  정보 57.5%)을 준다. 세로 정렬은 grid의 기본 align-items:stretch로 두 column이
+                  같은 행 높이를 공유하고, 왼쪽은 alignItems:'flex-end'로 캐릭터를 column
+                  바닥에, 오른쪽은 버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다 — 두 column의
+                  "바닥"이 같은 기준선이 되도록 레이아웃으로 정렬한다(margin 숫자 맞추기 아님).
+                  다만 DOM 박스 bottom이 같다고 "발끝"이 맞는 건 아니다 — 캐릭터 asset은
+                  투명 여백이 있어서, 특히 스케일이 걸리는 chibi/female/1번은 박스 bottom과
+                  실제 신발 끝 사이 간격이 커진다. basePreviewScaleSx의 margin-bottom 보정
+                  (getProfileVisibleBottomOffsetPx)이 이 간격만큼 박스를 추가로 내려 "실제
+                  보이는" 신발 끝을 버튼과 맞춘다 — alpha 채널 실측 기반, Playwright 렌더링
+                  검증 완료(신발 끝↔버튼 하단 차이 0px). translateX 좌우 보정은 쓰지 않는다 —
+                  좌우 균형은 이 grid 비율 구조 자체로 해결한다. */}
+              <CardContent sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <Box sx={basePreviewScaleSx}>
                     <FitBuddyCharacter
                       size={profileCharBoxSize}
                       gender={profileGender}
@@ -599,7 +610,7 @@ export default function ProfilePage() {
                     />
                   </Box>
                 </Box>
-                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   <Typography variant='h4' noWrap sx={{ fontWeight: 700 }}>{profile?.display_name || '내 캐릭터'}</Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.1 }}>
                     <Chip label={`Lv.${character?.level || 1}`} size='small' color='primary' />

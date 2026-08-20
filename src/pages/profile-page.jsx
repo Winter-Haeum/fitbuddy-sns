@@ -35,7 +35,7 @@ import { useFontScale } from '../hooks/use-font-scale';
 import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
-import { getBasePreviewScale, getProfileVisibleBottomOffsetPx } from '../utils/character-preview';
+import { getBasePreviewScale, getProfileButtonExtraMarginBottomPx } from '../utils/character-preview';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
 import { WORKOUT_TYPES } from '../constants/workout';
@@ -461,15 +461,19 @@ export default function ProfilePage() {
   const basePreviewScale = getBasePreviewScale(profileGender, profileCharacterStyle, profileCharacterVariant);
   const profileCharBoxSize = Math.round(110 * scale.content);
   const profileCharBoxHeight = Math.round(profileCharBoxSize * 1.3);
-  // chibi/female/1번만 0이 아님 — 스케일된 캐릭터의 "실제 보이는 신발 끝"이 DOM 박스
-  // bottom보다 한참 위에 있어서, 박스 자체를 이 값만큼 더 내려야 신발 끝이 "캐릭터 변경 ›"
-  // 버튼과 같은 줄에 온다. margin-bottom(레이아웃에 반영)으로 적용해 transform과 달리
-  // 카드 높이가 자연스럽게 함께 늘어난다 — utils/character-preview.js 설명 참고.
-  const profileBottomOffsetPx = getProfileVisibleBottomOffsetPx(profileGender, profileCharacterStyle, profileCharacterVariant, profileCharBoxHeight);
-  const basePreviewScaleSx = {
-    ...(basePreviewScale !== 1 ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' } : null),
-    ...(profileBottomOffsetPx ? { marginBottom: `-${profileBottomOffsetPx}px` } : null),
-  };
+  const basePreviewScaleSx = basePreviewScale !== 1
+    ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' }
+    : undefined;
+  // MUI Card는 컴포넌트 자체에 overflow:hidden이 박혀 있어(node_modules/@mui/material/Card/
+  // Card.js 확인), scale(1.3)로 커진 캐릭터를 담을 자리를 레이아웃으로 먼저 확보하지 않으면
+  // 머리 위쪽이 카드 경계에서 잘린다 — 캐릭터 column의 minHeight를 scale만큼 키워서(음수
+  // margin으로 부모 공간을 줄이는 대신) 캐릭터 전체가 항상 카드 안에 들어오게 한다.
+  const profileCharColMinHeight = Math.round(profileCharBoxHeight * basePreviewScale);
+  // chibi/female/1번만 0이 아님 — 위와 같이 자리를 넉넉히 확보하면 이번엔 "캐릭터 변경 ›"
+  // 버튼이 (스케일된 캐릭터의) 실제 신발 끝보다 아래에 남는다. 큰 캐릭터 이미지를 원하는
+  // 위치로 밀어내는 대신, 버튼 쪽에 이 값만큼 margin-bottom을 더해 신발 끝 높이로 끌어
+  // 올린다 — utils/character-preview.js 설명 참고.
+  const profileButtonExtraMb = getProfileButtonExtraMarginBottomPx(profileGender, profileCharacterStyle, profileCharacterVariant, profileCharBoxHeight);
 
   return (
     <Layout>
@@ -590,17 +594,20 @@ export default function ProfilePage() {
                   — 실제로 폭을 나눠 쓰는 2열이 되도록 CSS Grid로 명시적 비율(캐릭터 42.5% /
                   정보 57.5%)을 준다. 세로 정렬은 grid의 기본 align-items:stretch로 두 column이
                   같은 행 높이를 공유하고, 왼쪽은 alignItems:'flex-end'로 캐릭터를 column
-                  바닥에, 오른쪽은 버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다 — 두 column의
-                  "바닥"이 같은 기준선이 되도록 레이아웃으로 정렬한다(margin 숫자 맞추기 아님).
-                  다만 DOM 박스 bottom이 같다고 "발끝"이 맞는 건 아니다 — 캐릭터 asset은
-                  투명 여백이 있어서, 특히 스케일이 걸리는 chibi/female/1번은 박스 bottom과
-                  실제 신발 끝 사이 간격이 커진다. basePreviewScaleSx의 margin-bottom 보정
-                  (getProfileVisibleBottomOffsetPx)이 이 간격만큼 박스를 추가로 내려 "실제
-                  보이는" 신발 끝을 버튼과 맞춘다 — alpha 채널 실측 기반, Playwright 렌더링
-                  검증 완료(신발 끝↔버튼 하단 차이 0px). translateX 좌우 보정은 쓰지 않는다 —
+                  바닥에, 오른쪽은 버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다.
+                  [중요] MUI Card는 overflow:hidden이 컴포넌트에 박혀 있어(Card.js 확인),
+                  scale(1.3)로 커진 chibi/female/1번을 예전처럼 음수 margin-bottom으로 밀면
+                  레이아웃이 필요로 하는 높이 자체가 줄어들어 머리 위쪽이 카드 경계에서 잘린다
+                  — 그래서 이번엔 순서를 바꿔 캐릭터 column에 minHeight(profileCharColMinHeight
+                  = 박스높이×scale)를 먼저 줘서 스케일된 캐릭터 전체가 들어갈 자리를 레이아웃
+                  으로 확보하고(Card도 함께 자연스럽게 커짐), 그 다음 버튼에만 작은 양수
+                  margin-bottom(profileButtonExtraMb)을 더해 실제 신발 끝 높이로 끌어올린다 —
+                  큰 이미지를 밀어내는 대신 작은 텍스트를 옮기는 쪽이 안전하다. alpha 채널
+                  실측 + overflow:hidden을 포함한 Playwright 렌더링으로 머리 잘림 없음과
+                  신발 끝↔버튼 하단 차이 0px을 확인했다. translateX 좌우 보정은 쓰지 않는다 —
                   좌우 균형은 이 grid 비율 구조 자체로 해결한다. */}
               <CardContent sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', minHeight: profileCharColMinHeight }}>
                   <Box sx={basePreviewScaleSx}>
                     <FitBuddyCharacter
                       size={profileCharBoxSize}
@@ -618,7 +625,11 @@ export default function ProfilePage() {
                   </Box>
                   <Button
                     variant='text' size='small'
-                    sx={{ alignSelf: 'flex-start', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1, mt: 'auto', pt: 0.6, color: '#6B7280' }}
+                    sx={{
+                      alignSelf: 'flex-start', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1,
+                      mt: 'auto', mb: profileButtonExtraMb ? `${profileButtonExtraMb}px` : undefined,
+                      pt: 0.6, color: '#6B7280',
+                    }}
                   >
                     캐릭터 변경 ›
                   </Button>

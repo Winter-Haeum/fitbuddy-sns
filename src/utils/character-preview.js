@@ -30,15 +30,18 @@ export function getBasePreviewScale(gender, characterStyle, characterVariant) {
 // 아래쪽을 고정점 삼아 커지므로, 위쪽이 아래쪽보다 훨씬 많이 위로 밀려 올라간다. chibi
 // female 1번은 원본이 정사각형이라 다른 조합보다 세로 여백 자체가 훨씬 작았던 탓에, 이
 // 여백이 scale로 확대되면서 "캐릭터 변경" 선택 카드의 둥근 상단 테두리를 실제로 넘어간다
-// (다른 11개 조합은 세로 여백이 이미 충분해 같은 scale에서도 넘지 않는다). "캐릭터 변경"
-// 카드 76×98.8(size=76 기준) 박스에서 chibi 2/3번의 "카드 상단→머리 위 여백"을 실측하면
-// 약 10px인데, chibi 1번은 scale(1.3)만 걸면 이 여백이 음수(카드 밖으로 넘음)가 된다.
-// alpha 채널 실측(1번 위쪽 투명 여백 11.1%, 렌더 높이 대비)을 바탕으로 2/3번과 같은 여백이
-// 되는 지점을 역산하면 박스 높이(size*1.3)의 약 15.2% — 이 비율만큼 스케일된 캐릭터 전체를
-// 아래로 더 옮기면 상단 여백이 2/3번과 비슷해지고, 발과 "1번" 라벨 사이 여백도 여전히
-// 양수로 남는다(겹치지 않음). "캐릭터 변경" 선택 카드(1/2/3 preview) 전용 보정이라 다른
-// 화면(Profile 요약 카드 등)에는 적용하지 않는다.
-const CHIBI_FEMALE_VARIANT1_SELECT_CARD_OFFSET_FRACTION = 0.152;
+// (다른 11개 조합은 세로 여백이 이미 충분해 같은 scale에서도 넘지 않는다). 이 카드는 MUI
+// Card가 아니라 일반 Box라 overflow:hidden이 없어 위로 넘친 부분이 실제로 잘리지는 않지만,
+// 시각적으로 2/3번보다 눈에 띄게 위로 솟아 보인다.
+// f01/f02/f03 base를 실제 선택 카드와 동일한 76×98.8 박스 + 실제 preview stage(상하 padding
+// 8px)에서 alpha 채널로 "실제 보이는 신발 끝" 위치를 재고, f02/f03의 평균을 기준으로 f01에
+// 필요한 정확한 하향 이동량을 역산한 값이다(1/2/3 세 preview가 같은 좌표계에서 비교됨).
+// 이전 값(15.2%, 상단 여백 기준 추정치)은 f01의 신발 끝을 f02/f03보다 아주 살짝(≈2px)
+// 아래로 지나치게 내렸던 것으로 재실측 결과 확인되어, 신발 끝 기준으로 다시 맞춘 값(13.16%)
+// 으로 교체한다 — f01 vs avg(f02,f03) 신발 끝 위치 차이가 이제 0.04px 수준이다. "캐릭터
+// 변경" 선택 카드(1/2/3 preview) 전용 보정이라 다른 화면(Profile 요약 카드 등)에는 적용하지
+// 않는다.
+const CHIBI_FEMALE_VARIANT1_SELECT_CARD_OFFSET_FRACTION = 0.1316;
 
 /**
  * getBaseVariantSelectCardOffsetY - "캐릭터 변경" 선택 카드(1/2/3 preview)에서만 쓰는 세로
@@ -57,34 +60,42 @@ export function getBaseVariantSelectCardOffsetY(gender, characterStyle, characte
   return 0;
 }
 
-// Profile 캐릭터 요약 카드에서 "캐릭터의 실제 보이는 신발 끝"과 "캐릭터 변경 › 글씨 하단"을
-// 맞추기 위한 보정. DOM img 박스의 bottom을 info column의 버튼 bottom과 맞추는 것(flex-end)
-// 만으로는 부족하다 — 12개 base asset을 캔버스 110×143 박스 기준으로 alpha 채널 실측한 결과
-// 11개는 세로 투명 여백이 사실상 없어(0~5px, 평균 1.2px) flex-end만으로 이미 신발 끝과
-// 버튼이 거의 같은 줄에 온다. 하지만 chibi female 1번은 원본이 정사각형이라 세로 여백
-// 자체가 커서(스케일 전 기준 박스 높이의 12.6%), 위 getBasePreviewScale의 scale(1.3,
-// transform-origin:'bottom center')을 거치면 이 여백도 배율만큼 함께 늘어나(12.6%×1.3≈
-// 16.4%) 신발 끝이 flex-end 위치보다 훨씬 위에서 끝난다(박스 bottom은 버튼과 맞아도 신발
-// 끝은 그보다 한참 위). 캐릭터 wrapper에 이 비율만큼 음수 margin-bottom을 줘서 "박스
-// bottom" 자체를 그만큼 더 내리면(margin은 transform과 달리 레이아웃에 반영되어 카드가
-// 그만큼 자연스럽게 커진다), 신발 끝이 다시 버튼과 같은 줄로 온다 — Playwright로 실제
-// 마크업을 렌더링해 alpha 채널 기준 신발 끝↔버튼 하단 차이가 0px임을 확인했다. 나머지
-// 11개 조합은 여백이 이미 무시할 수준이라 0을 반환(불필요한 보정 없음).
+// [중요 — 이전 버전의 버그] Profile은 실제 MUI <Card>를 쓰는데, @mui/material/Card/Card.js의
+// CardRoot는 항상 `overflow: 'hidden'`을 갖고 있다(theme.js의 MuiCard.styleOverrides로도
+// 지워지지 않는, 컴포넌트 자체에 박힌 스타일 — node_modules 소스로 직접 확인). 이전 버전은
+// scale(1.3)로 시각적으로 커진 캐릭터를 "박스 bottom"에 음수 margin-bottom으로 맞췄는데,
+// 음수 margin-bottom은 해당 아이템이 grid 행 높이 계산에 기여하는 몫을 그만큼 줄인다 — 즉
+// Card가 실제로 필요한 높이보다 작게 계산되고, 그 결과 이미 위로 넘친 캐릭터 머리 부분이
+// Card의 overflow:hidden에 의해 잘렸다("음수 margin이 공간을 늘려준다"는 이전 설명은
+// 틀렸다 — 오히려 줄인다). 이번에는 부모 레이아웃을 줄이는 방식 대신, 순서를 바꾼다:
+// 1) 캐릭터 column에 `charBoxHeight * scale`만큼의 minHeight를 줘서 스케일된 캐릭터
+//    전체(머리~발끝)가 들어갈 자리를 먼저 확보한다(레이아웃이 실제로 커지므로 Card도 함께
+//    커진다 — overflow:hidden에 걸릴 일이 없다).
+// 2) 그 상태에서 "캐릭터 변경 ›" 버튼 쪽에 작은 양수 margin-bottom을 줘서, 버튼을 실제
+//    신발 끝 높이까지 끌어올린다(큰 이미지를 원하는 위치로 밀어내는 대신, 작은 텍스트를
+//    캐릭터의 실제 위치에 맞추는 쪽이 더 안전하다).
+// 12개 base asset을 110×143 박스 기준 alpha 채널로 실측한 결과 11개는 세로 투명 여백이
+// 사실상 없어(0~5px, 평균 1.2px) 이 보정이 필요 없다. chibi female 1번만 원본이 정사각형
+// 이라 세로 여백이 커서(스케일 전 기준 박스 높이의 12.6%), scale(1.3, transform-origin:
+// 'bottom center')을 거치면 이 여백도 배율만큼 함께 늘어난다(12.6%×1.3≈16.4%) — 이 값을
+// 버튼의 추가 margin-bottom으로 쓴다. Playwright로 실제 마크업(overflow:hidden 포함)을
+// 렌더링해 머리 잘림 없음 + 신발 끝↔버튼 하단 차이 0px을 확인했다.
 const CHIBI_FEMALE_VARIANT1_PROFILE_BOTTOM_OFFSET_FRACTION = 0.1637; // 스케일 전 12.59% × scale 1.3
 
 /**
- * getProfileVisibleBottomOffsetPx - Profile 캐릭터 요약 카드에서만 쓰는, 캐릭터 wrapper의
- * margin-bottom(음수)에 바로 넣을 보정값. getBasePreviewScale과 같은 조합(chibi/female/1)
- * 에서만 0이 아닌 값을 반환한다. "캐릭터 변경" 선택 카드(getBaseVariantSelectCardOffsetY)
- * 와는 화면이 달라 별도로 관리한다.
+ * getProfileButtonExtraMarginBottomPx - Profile 캐릭터 요약 카드의 "캐릭터 변경 ›" 버튼에
+ * 추가로 줄 양수 margin-bottom(px). getBasePreviewScale과 같은 조합(chibi/female/1)에서만
+ * 0이 아닌 값을 반환한다. 버튼은 이미 flex column에서 margin-top:'auto'로 컬럼 바닥에
+ * 붙어 있으므로, 여기 반환값을 margin-bottom에 더하면 그만큼 위로 끌어올려진다. "캐릭터
+ * 변경" 선택 카드(getBaseVariantSelectCardOffsetY)와는 화면이 달라 별도로 관리한다.
  *
  * @param {string} gender           - 'female'|'male'
  * @param {string} characterStyle   - 'semi'|'chibi'
  * @param {number} characterVariant - 1|2|3
- * @param {number} charBoxHeight    - FitBuddyCharacter 박스 높이(size*1.3)
- * @returns {number} margin-bottom에 음수로 넣을 절대값(px) — 0이면 보정 불필요
+ * @param {number} charBoxHeight    - FitBuddyCharacter 박스 높이(size*1.3, scale 적용 전)
+ * @returns {number} margin-bottom에 양수로 더할 값(px) — 0이면 보정 불필요
  */
-export function getProfileVisibleBottomOffsetPx(gender, characterStyle, characterVariant, charBoxHeight) {
+export function getProfileButtonExtraMarginBottomPx(gender, characterStyle, characterVariant, charBoxHeight) {
   if (characterStyle === 'chibi' && gender === 'female' && Number(characterVariant) === 1) {
     return Math.round(charBoxHeight * CHIBI_FEMALE_VARIANT1_PROFILE_BOTTOM_OFFSET_FRACTION);
   }

@@ -15,17 +15,18 @@ import { useAuth } from '../hooks/use-auth';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
 import CharacterStylePicker from '../components/ui/character-style-picker';
-import { getLevelFromXP, xpToReachLevel, xpForNextLevel } from '../utils/xp-utils';
+import { getXpProgress } from '../utils/xp-utils';
 
 const XP_RULES = [
-  ['운동 완료 1회', '+5 XP'],
-  ['운동 시간 10분당', '+2 XP'],
-  ['10분 미만 운동', '+1 XP'],
-  ['낮은 강도 보너스', '+1 XP'],
-  ['보통 강도 보너스', '+3 XP'],
-  ['높은 강도 보너스', '+5 XP'],
-  ['운동 일기 작성', '+2 XP (하루 1회)'],
-  ['하루 목표 달성', '+10 XP (하루 1회)'],
+  ['하루 운동 10분 이상', '+1 XP'],
+  ['하루 운동 30분 이상', '+3 XP'],
+  ['하루 운동 60분 이상', '+6 XP'],
+  ['운동 일지 작성', '+1 XP (하루 1회)'],
+  ['하루 목표 달성', '+1 XP (하루 1회)'],
+  ['연속 운동 3일', '+1 XP'],
+  ['연속 운동 7일', '+2 XP'],
+  ['연속 운동 14일', '+3 XP'],
+  ['연속 운동 30일', '+5 XP'],
 ];
 
 export default function CharacterPage() {
@@ -40,11 +41,7 @@ export default function CharacterPage() {
   }, [user]);
 
   const xp = character?.experience || 0;
-  const level = getLevelFromXP(xp);
-  const xpCurrentStart = xpToReachLevel(level);
-  const xpNeeded = xpForNextLevel(level);
-  const xpInLevel = xp - xpCurrentStart;
-  const xpPct = Math.min((xpInLevel / xpNeeded) * 100, 100);
+  const { level, xpInLevel, xpNeeded, pct: xpPct } = getXpProgress(xp);
 
   const circumference = 2 * Math.PI * 52;
   const filledArc = (xpPct / 100) * circumference;
@@ -165,8 +162,9 @@ export default function CharacterPage() {
                 </Box>
               ))}
             </Box>
-            <Typography variant='caption' sx={{ color: '#888', mt: 1, display: 'block' }}>
-              하루 최대 획득 가능 XP: 40 XP
+            <Typography variant='caption' sx={{ color: '#888', mt: 1, display: 'block', lineHeight: 1.4 }}>
+              운동시간 XP는 하루 최고 구간만 적용돼요.<br />
+              10분·30분·60분 보상이 중복 합산되지는 않아요.
             </Typography>
           </CardContent>
         </Card>

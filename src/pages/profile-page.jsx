@@ -469,10 +469,10 @@ export default function ProfilePage() {
   // 머리 위쪽이 카드 경계에서 잘린다 — 캐릭터 column의 minHeight를 scale만큼 키워서(음수
   // margin으로 부모 공간을 줄이는 대신) 캐릭터 전체가 항상 카드 안에 들어오게 한다.
   const profileCharColMinHeight = Math.round(profileCharBoxHeight * basePreviewScale);
-  // variant 2/3은 항상 0 — 위와 같이 자리를 넉넉히 확보하면 (scale이 걸린) variant 1에서는
-  // "캐릭터 변경 ›" 버튼이 실제 신발 끝보다 아래에 남는다. 큰 캐릭터 이미지를 원하는 위치로
-  // 밀어내는 대신, 버튼 쪽에 이 값만큼 margin-bottom을 더해 신발 끝 높이로 끌어올린다 —
-  // utils/character-preview.js의 getVariant1Normalization 설명 참고.
+  // chibi female 1번 외에는 항상 0 — 위와 같이 자리를 넉넉히 확보하면 (scale이 걸린) chibi
+  // female 1번에서는 "캐릭터 변경 ›" 버튼이 실제 신발 끝보다 아래에 남는다. 큰 캐릭터 이미지를
+  // 원하는 위치로 밀어내는 대신, 버튼 쪽에 이 값만큼 margin-bottom을 더해 신발 끝 높이로
+  // 끌어올린다 — utils/character-preview.js 설명 참고.
   const profileButtonExtraMb = getProfileButtonExtraMarginBottomPx(profileGender, profileCharacterStyle, profileCharacterVariant, profileCharBoxHeight);
 
   return (

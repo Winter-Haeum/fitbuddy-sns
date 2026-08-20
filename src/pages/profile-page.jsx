@@ -35,7 +35,6 @@ import { useFontScale } from '../hooks/use-font-scale';
 import { FONT_SCALE_LEVELS, FONT_SCALE_LABELS } from '../theme';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
-import { getBasePreviewScale, getProfileButtonExtraMarginBottomPx } from '../utils/character-preview';
 import StatsCard from '../components/ui/stats-card';
 import { getDaysLeft as getChallengesDaysLeft, getLocalToday } from '../utils/date-utils';
 import { WORKOUT_TYPES } from '../constants/workout';
@@ -456,24 +455,7 @@ export default function ProfilePage() {
   const profileGender = profile?.gender || 'female';
   const profileCharacterStyle = profile?.character_style || 'semi';
   const profileCharacterVariant = profile?.character_variant || 1;
-  // base 단계(워크아웃/percentage/mood 없이 렌더)로 보이는 두 미리보기(캐릭터 요약 카드,
-  // 성별 수정 미리보기)에서만 필요 — character-style-picker.jsx의 getBasePreviewScale 참고.
-  const basePreviewScale = getBasePreviewScale(profileGender, profileCharacterStyle, profileCharacterVariant);
   const profileCharBoxSize = Math.round(110 * scale.content);
-  const profileCharBoxHeight = Math.round(profileCharBoxSize * 1.3);
-  const basePreviewScaleSx = basePreviewScale !== 1
-    ? { transform: `scale(${basePreviewScale})`, transformOrigin: 'bottom center' }
-    : undefined;
-  // MUI Card는 컴포넌트 자체에 overflow:hidden이 박혀 있어(node_modules/@mui/material/Card/
-  // Card.js 확인), scale(1.3)로 커진 캐릭터를 담을 자리를 레이아웃으로 먼저 확보하지 않으면
-  // 머리 위쪽이 카드 경계에서 잘린다 — 캐릭터 column의 minHeight를 scale만큼 키워서(음수
-  // margin으로 부모 공간을 줄이는 대신) 캐릭터 전체가 항상 카드 안에 들어오게 한다.
-  const profileCharColMinHeight = Math.round(profileCharBoxHeight * basePreviewScale);
-  // chibi female 1번 외에는 항상 0 — 위와 같이 자리를 넉넉히 확보하면 (scale이 걸린) chibi
-  // female 1번에서는 "캐릭터 변경 ›" 버튼이 실제 신발 끝보다 아래에 남는다. 큰 캐릭터 이미지를
-  // 원하는 위치로 밀어내는 대신, 버튼 쪽에 이 값만큼 margin-bottom을 더해 신발 끝 높이로
-  // 끌어올린다 — utils/character-preview.js 설명 참고.
-  const profileButtonExtraMb = getProfileButtonExtraMarginBottomPx(profileGender, profileCharacterStyle, profileCharacterVariant, profileCharBoxHeight);
 
   return (
     <Layout>
@@ -594,18 +576,7 @@ export default function ProfilePage() {
                   — 실제로 폭을 나눠 쓰는 2열이 되도록 CSS Grid로 명시적 비율(캐릭터 42.5% /
                   정보 57.5%)을 준다. 세로 정렬은 grid의 기본 align-items:stretch로 두 column이
                   같은 행 높이를 공유하고, 왼쪽은 alignItems:'flex-end'로 캐릭터를 column
-                  바닥에, 오른쪽은 버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다.
-                  [중요] MUI Card는 overflow:hidden이 컴포넌트에 박혀 있어(Card.js 확인),
-                  scale이 걸린 variant 1을 예전처럼 음수 margin-bottom으로 밀면 레이아웃이
-                  필요로 하는 높이 자체가 줄어들어 머리 위쪽이 카드 경계에서 잘린다
-                  — 그래서 이번엔 순서를 바꿔 캐릭터 column에 minHeight(profileCharColMinHeight
-                  = 박스높이×scale)를 먼저 줘서 스케일된 캐릭터 전체가 들어갈 자리를 레이아웃
-                  으로 확보하고(Card도 함께 자연스럽게 커짐), 그 다음 버튼에만 작은 양수
-                  margin-bottom(profileButtonExtraMb)을 더해 실제 신발 끝 높이로 끌어올린다 —
-                  큰 이미지를 밀어내는 대신 작은 텍스트를 옮기는 쪽이 안전하다. alpha 채널
-                  실측 + overflow:hidden을 포함한 Playwright 렌더링으로 머리 잘림 없음과
-                  신발 끝↔버튼 하단 차이 0px을 확인했다. translateX 좌우 보정은 쓰지 않는다 —
-                  좌우 균형은 이 grid 비율 구조 자체로 해결한다. */}
+                  바닥에, 오른쪽은 버튼에 mt:'auto'를 줘 컬럼 바닥에 붙인다. */}
               {/* CardContent는 MUI 기본값이 padding:16(모든 방향)이지만 &:last-child에서
                   paddingBottom만 24로 덮어써서(node_modules/@mui/material/CardContent/
                   CardContent.js 확인 — 이 CardContent가 Card의 유일한/마지막 자식이라 항상
@@ -615,15 +586,13 @@ export default function ProfilePage() {
                   줄이는 것이라 버튼 위치(= row 안에서 mt:'auto'로 정해짐)는 전혀 움직이지
                   않는다 — 카드 하단 테두리만 버튼 쪽으로 당겨온다. */}
               <CardContent sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)', gap: 2, pb: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', minHeight: profileCharColMinHeight }}>
-                  <Box sx={basePreviewScaleSx}>
-                    <FitBuddyCharacter
-                      size={profileCharBoxSize}
-                      gender={profileGender}
-                      characterStyle={profileCharacterStyle}
-                      characterVariant={profileCharacterVariant}
-                    />
-                  </Box>
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <FitBuddyCharacter
+                    size={profileCharBoxSize}
+                    gender={profileGender}
+                    characterStyle={profileCharacterStyle}
+                    characterVariant={profileCharacterVariant}
+                  />
                 </Box>
                 <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   {/* 닉네임+Lv/XP 묶음이 버튼과 너무 떨어져 보인다는 피드백 — 버튼은
@@ -639,7 +608,7 @@ export default function ProfilePage() {
                     variant='text' size='small'
                     sx={{
                       alignSelf: 'flex-start', flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0, px: 1,
-                      mt: 'auto', mb: profileButtonExtraMb ? `${profileButtonExtraMb}px` : undefined,
+                      mt: 'auto',
                       pt: 0.6, color: '#6B7280',
                     }}
                   >
@@ -1121,10 +1090,6 @@ export default function ProfilePage() {
             <Typography variant='body2' sx={{ fontWeight: 600, mb: 1 }}>성별</Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               {[{ value: 'female', label: '여성' }, { value: 'male', label: '남성' }].map((opt) => {
-                // gender만 바뀔 뿐 캐릭터 페이지에서 고른 style/variant는 그대로 유지되므로,
-                // 이 미리보기도 semi/1로 고정하지 않고 현재 저장된 값으로 보여준다. opt.value가
-                // 'female'/'male'로 바뀌므로 base 보정도 옵션별로 다시 계산한다.
-                const optScale = getBasePreviewScale(opt.value, profileCharacterStyle, profileCharacterVariant);
                 return (
                   <Box
                     key={opt.value}
@@ -1136,14 +1101,12 @@ export default function ProfilePage() {
                       transition: 'all 0.15s',
                     }}
                   >
-                    <Box sx={optScale !== 1 ? { display: 'inline-block', transform: `scale(${optScale})`, transformOrigin: 'bottom center' } : { display: 'inline-block' }}>
-                      <FitBuddyCharacter
-                        size={36}
-                        gender={opt.value}
-                        characterStyle={profileCharacterStyle}
-                        characterVariant={profileCharacterVariant}
-                      />
-                    </Box>
+                    <FitBuddyCharacter
+                      size={36}
+                      gender={opt.value}
+                      characterStyle={profileCharacterStyle}
+                      characterVariant={profileCharacterVariant}
+                    />
                     <Typography variant='caption' sx={{ display: 'block', fontWeight: editForm.gender === opt.value ? 700 : 400, color: editForm.gender === opt.value ? '#2E7D32' : '#757575' }}>
                       {opt.label}
                     </Typography>

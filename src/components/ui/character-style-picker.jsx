@@ -3,7 +3,6 @@ import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import FitBuddyCharacter from './fitbuddy-character';
-import { getBasePreviewScale, getBaseVariantSelectCardOffsetY } from '../../utils/character-preview';
 
 const STYLE_OPTIONS = [
   { value: 'semi', label: '세미' },
@@ -66,8 +65,6 @@ function CharacterStylePicker({
       <Box sx={{ display: 'flex', gap: 1.2, justifyContent: 'center' }}>
         {VARIANT_OPTIONS.map((v) => {
           const selected = characterVariant === v;
-          const previewScale = getBasePreviewScale(gender, characterStyle, v);
-          const previewOffsetY = getBaseVariantSelectCardOffsetY(gender, characterStyle, v, previewSize * 1.3);
           return (
             <Box
               key={v}
@@ -78,12 +75,7 @@ function CharacterStylePicker({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                // 1/2/3 세 카드가 공유하는 "미리보기~라벨" 간격. chibi female 1번이
-                // getBaseVariantSelectCardOffsetY만큼 아래로 이동하면서, 옮긴 만큼 신발이
-                // "1번" 라벨과 겹치지 않도록 여유를 준다. 세 카드 모두 같은 gap을 쓰므로 2/3번의
-                // 실제 위치·카드 높이·라벨 위치는 전혀 바뀌지 않는다 — chibi female 1번만
-                // 넓어진 여유 공간을 써서 라벨과 안전하게 떨어진다.
-                gap: 1.5,
+                gap: 0.5,
                 py: 1,
                 borderRadius: 3,
                 cursor: 'pointer',
@@ -93,19 +85,12 @@ function CharacterStylePicker({
                 transition: 'border-color 0.15s ease, background-color 0.15s ease',
               }}
             >
-              {/* previewOffsetY는 별도 바깥 wrapper에서 순수 translateY(최종 화면 px)로 적용한다
-                  — scale과 같은 transform에 translateY를 같이 넣으면 이동량 자체가 scale
-                  배율만큼 같이 늘어나 버려서 의도한 px만큼 못 옮긴다. */}
-              <Box sx={previewOffsetY ? { transform: `translateY(${previewOffsetY}px)` } : undefined}>
-                <Box sx={previewScale !== 1 ? { transform: `scale(${previewScale})`, transformOrigin: 'bottom center' } : undefined}>
-                  <FitBuddyCharacter
-                    size={previewSize}
-                    gender={gender}
-                    characterStyle={characterStyle}
-                    characterVariant={v}
-                  />
-                </Box>
-              </Box>
+              <FitBuddyCharacter
+                size={previewSize}
+                gender={gender}
+                characterStyle={characterStyle}
+                characterVariant={v}
+              />
               <Typography
                 variant='caption'
                 sx={{ fontWeight: selected ? 700 : 400, color: selected ? '#2E7D32' : '#757575' }}

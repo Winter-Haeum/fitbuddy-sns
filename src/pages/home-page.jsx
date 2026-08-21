@@ -344,7 +344,6 @@ export default function HomePage() {
   }
 
   const activityState = getActivityState();
-  const characterMood = progress === 0 ? 'idle' : progress >= 70 ? 'celebrating' : progress >= 30 ? 'running' : 'active';
   // fitbuddy_users.daily_step_goal이 아직 없는 사용자(컬럼 미도입/미설정)는 기존 고정값으로 폴백.
   const stepGoal = profile?.daily_step_goal || DAILY_STEP_GOAL;
   const stepPercent = Math.round((dailySteps.steps / stepGoal) * 100);
@@ -491,7 +490,7 @@ export default function HomePage() {
                   gender={profile?.gender || 'female'}
                   characterStyle={profile?.character_style || 'semi'}
                   characterVariant={profile?.character_variant || 1}
-                  mood={characterMood}
+                  percentage={progress}
                 />
               </Box>
 

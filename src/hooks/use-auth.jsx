@@ -132,6 +132,11 @@ export function AuthProvider({ children }) {
         if (sessionUser) setUser(sessionUser);
         setProfile(created || profilePayload);
 
+        // ON CONFLICT DO UPDATE(merge-duplicates, upsert 기본값)는 UPDATE 권한을 요구한다
+        // — DB에서 authenticated의 fitbuddy_characters UPDATE를 막았으므로(XP/Level
+        // server-authoritative 정책), 여기서는 반드시 ignoreDuplicates:true로 ON CONFLICT
+        // DO NOTHING을 써야 한다. INSERT 권한만 있으면 되고, 이미 row가 있으면(레이스든
+        // 기존 사용자든) 그 row의 level/experience는 절대 건드리지 않는다.
         await supabase.from('fitbuddy_characters').upsert({
           user_id: userId,
           character_name: displayName + '의 캐릭터',
@@ -140,7 +145,7 @@ export function AuthProvider({ children }) {
           level: 1,
           experience: 0,
           points: 0,
-        }, { onConflict: 'user_id' });
+        }, { onConflict: 'user_id', ignoreDuplicates: true });
       }
     } catch (err) {
       console.error('[fetchProfile] 예외 오류:', err);
@@ -192,6 +197,10 @@ export function AuthProvider({ children }) {
       console.error('[signUp] 프로필 upsert 실패:', upsertErr.message, '| code:', upsertErr.code, '| hint:', upsertErr.hint);
     }
 
+    // ignoreDuplicates:true → ON CONFLICT DO NOTHING (INSERT 권한만 필요) — DO UPDATE
+    // 기본값은 UPDATE 권한을 요구하는데, DB에서 authenticated의 fitbuddy_characters
+    // UPDATE를 막아뒀으므로(XP/Level server-authoritative 정책) 반드시 이 형태여야 한다.
+    // 이미 row가 있으면 아무것도 하지 않는다 — 기존 level/experience를 절대 덮어쓰지 않는다.
     const { error: charErr } = await supabase
       .from('fitbuddy_characters')
       .upsert({
@@ -202,7 +211,7 @@ export function AuthProvider({ children }) {
         level: 1,
         experience: 0,
         points: 0,
-      }, { onConflict: 'user_id' });
+      }, { onConflict: 'user_id', ignoreDuplicates: true });
     if (charErr) console.error('[signUp] 캐릭터 생성 실패:', charErr.message);
 
     return profilePayload;

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { supabase } from '../utils/supabase';
-import { getLevelFromXP } from '../utils/xp-utils';
 import { getLocalToday } from '../utils/date-utils';
 import { useAuth } from './use-auth';
 import { WORKOUT_TYPES, INTENSITIES } from '../constants/workout';
@@ -136,29 +135,16 @@ export function TimerProvider({ children }) {
         return;
       }
 
-      const intensityXpBonus = { low: 1, medium: 3, high: 5 };
-      let xpGain = 5;
-      if (minutes >= 10) {
-        xpGain += Math.floor(minutes / 10) * 2;
-      } else {
-        xpGain += 1;
-      }
-      xpGain += intensityXpBonus[intensity] || 3;
-      xpGain = Math.min(xpGain, 40);
-
-      const { data: charData } = await supabase
-        .from('fitbuddy_characters')
-        .select('experience, level')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (charData) {
-        const newXp = (charData.experience || 0) + xpGain;
-        const newLevel = getLevelFromXP(newXp);
-        await supabase.from('fitbuddy_characters').update({
-          experience: newXp,
-          level: newLevel,
-        }).eq('user_id', user.id);
+      // XP는 클라이언트가 액수를 정하지 않는다 — 서버(RPC)가 오늘 실제 운동 기록을 다시
+      // 조회해서 지급 자격/액수를 계산한다. 동일 날짜에 여러 번 호출돼도(중복 저장, 재접속)
+      // ledger unique 제약 덕분에 이미 지급된 몫은 다시 더해지지 않는다(idempotent).
+      let xpDelta = 0;
+      try {
+        const { data: syncResult, error: syncErr } = await supabase.rpc('fitbuddy_sync_daily_xp', { p_date: today });
+        if (syncErr) throw syncErr;
+        xpDelta = syncResult?.total_delta || 0;
+      } catch (syncErr) {
+        console.error('XP 동기화 오류:', syncErr);
       }
 
       setRunning(false);
@@ -167,7 +153,7 @@ export function TimerProvider({ children }) {
       setSaved(true);
       setSnack({
         open: true,
-        msg: `운동 기록이 저장되었습니다. ${minutes}분 ${cal}kcal · +${xpGain}XP 💪`,
+        msg: `운동 기록이 저장되었습니다. ${minutes}분 ${cal}kcal${xpDelta > 0 ? ` · +${xpDelta}XP 💪` : ''}`,
         severity: 'success',
       });
 

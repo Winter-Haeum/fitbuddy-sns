@@ -46,6 +46,16 @@ function formatLocalDate(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+// '이번 주'는 rolling 7일이 아니라 월요일 시작 calendar week로 정의한다(한국 사용자 기준).
+// getDay()는 0=일 ~ 6=토라서, 월요일까지 며칠을 빼야 하는지 요일별로 계산한다.
+function getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diffToMonday);
+  return d;
+}
+
 const POSTS_PREVIEW = 5;
 
 const WORKOUT_GOALS = ['다이어트', '근력 증가', '건강 관리', '습관 만들기'];
@@ -83,6 +93,11 @@ export default function ProfilePage() {
   // 여는 Menu 하나로 처리한다.
   const [settingsAnchor, setSettingsAnchor] = useState(null);
 
+  // 운동 통계(총 운동/이번 주/오늘/연속 운동) 초기화 확인 다이얼로그 — 기록/XP/Level은
+  // 건드리지 않고 fitbuddy_users.stats_reset_at만 갱신한다(실수 방지를 위해 확인 필수).
+  const [statsResetOpen, setStatsResetOpen] = useState(false);
+  const [statsResetLoading, setStatsResetLoading] = useState(false);
+
   // 프로필 수정
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -105,11 +120,8 @@ export default function ProfilePage() {
   // Profile page data loaders intentionally run once on mount; reordering/useCallback has repeatedly caused set-state-in-effect lint errors.
   useEffect(() => {
     if (!user) return;
-    // eslint-disable-next-line react-hooks/immutability
     fetchMyPosts();
-    // eslint-disable-next-line react-hooks/immutability
     fetchSavedPosts();
-    // eslint-disable-next-line react-hooks/immutability
     fetchStats();
     supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setCharacter(data));
@@ -162,18 +174,37 @@ export default function ProfilePage() {
     } catch (err) { console.error(err); }
   }
 
-  async function fetchStats() {
+  // resetAtOverride: handleResetStats가 방금 DB에 저장한 stats_reset_at을 그 자리에서
+  // 즉시 반영하기 위한 값이다. fetchProfile(user.id)가 완료돼도 setProfile은 리렌더를
+  // 예약할 뿐이라, 같은 클릭 안에서 곧바로 이어 부르는 fetchStats()는 여전히 이전 렌더의
+  // profile(=아직 갱신 전 stats_reset_at)을 그대로 참조한다 — 그래서 첫 클릭은 반영되지
+  // 않고 리렌더가 끝난 다음 클릭에서야 새 값이 쓰이는 버그가 있었다. override를 명시적으로
+  // 넘기면 이 렌더 지연과 무관하게 방금 쓴 값을 바로 계산에 쓸 수 있다.
+  async function fetchStats(resetAtOverride) {
     try {
       const { data } = await supabase
         .from('fitbuddy_workouts')
-        .select('workout_date, duration_minutes, calories_burned, workout_type')
+        .select('workout_date, duration_minutes, calories_burned, workout_type, created_at')
         .eq('user_id', user.id)
         .order('workout_date', { ascending: false });
-      const all = data || [];
       const today = getLocalToday();
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekAgoStr = formatLocalDate(weekAgo);
+
+      // 통계 초기화(stats_reset_at) 이후 기록만 집계한다. workout_date만 비교하면 "초기화한
+      // 당일" 문제가 생긴다 — 초기화 이전에 이미 저장된 오늘 운동까지 workout_date가 같다는
+      // 이유로 다시 포함돼버린다. 그래서 같은 날짜인 경우에는 실제 저장 시각(created_at)까지
+      // 함께 비교해, reset 이전 오늘 운동은 제외하고 reset 이후 새 운동만 포함한다.
+      const resetAtStr = resetAtOverride ?? profile?.stats_reset_at;
+      const resetAt = resetAtStr ? new Date(resetAtStr) : null;
+      const resetLocalDate = resetAt ? formatLocalDate(resetAt) : null;
+      const afterReset = (w) => {
+        if (!resetAt) return true;
+        if (w.workout_date > resetLocalDate) return true;
+        if (w.workout_date < resetLocalDate) return false;
+        return w.created_at ? new Date(w.created_at) >= resetAt : false;
+      };
+
+      const all = (data || []).filter(afterReset);
+      const weekStartStr = formatLocalDate(getWeekStart(new Date()));
       const uniqueDates = [...new Set(all.map((w) => w.workout_date))];
       const dateSet = new Set(uniqueDates);
 
@@ -197,7 +228,7 @@ export default function ProfilePage() {
         else curStreak = 1;
       }
 
-      const weekData = all.filter((w) => w.workout_date >= weekAgoStr);
+      const weekData = all.filter((w) => w.workout_date >= weekStartStr);
       const todayData = all.filter((w) => w.workout_date === today);
 
       // 가장 많이 한 운동 종류
@@ -207,7 +238,7 @@ export default function ProfilePage() {
 
       setStats({
         totalWorkouts: all.length,
-        thisWeek: uniqueDates.filter((d) => d >= weekAgoStr).length,
+        thisWeek: uniqueDates.filter((d) => d >= weekStartStr).length,
         todayCount: all.filter((w) => w.workout_date === today).length,
         streak,
       });
@@ -222,6 +253,32 @@ export default function ProfilePage() {
         bestStreak,
       });
     } catch (err) { console.error(err); }
+  }
+
+  // 통계 초기화: fitbuddy_users.stats_reset_at만 now()로 갱신한다. 운동 기록/XP/Level은
+  // 전혀 건드리지 않으며, Records 조회에는 이 값을 적용하지 않으므로 과거 기록도 그대로 남는다.
+  async function handleResetStats() {
+    setStatsResetLoading(true);
+    try {
+      const resetAt = new Date().toISOString();
+      const { error } = await supabase
+        .from('fitbuddy_users')
+        .update({ stats_reset_at: resetAt })
+        .eq('id', user.id);
+      if (error) throw error;
+      // fetchProfile은 context의 profile을 나중 렌더를 위해 갱신할 뿐이므로, 지금 이
+      // 클릭 안에서 통계를 다시 계산할 때는 방금 DB에 쓴 resetAt을 직접 넘긴다(위 fetchStats
+      // 주석 참고) — 이렇게 해야 첫 클릭에서 바로 네 통계가 0으로 바뀐다.
+      await fetchProfile(user.id);
+      await fetchStats(resetAt);
+      setStatsResetOpen(false);
+      setSnack({ open: true, msg: '운동 통계가 초기화되었습니다.', severity: 'success' });
+    } catch (err) {
+      console.error('[handleResetStats] 초기화 실패:', err);
+      setSnack({ open: true, msg: '통계 초기화에 실패했습니다.', severity: 'error' });
+    } finally {
+      setStatsResetLoading(false);
+    }
   }
 
   // 프로필 이미지 업로드
@@ -950,6 +1007,24 @@ export default function ProfilePage() {
         </DialogActions>
       </Dialog>
 
+      {/* 운동 통계 초기화 확인 다이얼로그 — 사용 빈도가 낮고 실수하면 되돌릴 수 없어 보일
+          수 있으므로(실제로는 기록/XP/Level에 영향 없음) 반드시 확인을 거치게 한다. */}
+      <Dialog open={statsResetOpen} onClose={() => !statsResetLoading && setStatsResetOpen(false)} maxWidth='xs' fullWidth>
+        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
+          <Typography variant='h4' sx={{ fontWeight: 700 }}>운동 통계를 초기화할까요?</Typography>
+          <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+            총 운동, 이번 주, 오늘, 연속 운동 통계가 현재 시점부터 새로 계산됩니다.
+            기존 운동 기록과 XP는 삭제되지 않습니다.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button variant='outlined' fullWidth onClick={() => setStatsResetOpen(false)} disabled={statsResetLoading}>취소</Button>
+          <Button variant='contained' fullWidth onClick={handleResetStats} disabled={statsResetLoading} sx={{ bgcolor: '#6BCB77', '&:hover': { bgcolor: '#4CAF5A' } }}>
+            {statsResetLoading ? '초기화 중...' : '초기화'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* 상단 설정 드롭다운 — 별도 /settings 페이지 대신 Menu 하나로 "프로필 수정"과
           "글자 크기"를 모은다. 글자 크기 pill은 MenuItem이 아닌 일반 Box라 클릭해도 메뉴가
           닫히지 않는다 — 값을 바꿔가며 바로 비교해볼 수 있도록. localStorage 저장 방식과
@@ -963,6 +1038,9 @@ export default function ProfilePage() {
       >
         <MenuItem onClick={() => { setSettingsAnchor(null); openEdit(); }}>
           ✎ 프로필 수정
+        </MenuItem>
+        <MenuItem onClick={() => { setSettingsAnchor(null); setStatsResetOpen(true); }}>
+          🔄 운동 통계 초기화
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <Box sx={{ px: 2, py: 1, minWidth: 220 }}>

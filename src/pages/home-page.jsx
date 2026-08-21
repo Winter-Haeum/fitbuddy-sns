@@ -36,7 +36,6 @@ import { useAuth } from '../hooks/use-auth';
 import { supabase } from '../utils/supabase';
 import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
-import { getLevelFromXP } from '../utils/xp-utils';
 import { MOODS } from '../constants/workout';
 import StatsCard from '../components/ui/stats-card';
 import { useDailySteps, DAILY_STEP_GOAL } from '../hooks/use-daily-steps';
@@ -237,21 +236,30 @@ export default function HomePage() {
     await fetchProfile(user.id);
   }
 
+  // 목표 달성 XP는 클라이언트가 액수를 정하지 않는다 — 서버(RPC)가 오늘 실제 운동 기록과
+  // daily_goal_minutes를 다시 조회해서 지급 자격을 판단한다. RPC 자체가 idempotent하므로
+  // 이 함수가 (레이스 등으로) 두 번 불려도 두 번째 호출은 delta 0을 돌려줄 뿐 XP가 중복
+  // 지급되지 않는다 — character/todayLog는 RPC 이후 실제 DB 값으로 다시 채워 동기화한다.
   async function awardGoalXP() {
     const today = getLocalToday();
-    const { data: charData } = await supabase
-      .from('fitbuddy_characters').select('experience, level').eq('user_id', user.id).maybeSingle();
-    if (!charData) return;
-    const newXp = (charData.experience || 0) + 10;
-    const newLevel = getLevelFromXP(newXp);
-    await supabase.from('fitbuddy_characters').update({ experience: newXp, level: newLevel }).eq('user_id', user.id);
-    await supabase.from('fitbuddy_daily_logs').upsert(
-      { user_id: user.id, log_date: today, goal_achieved: true, goal_achieved_at: new Date().toISOString() },
-      { onConflict: 'user_id,log_date' }
-    );
-    setTodayLog((prev) => ({ ...(prev || {}), goal_achieved: true }));
-    setCharacter((prev) => prev ? { ...prev, experience: newXp, level: newLevel } : prev);
-    setSnack({ open: true, msg: '오늘 목표 달성! +10 XP 🏆', severity: 'success' });
+    try {
+      const { data: syncResult, error: syncErr } = await supabase.rpc('fitbuddy_sync_daily_xp', { p_date: today });
+      if (syncErr) throw syncErr;
+
+      const [{ data: charData }, { data: logData }] = await Promise.all([
+        supabase.from('fitbuddy_characters').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('fitbuddy_daily_logs').select('*').eq('user_id', user.id).eq('log_date', today).maybeSingle(),
+      ]);
+      if (charData) setCharacter(charData);
+      if (logData) setTodayLog(logData);
+
+      const goalDelta = syncResult?.goal_xp_delta || 0;
+      if (goalDelta > 0) {
+        setSnack({ open: true, msg: `오늘 목표 달성! +${goalDelta} XP 🏆`, severity: 'success' });
+      }
+    } catch (err) {
+      console.error('[awardGoalXP] XP 동기화 오류:', err);
+    }
   }
 
   useEffect(() => {

@@ -28,7 +28,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/use-auth';
-import { getLevelFromXP } from '../utils/xp-utils';
 import { getLocalToday } from '../utils/date-utils';
 import Layout from '../components/common/layout';
 import FitBuddyCharacter from '../components/ui/fitbuddy-character';
@@ -192,8 +191,6 @@ export default function RecordsPage() {
   async function saveDiary() {
     if (!diaryForm.mood && !diaryForm.content.trim()) return;
     setDiaryLoading(true);
-    // 오늘 처음 일기를 쓰는 경우에만 XP 지급
-    const isFirstDiary = !todayConditionLog?.diary_content?.trim();
     try {
       const upsertData = { user_id: user.id, log_date: today };
       if (diaryForm.mood) upsertData.mood_status = diaryForm.mood;
@@ -225,26 +222,19 @@ export default function RecordsPage() {
       if (error) {
         setSnack({ open: true, msg: '일기 저장에 실패했습니다.', severity: 'error' });
       } else {
-        // 오늘 첫 일기 작성 시 +2 XP 지급 (실패해도 일기 저장 자체는 성공 처리)
-        if (isFirstDiary && diaryForm.content.trim()) {
+        // XP는 서버(RPC)가 오늘 실제 diary_content/운동 기록을 다시 확인해서 지급 자격을
+        // 판단한다 — 삭제 후 재작성해도 같은 날짜엔 ledger unique 제약으로 재지급되지 않는다.
+        let xpDelta = 0;
+        if (diaryForm.content.trim()) {
           try {
-            const { data: charData } = await supabase
-              .from('fitbuddy_characters')
-              .select('experience, level')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            if (charData) {
-              const newXp = (charData.experience || 0) + 2;
-              await supabase.from('fitbuddy_characters').update({
-                experience: newXp,
-                level: getLevelFromXP(newXp),
-              }).eq('user_id', user.id);
-            }
+            const { data: syncResult, error: syncErr } = await supabase.rpc('fitbuddy_sync_daily_xp', { p_date: today });
+            if (syncErr) throw syncErr;
+            xpDelta = syncResult?.total_delta || 0;
           } catch (xpErr) {
-            console.error('XP 지급 오류:', xpErr);
+            console.error('XP 동기화 오류:', xpErr);
           }
         }
-        setSnack({ open: true, msg: isFirstDiary && diaryForm.content.trim() ? '운동 일기가 저장되었습니다 📓 +2 XP' : '운동 일기가 저장되었습니다 📓', severity: 'success' });
+        setSnack({ open: true, msg: `운동 일기가 저장되었습니다 📓${xpDelta > 0 ? ` +${xpDelta} XP` : ''}`, severity: 'success' });
         setDiaryOpen(false);
         setDiaryForm({ mood: '', content: '' });
         fetchDiaryLogs();

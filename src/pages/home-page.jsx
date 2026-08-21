@@ -420,8 +420,11 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 2. 캐릭터 게이지 카드 */}
-        <Card sx={{ mb: 1, cursor: 'pointer', overflow: 'hidden', position: 'relative' }} onClick={() => navigate('/character')}>
+        {/* 2. 캐릭터 게이지 카드 — border/bgcolor가 없어 MuiCard 기본값(boxShadow:none, 카드
+            배경=페이지 배경=흰색)과 구분되지 않아 외곽선이 통째로 사라져 보였다. Home에서
+            가장 중심이 되는 위젯이라 "오늘의 한마디" 카드와 같은(재사용) 초록 계열 톤을 그대로
+            적용한다. mb도 1→2로 맞춰 바로 아래 섹션과의 간격을 다른 섹션들과 통일한다. */}
+        <Card sx={{ mb: 2, cursor: 'pointer', overflow: 'hidden', position: 'relative', bgcolor: 'white', border: '2px solid #C8E6C9', boxShadow: '0 2px 10px rgba(107,203,119,0.12)' }} onClick={() => navigate('/character')}>
           {/* 폭죽 효과 (100% 달성 시) */}
           {progress >= 100 && (
             <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 5 }}>
@@ -585,9 +588,11 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 2.5 오늘의 걸음 — 운동 세션과 무관한 하루 전체 걸음 수. Android 앱(Health Connect)에서만 표시 */}
+        {/* 2.5 오늘의 걸음 — 운동 세션과 무관한 하루 전체 걸음 수. Android 앱(Health Connect)에서만 표시.
+            border/bgcolor가 없어 다른 섹션과 달리 카드 외곽이 사라져 보였다 — 아이콘/퍼센트
+            색이 이미 파란 계열(#5DA9E9)이라, 같은 계열을 쓰는 "기록관" 카드 톤을 재사용한다. */}
         {dailySteps.isNative && (
-          <Card sx={{ mb: 2 }}>
+          <Card sx={{ mb: 2, border: '1px solid #E3F2FD', bgcolor: '#F8FCFF' }}>
             <CardContent sx={{ py: 1.2, px: 2 }}>
               {dailySteps.loading ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -757,13 +762,18 @@ export default function HomePage() {
           운동 시작하기
         </Button>
 
-        {/* 5. 추천 루틴 (날짜 기반 - 매일 자동 변경) */}
+        {/* 5. 추천 루틴 (날짜 기반 - 매일 자동 변경) — border/bgcolor가 없어 "시작" chip이
+            카드 없이 화면에 떠 있는 것처럼 보였다. "오늘의 컨디션은 어때요?" 카드와 같은 중립
+            톤을 재사용해 아이콘/루틴명/시작 버튼이 하나의 카드로 묶여 보이게 한다. */}
         <Typography variant='h4' sx={{ mb: 1.2, fontWeight: 600 }}>오늘의 추천 루틴</Typography>
         {(() => {
           const r = getTodayRoutine();
           return (
             <Card
-              sx={{ cursor: 'pointer', mb: 2, '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
+              sx={{
+                cursor: 'pointer', mb: 2, border: '1px solid #E8EAF6', bgcolor: '#FAFAFA',
+                '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
+              }}
               onClick={() => navigate('/timer', { state: { workoutType: r.type, duration: r.durationNum, level: r.level } })}
             >
               <CardContent sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>

@@ -235,7 +235,10 @@ export default function FeedPage() {
           <IconButton onClick={() => navigate(-1)} size='small' sx={{ color: 'text.secondary' }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant='h2' sx={{ fontWeight: 700 }}>피드 🏋️</Typography>
+          {/* 페이지 제목이 "작게" 설정에서도 화면을 과도하게 차지한다는 피드백에 따라
+              records-page.jsx/challenges-page.jsx와 동일하게 h2(1.5rem 기준)에서
+              h3(1.25rem 기준)로 낮췄다 — body/caption 대비 제목 위계는 유지된다. */}
+          <Typography variant='h3' sx={{ fontWeight: 700 }}>피드 🏋️</Typography>
         </Box>
 
         {/* 검색 */}

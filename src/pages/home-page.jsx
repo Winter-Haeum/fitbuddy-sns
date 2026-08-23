@@ -120,9 +120,22 @@ const HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX = HOME_CHAR_SIZE * 0.876;
 // 오른쪽 끝"이 0%/100%에서 progress bar 양 끝에 오도록 wrapper의 left를 계산한다.
 function homeCharLeft(progressPct) {
   const p = Math.min(Math.max(progressPct, 0), 100);
+  // contentPx: 110px wrapper 안에서 "실제로 보이는 콘텐츠"가 시작하는 지점(0%=idle 포즈의
+  // 왼쪽 끝 ~ 100%=celebrating 포즈의 오른쪽 끝, 그 사이 보간). wrapper.left는 이 값을
+  // 빼서 "콘텐츠가 목표 지점(target)에 오도록 wrapper를 그만큼 왼쪽으로 미리 당겨두는" 값이라,
+  // wrapper.left 자체에 하한을 두면(이전 시도) 콘텐츠가 target보다 contentPx만큼 더 오른쪽
+  // (0%에서는 최대 48px, 즉 카드 중앙 쪽)에 그려진다 — border 겹침은 막았지만 그 대가로
+  // 캐릭터가 너무 안쪽으로 들어와 보였다.
   const contentPx = HOME_CHAR_IDLE_CONTENT_LEFT_PX
     + (p / 100) * (HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX - HOME_CHAR_IDLE_CONTENT_LEFT_PX);
-  return `calc(${p}% - ${contentPx.toFixed(1)}px)`;
+  // 하한/상한은 wrapper가 아니라 "콘텐츠가 그려질 target 위치" 자체에 걸어야 한다 — 그래야
+  // 0%에서 실제 보이는 픽셀이 트랙 왼쪽 경계 바로 안쪽(최소 여유 8px)에서 시작하고, 100%에서는
+  // 오른쪽 경계 바로 안쪽(마찬가지로 8px)에서 끝난다. 25/50/75%처럼 트랙 폭에 비해 8px가
+  // 무시할 만큼 작은 구간에서는 clamp가 사실상 아무 영향을 주지 않아 progress에 따라
+  // 자연스럽게 왼쪽→오른쪽으로 이동하는 기존 궤적이 그대로 유지된다 — 특정 progress
+  // 구간만을 위한 예외가 아니라 0~100% 전체에 동일하게 적용되는 하나의 clamp다.
+  const target = `clamp(8px, ${p}%, calc(100% - 8px))`;
+  return `calc(${target} - ${contentPx.toFixed(1)}px)`;
 }
 
 function getTodayRoutine() {
@@ -344,7 +357,6 @@ export default function HomePage() {
   }
 
   const activityState = getActivityState();
-  const characterMood = progress === 0 ? 'idle' : progress >= 70 ? 'celebrating' : progress >= 30 ? 'running' : 'active';
   // fitbuddy_users.daily_step_goal이 아직 없는 사용자(컬럼 미도입/미설정)는 기존 고정값으로 폴백.
   const stepGoal = profile?.daily_step_goal || DAILY_STEP_GOAL;
   const stepPercent = Math.round((dailySteps.steps / stepGoal) * 100);
@@ -406,8 +418,9 @@ export default function HomePage() {
           </Box>
         </Box>
 
-        {/* 1. 오늘의 한마디 */}
-        <Card sx={{ mb: 2, bgcolor: 'white', border: '2px solid #C8E6C9', boxShadow: '0 2px 10px rgba(107,203,119,0.12)' }}>
+        {/* 1. 오늘의 한마디 — mb를 2→3(theme spacing 단위)으로 올려 카드 border끼리 실기기에서
+            너무 붙어 보이던 문제를 다른 독립 섹션들과 함께 완화한다. */}
+        <Card sx={{ mb: 3, bgcolor: 'white', border: '2px solid #C8E6C9', boxShadow: '0 2px 10px rgba(107,203,119,0.12)' }}>
           <CardContent sx={{ py: 2 }}>
             <Typography variant='caption' sx={{ color: '#6BCB77', fontWeight: 700, letterSpacing: '0.06em', display: 'block', mb: 0.5 }}>
               오늘의 한마디
@@ -421,8 +434,13 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 2. 캐릭터 게이지 카드 */}
-        <Card sx={{ mb: 1, cursor: 'pointer', overflow: 'hidden', position: 'relative' }} onClick={() => navigate('/character')}>
+        {/* 2. 캐릭터 게이지 카드 — border/bgcolor가 없어 MuiCard 기본값(boxShadow:none, 카드
+            배경=페이지 배경=흰색)과 구분되지 않아 외곽선이 통째로 사라져 보였다. 실기기 확인
+            결과 "오늘의 한마디"와 같은 2px+shadow 조합은 이 카드만 유독 두꺼워 보여, Home의
+            나머지 카드 대부분(오늘의 걸음/컨디션/추천 루틴/기록관/챌린지)이 쓰는 1px border +
+            무(無)shadow 쪽으로 맞춘다 — 색만 초록 계열(#C8E6C9)을 유지. mb도 3으로 올려 다른
+            독립 섹션들과 간격을 통일한다. */}
+        <Card sx={{ mb: 3, cursor: 'pointer', overflow: 'hidden', position: 'relative', bgcolor: 'white', border: '1px solid #C8E6C9' }} onClick={() => navigate('/character')}>
           {/* 폭죽 효과 (100% 달성 시) */}
           {progress >= 100 && (
             <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 5 }}>
@@ -491,7 +509,7 @@ export default function HomePage() {
                   gender={profile?.gender || 'female'}
                   characterStyle={profile?.character_style || 'semi'}
                   characterVariant={profile?.character_variant || 1}
-                  mood={characterMood}
+                  percentage={progress}
                 />
               </Box>
 
@@ -586,9 +604,12 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 2.5 오늘의 걸음 — 운동 세션과 무관한 하루 전체 걸음 수. Android 앱(Health Connect)에서만 표시 */}
+        {/* 2.5 오늘의 걸음 — 운동 세션과 무관한 하루 전체 걸음 수. Android 앱(Health Connect)에서만 표시.
+            border/bgcolor가 없어 다른 섹션과 달리 카드 외곽이 사라져 보였다 — 아이콘/퍼센트
+            색이 이미 파란 계열(#5DA9E9)이라, 같은 계열을 쓰는 "기록관" 카드 톤을 재사용한다.
+            mb도 3으로 올려 다른 독립 섹션들과 간격을 통일한다. */}
         {dailySteps.isNative && (
-          <Card sx={{ mb: 2 }}>
+          <Card sx={{ mb: 3, border: '1px solid #E3F2FD', bgcolor: '#F8FCFF' }}>
             <CardContent sx={{ py: 1.2, px: 2 }}>
               {dailySteps.loading ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -691,8 +712,8 @@ export default function HomePage() {
           </Card>
         )}
 
-        {/* 3. 오늘의 컨디션 */}
-        <Card sx={{ mb: 2, bgcolor: '#FAFAFA', border: '1px solid #E8EAF6' }}>
+        {/* 3. 오늘의 컨디션 — mb를 3으로 올려 다른 독립 섹션들과 간격을 통일한다. */}
+        <Card sx={{ mb: 3, bgcolor: '#FAFAFA', border: '1px solid #E8EAF6' }}>
           <CardContent sx={{ py: 1.5 }}>
             <Typography variant='body2' sx={{ fontWeight: 700, mb: 1.2, color: '#333' }}>
               오늘의 컨디션은 어때요?
@@ -750,7 +771,7 @@ export default function HomePage() {
           startIcon={<FitnessCenterIcon />}
           onClick={() => navigate('/timer')}
           sx={{
-            py: 1.8, mb: 2, fontSize: es(1.1),
+            py: 1.8, mb: 3, fontSize: es(1.1),
             bgcolor: '#5FCB77', '&:hover': { bgcolor: '#4DBB68' },
             boxShadow: '0 4px 15px rgba(95,203,119,0.35)',
           }}
@@ -758,22 +779,34 @@ export default function HomePage() {
           운동 시작하기
         </Button>
 
-        {/* 5. 추천 루틴 (날짜 기반 - 매일 자동 변경) */}
-        <Typography variant='h4' sx={{ mb: 1.2, fontWeight: 600 }}>오늘의 추천 루틴</Typography>
+        {/* 5. 추천 루틴 (날짜 기반 - 매일 자동 변경) — "오늘의 추천 루틴" 제목이 카드 밖에 있고
+            내용(아이콘/루틴명/시작 버튼)만 카드 안에 있어, "시작" chip이 카드 없이 화면에 떠
+            있는 것처럼 보였다. "오늘의 걸음"/"오늘의 컨디션은 어때요?"처럼 단일 정보를 담는
+            섹션은 제목까지 카드 안에 포함하는 것이 이 화면의 기존 규칙이므로, 제목을 카드
+            내부로 옮기고 같은 in-card 제목 톤(body2, bold)을 재사용한다("오늘 운동 요약"처럼
+            하위 카드가 여러 개인 묶음은 이 규칙 대상이 아니라 제목을 카드 밖에 그대로 둔다). */}
         {(() => {
           const r = getTodayRoutine();
           return (
             <Card
-              sx={{ cursor: 'pointer', mb: 2, '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
+              sx={{
+                cursor: 'pointer', mb: 3, border: '1px solid #E8EAF6', bgcolor: '#FAFAFA',
+                '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
+              }}
               onClick={() => navigate('/timer', { state: { workoutType: r.type, duration: r.durationNum, level: r.level } })}
             >
-              <CardContent sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography sx={{ fontSize: es(1.5), flexShrink: 0 }}>{r.icon}</Typography>
-                <Box sx={{ flex: '1 1 100px', minWidth: 0 }}>
-                  <Typography variant='h4' sx={{ wordBreak: 'keep-all' }}>{r.name}</Typography>
-                  <Typography variant='body2' color='text.secondary'>{r.duration} · {r.level}</Typography>
+              <CardContent sx={{ py: 1.5 }}>
+                <Typography variant='body2' sx={{ fontWeight: 700, mb: 1.2, color: '#333' }}>
+                  오늘의 추천 루틴
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography sx={{ fontSize: es(1.5), flexShrink: 0 }}>{r.icon}</Typography>
+                  <Box sx={{ flex: '1 1 100px', minWidth: 0 }}>
+                    <Typography variant='h4' sx={{ wordBreak: 'keep-all' }}>{r.name}</Typography>
+                    <Typography variant='body2' color='text.secondary'>{r.duration} · {r.level}</Typography>
+                  </Box>
+                  <Chip label='시작' size='small' color='primary' sx={{ flexShrink: 0 }} />
                 </Box>
-                <Chip label='시작' size='small' color='primary' sx={{ flexShrink: 0 }} />
               </CardContent>
             </Card>
           );
@@ -792,7 +825,7 @@ export default function HomePage() {
             </Typography>
           )}
         </Box>
-        <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid container spacing={1.5} sx={{ mb: 3 }}>
           {[
             { icon: <TimerIcon sx={{ color: '#6BCB77', fontSize: es(1.35) }} />, value: todayWorkout?.duration || 0, unit: '분', bgcolor: '#E8F5E9', color: '#4CAF5A' },
             { icon: <LocalFireDepartmentIcon sx={{ color: '#FF7043', fontSize: es(1.35) }} />, value: todayWorkout?.calories || 0, unit: 'kcal', bgcolor: '#FFF3E0', color: '#FF7043' },
@@ -812,7 +845,7 @@ export default function HomePage() {
 
         {/* 7. 기록관 바로가기 */}
         <Card
-          sx={{ mb: 2, cursor: 'pointer', border: '1px solid #E3F2FD', bgcolor: '#F8FCFF', '&:hover': { boxShadow: '0 4px 12px rgba(93,169,233,0.15)' } }}
+          sx={{ mb: 3, cursor: 'pointer', border: '1px solid #E3F2FD', bgcolor: '#F8FCFF', '&:hover': { boxShadow: '0 4px 12px rgba(93,169,233,0.15)' } }}
           onClick={() => navigate('/records')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
@@ -835,7 +868,7 @@ export default function HomePage() {
 
         {/* 8. 챌린지 현황 */}
         <Card
-          sx={{ mb: 2, cursor: 'pointer', border: '1px solid #EDE7F6', bgcolor: '#FAF8FF', '&:hover': { boxShadow: '0 4px 12px rgba(160,132,232,0.15)' } }}
+          sx={{ mb: 3, cursor: 'pointer', border: '1px solid #EDE7F6', bgcolor: '#FAF8FF', '&:hover': { boxShadow: '0 4px 12px rgba(160,132,232,0.15)' } }}
           onClick={() => navigate('/challenges')}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
@@ -854,11 +887,13 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 게시글 작성 FAB - 피드 페이지와 동일한 스타일로 통일 */}
+        {/* 게시글 작성 FAB - 피드 페이지와 동일한 스타일로 통일. bottom:80은 Android 15+
+            edge-to-edge에서 system navigation bar 영역을 고려하지 못해 bottom nav/system bar와
+            너무 가까웠다 — env(safe-area-inset-bottom)만큼 더 띄운다(다른 페이지 FAB와 동일). */}
         <Fab
           color='primary'
           onClick={() => navigate('/create')}
-          sx={{ position: 'fixed', bottom: 80, right: 16, zIndex: 100 }}
+          sx={{ position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16, zIndex: 100 }}
         >
           <AddIcon />
         </Fab>

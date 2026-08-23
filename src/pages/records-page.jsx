@@ -422,8 +422,11 @@ export default function RecordsPage() {
           </IconButton>
           {/* 제목보다 장식 이모지가 더 튀지 않도록, 이모지만 별도 span으로 분리해 더 작은
               scale-aware 크기를 준다(기존 1.3rem도 h2 옆에서 여전히 커 보인다는 피드백에
-              따라 1.0으로 한 단계 더 낮췄다). */}
-          <Typography variant='h2' sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.6 }}>
+              따라 1.0으로 한 단계 더 낮췄다). 페이지 제목 자체도 "작게" 설정에서 화면을
+              과도하게 차지한다는 피드백에 따라 h2(1.5rem 기준)에서 h3(1.25rem 기준)로
+              한 단계 낮췄다 — 여전히 body/caption보다 뚜렷이 큰 제목 위계는 유지되고, 글자
+              크기 설정(theme.js CONTENT_SCALE)에도 h2와 동일하게 계속 반응한다. */}
+          <Typography variant='h3' sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.6 }}>
             기록관
             <Box component='span' sx={{ fontSize: es(1.0), lineHeight: 1 }}>📓</Box>
           </Typography>
@@ -799,10 +802,12 @@ export default function RecordsPage() {
       </Dialog>
 
       {tab === 0 && (
+        // bottom:80은 Android 15+ edge-to-edge에서 system navigation bar를 고려하지 못했다.
+        // env(safe-area-inset-bottom)만큼 더 띄운다(Home/Feed/Challenges와 동일).
         <Fab
           onClick={() => navigate('/timer')}
           sx={{
-            position: 'fixed', bottom: 80, right: 16,
+            position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16,
             bgcolor: '#A084E8', color: 'white',
             '&:hover': { bgcolor: '#8B6FD4' },
             boxShadow: '0 4px 16px rgba(160,132,232,0.4)',

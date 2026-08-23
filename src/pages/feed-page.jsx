@@ -235,7 +235,10 @@ export default function FeedPage() {
           <IconButton onClick={() => navigate(-1)} size='small' sx={{ color: 'text.secondary' }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant='h2' sx={{ fontWeight: 700 }}>피드 🏋️</Typography>
+          {/* 페이지 제목이 "작게" 설정에서도 화면을 과도하게 차지한다는 피드백에 따라
+              records-page.jsx/challenges-page.jsx와 동일하게 h2(1.5rem 기준)에서
+              h3(1.25rem 기준)로 낮췄다 — body/caption 대비 제목 위계는 유지된다. */}
+          <Typography variant='h3' sx={{ fontWeight: 700 }}>피드 🏋️</Typography>
         </Box>
 
         {/* 검색 */}
@@ -439,10 +442,11 @@ export default function FeedPage() {
         <Alert severity={snack.severity} onClose={() => setSnack({ ...snack, open: false })} sx={{ width: '100%' }}>{snack.msg}</Alert>
       </Snackbar>
 
-      {/* FAB */}
+      {/* FAB — bottom:80은 Android 15+ edge-to-edge에서 system navigation bar를 고려하지
+          못했다. env(safe-area-inset-bottom)만큼 더 띄운다(Home/Records/Challenges와 동일). */}
       <Fab
         color='primary'
-        sx={{ position: 'fixed', bottom: 80, right: 16 }}
+        sx={{ position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16 }}
         onClick={() => navigate('/create')}
       >
         <AddIcon />

@@ -281,8 +281,10 @@ export default function ChallengesPage() {
     <Layout>
       <Box sx={{ p: 2 }}>
         {/* 제목 뒤 이모지가 h2와 같은 크기로 렌더링돼 제목보다 튀어 보였다 — records-page.jsx의
-            "기록관 📓"과 동일한 문제라 같은 방식(작은 span으로 분리)으로 정리했다. */}
-        <Typography variant='h2' sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 0.6 }}>
+            "기록관 📓"과 동일한 문제라 같은 방식(작은 span으로 분리)으로 정리했다. 페이지
+            제목 자체도 "작게" 설정에서 화면을 과도하게 차지한다는 피드백에 따라
+            records-page.jsx/feed-page.jsx와 동일하게 h2에서 h3로 한 단계 낮췄다. */}
+        <Typography variant='h3' sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 0.6 }}>
           운동 챌린지
           <Box component='span' sx={{ fontSize: es(1.3), lineHeight: 1 }}>🎯</Box>
         </Typography>
@@ -457,9 +459,10 @@ export default function ChallengesPage() {
         )}
       </Box>
 
-      {/* FAB */}
+      {/* FAB — bottom:80은 Android 15+ edge-to-edge에서 system navigation bar를 고려하지
+          못했다. env(safe-area-inset-bottom)만큼 더 띄운다(Home/Feed/Records와 동일). */}
       <Fab
-        sx={{ position: 'fixed', bottom: 80, right: 16, bgcolor: '#A084E8', color: 'white', '&:hover': { bgcolor: '#8B6FD4' } }}
+        sx={{ position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16, bgcolor: '#A084E8', color: 'white', '&:hover': { bgcolor: '#8B6FD4' } }}
         onClick={() => setOpen(true)}
       >
         <AddIcon />

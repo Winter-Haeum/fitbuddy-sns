@@ -82,6 +82,11 @@ export default function BottomNav() {
         borderColor: 'divider',
         transform: hidden ? 'translateY(100%)' : 'translateY(0)',
         transition: 'transform 0.25s ease',
+        // Android 15+(targetSdk 35+) edge-to-edge에서는 이 Paper가 system navigation bar
+        // 영역까지 그려져 실제 탭 버튼이 그 아래 가려지고 눌리지 않는다. pb로 그 높이만큼
+        // 여백을 주면 Paper 배경은 시스템 바 영역까지 자연스럽게 이어지고(끊긴 것처럼 보이지
+        // 않음), 실제 탭 버튼(BottomNavigation)은 그 위에서 정상적으로 눌리는 위치에 남는다.
+        pb: 'env(safe-area-inset-bottom, 0px)',
       }}
       elevation={3}
     >

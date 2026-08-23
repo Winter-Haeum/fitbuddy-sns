@@ -802,10 +802,12 @@ export default function RecordsPage() {
       </Dialog>
 
       {tab === 0 && (
+        // bottom:80은 Android 15+ edge-to-edge에서 system navigation bar를 고려하지 못했다.
+        // env(safe-area-inset-bottom)만큼 더 띄운다(Home/Feed/Challenges와 동일).
         <Fab
           onClick={() => navigate('/timer')}
           sx={{
-            position: 'fixed', bottom: 80, right: 16,
+            position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16,
             bgcolor: '#A084E8', color: 'white',
             '&:hover': { bgcolor: '#8B6FD4' },
             boxShadow: '0 4px 16px rgba(160,132,232,0.4)',

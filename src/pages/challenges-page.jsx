@@ -459,9 +459,10 @@ export default function ChallengesPage() {
         )}
       </Box>
 
-      {/* FAB */}
+      {/* FAB — bottom:80은 Android 15+ edge-to-edge에서 system navigation bar를 고려하지
+          못했다. env(safe-area-inset-bottom)만큼 더 띄운다(Home/Feed/Records와 동일). */}
       <Fab
-        sx={{ position: 'fixed', bottom: 80, right: 16, bgcolor: '#A084E8', color: 'white', '&:hover': { bgcolor: '#8B6FD4' } }}
+        sx={{ position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16, bgcolor: '#A084E8', color: 'white', '&:hover': { bgcolor: '#8B6FD4' } }}
         onClick={() => setOpen(true)}
       >
         <AddIcon />

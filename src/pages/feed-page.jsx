@@ -442,10 +442,11 @@ export default function FeedPage() {
         <Alert severity={snack.severity} onClose={() => setSnack({ ...snack, open: false })} sx={{ width: '100%' }}>{snack.msg}</Alert>
       </Snackbar>
 
-      {/* FAB */}
+      {/* FAB — bottom:80은 Android 15+ edge-to-edge에서 system navigation bar를 고려하지
+          못했다. env(safe-area-inset-bottom)만큼 더 띄운다(Home/Records/Challenges와 동일). */}
       <Fab
         color='primary'
-        sx={{ position: 'fixed', bottom: 80, right: 16 }}
+        sx={{ position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', right: 16 }}
         onClick={() => navigate('/create')}
       >
         <AddIcon />

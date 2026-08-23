@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
@@ -17,58 +16,13 @@ const NAV_ITEMS = [
   { label: '마이', icon: <PersonRoundedIcon />, path: '/profile' },
 ];
 
-const SCROLL_HIDE_THRESHOLD = 8;
-const SCROLL_TOP_OFFSET = 16;
-
-// window.scrollY가 0으로 고정되는 브라우저/레이아웃 조합을 대비해
-// 실제 문서 스크롤 위치를 여러 경로로 폴백 조회한다.
-function getScrollY() {
-  return (
-    document.scrollingElement?.scrollTop ??
-    window.scrollY ??
-    document.documentElement.scrollTop ??
-    document.body.scrollTop ??
-    0
-  );
-}
-
 export default function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [hidden, setHidden] = useState(false);
-  const lastScrollY = useRef(0);
 
   const currentValue = NAV_ITEMS.findIndex(
     (item) => item.path === location.pathname
   );
-
-  useEffect(() => {
-    // 마운트 시점의 실제 스크롤 위치로 기준값을 맞춰,
-    // 이미 스크롤된 상태로 페이지가 열려도 첫 스크롤에서 오작동하지 않게 한다.
-    lastScrollY.current = getScrollY();
-
-    const handleScroll = () => {
-      const currentScrollY = getScrollY();
-
-      if (currentScrollY <= SCROLL_TOP_OFFSET) {
-        setHidden(false);
-        lastScrollY.current = currentScrollY;
-        return;
-      }
-
-      const diff = currentScrollY - lastScrollY.current;
-
-      if (Math.abs(diff) < SCROLL_HIDE_THRESHOLD) {
-        return;
-      }
-
-      setHidden(diff > 0);
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
     <Paper
@@ -80,8 +34,6 @@ export default function BottomNav() {
         zIndex: 1000,
         borderTop: '1px solid',
         borderColor: 'divider',
-        transform: hidden ? 'translateY(100%)' : 'translateY(0)',
-        transition: 'transform 0.25s ease',
         // Android 15+(targetSdk 35+) edge-to-edge에서는 이 Paper가 system navigation bar
         // 영역까지 그려져 실제 탭 버튼이 그 아래 가려지고 눌리지 않는다. pb로 그 높이만큼
         // 여백을 주면 Paper 배경은 시스템 바 영역까지 자연스럽게 이어지고(끊긴 것처럼 보이지

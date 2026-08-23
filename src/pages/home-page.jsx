@@ -120,14 +120,22 @@ const HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX = HOME_CHAR_SIZE * 0.876;
 // 오른쪽 끝"이 0%/100%에서 progress bar 양 끝에 오도록 wrapper의 left를 계산한다.
 function homeCharLeft(progressPct) {
   const p = Math.min(Math.max(progressPct, 0), 100);
+  // contentPx: 110px wrapper 안에서 "실제로 보이는 콘텐츠"가 시작하는 지점(0%=idle 포즈의
+  // 왼쪽 끝 ~ 100%=celebrating 포즈의 오른쪽 끝, 그 사이 보간). wrapper.left는 이 값을
+  // 빼서 "콘텐츠가 목표 지점(target)에 오도록 wrapper를 그만큼 왼쪽으로 미리 당겨두는" 값이라,
+  // wrapper.left 자체에 하한을 두면(이전 시도) 콘텐츠가 target보다 contentPx만큼 더 오른쪽
+  // (0%에서는 최대 48px, 즉 카드 중앙 쪽)에 그려진다 — border 겹침은 막았지만 그 대가로
+  // 캐릭터가 너무 안쪽으로 들어와 보였다.
   const contentPx = HOME_CHAR_IDLE_CONTENT_LEFT_PX
     + (p / 100) * (HOME_CHAR_CELEBRATE_CONTENT_RIGHT_PX - HOME_CHAR_IDLE_CONTENT_LEFT_PX);
-  // 위 보정값은 48개 조합 평균 + 실기기 재확인값이라, 특정 gender/style/variant 조합에서는
-  // 여전히 오차가 남을 수 있다(주석 참고) — 그 오차가 음수 방향으로 튀면 wrapper가 트랙
-  // 박스의 왼쪽 경계(카드 border 안쪽)를 넘어가 캐릭터가 border와 겹쳐 보인다. 특정 progress
-  // 구간만을 위한 예외를 추가하는 대신, 0~100% 전체 곡선에 동일하게 적용되는 최소 여유(8px)
-  // 하한선을 둬서 어떤 조합에서도 wrapper 자체가 절대 왼쪽 경계를 넘지 않도록 한다.
-  return `max(calc(${p}% - ${contentPx.toFixed(1)}px), 8px)`;
+  // 하한/상한은 wrapper가 아니라 "콘텐츠가 그려질 target 위치" 자체에 걸어야 한다 — 그래야
+  // 0%에서 실제 보이는 픽셀이 트랙 왼쪽 경계 바로 안쪽(최소 여유 8px)에서 시작하고, 100%에서는
+  // 오른쪽 경계 바로 안쪽(마찬가지로 8px)에서 끝난다. 25/50/75%처럼 트랙 폭에 비해 8px가
+  // 무시할 만큼 작은 구간에서는 clamp가 사실상 아무 영향을 주지 않아 progress에 따라
+  // 자연스럽게 왼쪽→오른쪽으로 이동하는 기존 궤적이 그대로 유지된다 — 특정 progress
+  // 구간만을 위한 예외가 아니라 0~100% 전체에 동일하게 적용되는 하나의 clamp다.
+  const target = `clamp(8px, ${p}%, calc(100% - 8px))`;
+  return `calc(${target} - ${contentPx.toFixed(1)}px)`;
 }
 
 function getTodayRoutine() {

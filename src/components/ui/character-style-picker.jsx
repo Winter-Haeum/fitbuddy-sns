@@ -68,7 +68,11 @@ function CharacterStylePicker({
           return (
             <Box
               key={v}
+              component='button'
+              type='button'
               onClick={() => onVariantChange(v)}
+              aria-pressed={selected}
+              aria-label={`${v}번 캐릭터 선택`}
               sx={{
                 flex: 1,
                 maxWidth: 110,
@@ -77,12 +81,20 @@ function CharacterStylePicker({
                 alignItems: 'center',
                 gap: 0.5,
                 py: 1,
+                px: 0,
+                m: 0,
+                appearance: 'none',
+                font: 'inherit',
                 borderRadius: 3,
                 cursor: 'pointer',
                 border: '2px solid',
                 borderColor: selected ? '#6BCB77' : '#E0E0E0',
                 bgcolor: selected ? '#E8F5E9' : '#FAFAFA',
                 transition: 'border-color 0.15s ease, background-color 0.15s ease',
+                '&:focus-visible': {
+                  outline: '2px solid #6BCB77',
+                  outlineOffset: '2px',
+                },
               }}
             >
               <FitBuddyCharacter
